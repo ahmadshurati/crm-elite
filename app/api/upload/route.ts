@@ -1,41 +1,39 @@
+import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+
+    const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No file found" },
+        { status: 400 }
+      );
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
-
-    const originalName = file.name || "file";
-    const safeName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, "_");
-    const fileName = `${Date.now()}-${safeName}`;
-    const filePath = path.join(uploadDir, fileName);
-
-    await writeFile(filePath, buffer);
+    const blob = await put(
+      `${Date.now()}-${file.name}`,
+      file,
+      {
+        access: "public",
+      }
+    );
 
     return NextResponse.json({
-      fileUrl: `/uploads/${fileName}`,
-      fileName,
+      fileUrl: blob.url,
+      fileName: file.name,
     });
+
   } catch (error) {
-    console.error("POST /api/upload error:", error);
+    console.error("UPLOAD ERROR:", error);
 
     return NextResponse.json(
-      { error: "Failed to upload file" },
+      { error: "Upload failed" },
       { status: 500 }
     );
   }
