@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id          Int         @id @default(autoincrement())
+  name        String
+  phone       String?
+  createdAt   DateTime    @default(now())
+
+  cars        Car[]
+  insurances  Insurance[]
+  accidents   AccidentCase[]
+}
+
+model Car {
+  id            Int      @id @default(autoincrement())
+  customerId    Int
+  carName       String
+  carNumber     String
+  carYear       String?
+
+  customer      Customer @relation(fields: [customerId], references: [id])
+
+  insurances    Insurance[]
+  accidents     AccidentCase[]
+}
+
+model Insurance {
+  id                 Int      @id @default(autoincrement())
+
+  customerId         Int
+  carId              Int
+
+  insuranceType      String
+  insuranceCompany   String
+
+  startDate          DateTime
+  endDate            DateTime
+
+  status             String
+
+  paymentMethod      String?
+
+  hofaaEnabled       Boolean @default(false)
+  hofaaPrice         Float   @default(0)
+
+  thirdPartyEnabled  Boolean @default(false)
+  thirdPartyPrice    Float   @default(0)
+
+  fullEnabled        Boolean @default(false)
+  fullPrice          Float   @default(0)
+
+  totalAmount        Float   @default(0)
+  paidAmount         Float   @default(0)
+
+  cashAmount         Float   @default(0)
+  visaAmount         Float   @default(0)
+  checksAmount       Float   @default(0)
+
+  remainingAmount    Float   @default(0)
+
+  paymentStatus      String  @default("غير مدفوع")
+
+  customer Customer @relation(
+    fields:[customerId],
+    references:[id]
+  )
+
+  car Car @relation(
+    fields:[carId],
+    references:[id]
+  )
+
+  documents Document[]
+  checks PaymentCheck[]
+}
+
+model PaymentCheck {
+  id              Int      @id @default(autoincrement())
+
+  insuranceId     Int
+
+  checkNumber     String
+  bankName        String
+
+  dueDate         DateTime
+
+  amount          Float @default(0)
+
+  createdAt       DateTime @default(now())
+
+  insurance Insurance @relation(
+    fields:[insuranceId],
+    references:[id]
+  )
+}
+
+model Document {
+  id            Int      @id @default(autoincrement())
+
+  insuranceId   Int
+
+  type          String
+  fileUrl       String
+  fileName      String
+
+  insurance Insurance @relation(
+    fields:[insuranceId],
+    references:[id]
+  )
+}
+
+model AccidentCase {
+  id              Int      @id @default(autoincrement())
+
+  customerId      Int
+  carId           Int
+
+  caseNumber      String
+  details         String
+
+  status          String
+
+  openedAt        DateTime @default(now())
+  closedAt        DateTime?
+
+  customer Customer @relation(
+    fields:[customerId],
+    references:[id]
+  )
+
+  car Car @relation(
+    fields:[carId],
+    references:[id]
+  )
+
+  updates AccidentUpdate[]
+}
+
+model AccidentUpdate {
+  id              Int      @id @default(autoincrement())
+
+  accidentCaseId  Int
+
+  text            String
+
+  createdAt       DateTime @default(now())
+
+  accidentCase AccidentCase @relation(
+    fields:[accidentCaseId],
+    references:[id]
+  )
+}
+
+model AppUser {
+  id             Int      @id @default(autoincrement())
+
+  username       String   @unique
+  password       String
+
+  role           String   @default("user")
+  isActive       Boolean  @default(true)
+
+  viewSubscribers    Boolean @default(true)
+  createSubscribers  Boolean @default(false)
+  editSubscribers    Boolean @default(false)
+  deleteSubscribers  Boolean @default(false)
+
+  viewAccidents      Boolean @default(true)
+  createAccidents    Boolean @default(false)
+  editAccidents      Boolean @default(false)
+  deleteAccidents    Boolean @default(false)
+
+  viewAccounting     Boolean @default(false)
+  editPayments       Boolean @default(false)
+
+  viewUsers          Boolean @default(false)
+  createUsers        Boolean @default(false)
+  editUsers          Boolean @default(false)
+  deleteUsers        Boolean @default(false)
+
+  viewActivityLog    Boolean @default(false)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  logs ActivityLog[]
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+
+  userId    Int?
+  username  String
+
+  action    String
+  module    String
+  targetId  String?
+  details   String?
+
+  createdAt DateTime @default(now())
+
+  user AppUser? @relation(
+    fields:[userId],
+    references:[id]
+  )
+}
