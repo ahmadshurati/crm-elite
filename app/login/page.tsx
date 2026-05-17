@@ -53,7 +53,6 @@ export default function LoginPage() {
         </h1>
 
         <p className="mt-2 text-center text-sm text-[#7A8594]">
-          أدخل بيانات الدخول للوصول إلى نظام إدارة التأمين
         </p>
 
         <div className="mt-8 space-y-4">

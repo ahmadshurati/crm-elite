@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { execute, query, queryOne } from "@/lib/db";
+import { execute, query } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +22,11 @@ function fileNameFromUrl(url: string) {
 
 function buildDocumentRows(insuranceId: number, body: any) {
   const rows: any[] = [];
+
   const addDocument = (type: string, fileUrl: unknown) => {
     const url = String(fileUrl || "").trim();
     if (!url || url.includes("placehold.co")) return;
+
     rows.push([insuranceId, type, url, fileNameFromUrl(url)]);
   };
 
@@ -32,6 +34,15 @@ function buildDocumentRows(insuranceId: number, body: any) {
 
   if (body.documents && typeof body.documents === "object") {
     addDocument("drivingLicense", body.documents.drivingLicense);
+    addDocument("carLicense", body.documents.carLicense);
+    addDocument("companionId", body.documents.companionId);
+
+    addDocument("carImage1", body.documents.carImage1);
+    addDocument("carImage2", body.documents.carImage2);
+    addDocument("carImage3", body.documents.carImage3);
+    addDocument("carImage4", body.documents.carImage4);
+    addDocument("carImage5", body.documents.carImage5);
+
     addDocument("insurancePolicy1", body.documents.insurancePolicy1);
     addDocument("insurancePolicy2", body.documents.insurancePolicy2);
     addDocument("other", body.documents.other);
@@ -69,13 +80,20 @@ async function getFullCustomers() {
       documents: documentsByInsurance.get(Number(insurance.id)) || [],
       checks: checksByInsurance.get(Number(insurance.id)) || [],
     };
-    insurancesByCar.set(key, [...(insurancesByCar.get(key) || []), fullInsurance]);
+
+    insurancesByCar.set(key, [
+      ...(insurancesByCar.get(key) || []),
+      fullInsurance,
+    ]);
   });
 
   const updatesByAccident = new Map<number, any[]>();
   updates.forEach((update) => {
     const key = Number(update.accidentCaseId);
-    updatesByAccident.set(key, [...(updatesByAccident.get(key) || []), update]);
+    updatesByAccident.set(key, [
+      ...(updatesByAccident.get(key) || []),
+      update,
+    ]);
   });
 
   const carsByCustomer = new Map<number, any[]>();
@@ -83,17 +101,26 @@ async function getFullCustomers() {
     const key = Number(car.customerId);
     carsByCustomer.set(key, [
       ...(carsByCustomer.get(key) || []),
-      { ...car, insurances: insurancesByCar.get(Number(car.id)) || [] },
+      {
+        ...car,
+        insurances: insurancesByCar.get(Number(car.id)) || [],
+      },
     ]);
   });
 
   const accidentsByCustomer = new Map<number, any[]>();
   accidents.forEach((accident) => {
     const key = Number(accident.customerId);
-    const car = cars.find((row) => Number(row.id) === Number(accident.carId)) || null;
+    const car =
+      cars.find((row) => Number(row.id) === Number(accident.carId)) || null;
+
     accidentsByCustomer.set(key, [
       ...(accidentsByCustomer.get(key) || []),
-      { ...accident, car, updates: updatesByAccident.get(Number(accident.id)) || [] },
+      {
+        ...accident,
+        car,
+        updates: updatesByAccident.get(Number(accident.id)) || [],
+      },
     ]);
   });
 
@@ -109,7 +136,14 @@ export async function GET() {
     return NextResponse.json(await getFullCustomers());
   } catch (error: any) {
     console.error("GET /api/customers error:", error);
-    return NextResponse.json({ error: "Failed to load customers", message: error?.message }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: "Failed to load customers",
+        message: error?.message,
+      },
+      { status: 500 }
+    );
   }
 }
 
@@ -120,29 +154,120 @@ export async function POST(req: Request) {
     const hofaaPrice = numberValue(body.hofaaPrice);
     const thirdPartyPrice = numberValue(body.thirdPartyPrice);
     const fullPrice = numberValue(body.fullPrice);
-    const totalAmount = numberValue(body.totalAmount || hofaaPrice + thirdPartyPrice + fullPrice);
-    const paidAmount = numberValue(body.paidAmount);
+
+    const totalAmount = numberValue(
+      body.totalAmount || hofaaPrice + thirdPartyPrice + fullPrice
+    );
+
+    const cashAmount = numberValue(body.cashAmount);
+    const visaAmount = numberValue(body.visaAmount);
+    const checksAmount = numberValue(body.checksAmount);
+
+    const paidAmount = cashAmount + visaAmount + checksAmount;
     const remainingAmount = Math.max(totalAmount - paidAmount, 0);
     const paymentStatus = calcPaymentStatus(totalAmount, paidAmount);
+
+    const paymentMethods: string[] = [];
+    if (cashAmount > 0) paymentMethods.push("كاش");
+    if (visaAmount > 0) paymentMethods.push("فيزا");
+    if (checksAmount > 0) paymentMethods.push("شيكات");
+
+    const paymentMethod =
+      paymentMethods.length > 0 ? paymentMethods.join(" + ") : "لاحقًا";
 
     const customerResult = await execute(
       "INSERT INTO Customer (name, phone, createdAt) VALUES (?, ?, NOW())",
       [String(body.name || ""), body.phone ? String(body.phone) : null]
     );
+
     const customerId = customerResult.insertId;
 
     const carResult = await execute(
-      "INSERT INTO Car (customerId, carName, carNumber) VALUES (?, ?, ?)",
-      [customerId, String(body.carName || ""), String(body.carNumber || "")]
+      `
+      INSERT INTO Car
+      (
+        customerId,
+        carName,
+        carNumber,
+        carYear
+      )
+      VALUES
+      (
+        ?,
+        ?,
+        ?,
+        ?
+      )
+      `,
+      [
+        customerId,
+        String(body.carName || ""),
+        String(body.carNumber || ""),
+        String(body.carYear || ""),
+      ]
     );
+
     const carId = carResult.insertId;
 
     const insuranceResult = await execute(
-      `INSERT INTO Insurance (
-        customerId, carId, insuranceType, insuranceCompany, startDate, endDate, status, paymentMethod,
-        hofaaEnabled, hofaaPrice, thirdPartyEnabled, thirdPartyPrice, fullEnabled, fullPrice,
-        totalAmount, paidAmount, remainingAmount, paymentStatus
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `
+      INSERT INTO Insurance
+      (
+        customerId,
+        carId,
+        insuranceType,
+        insuranceCompany,
+        startDate,
+        endDate,
+        status,
+        paymentMethod,
+
+        hofaaEnabled,
+        hofaaPrice,
+
+        thirdPartyEnabled,
+        thirdPartyPrice,
+
+        fullEnabled,
+        fullPrice,
+
+        totalAmount,
+        paidAmount,
+        cashAmount,
+        visaAmount,
+        checksAmount,
+        remainingAmount,
+        paymentStatus
+      )
+      VALUES
+      (
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+
+        ?,
+        ?,
+
+        ?,
+        ?,
+
+        ?,
+        ?,
+
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        ?,
+        ?
+      )
+      `,
       [
         customerId,
         carId,
@@ -151,40 +276,91 @@ export async function POST(req: Request) {
         new Date(body.startDate),
         new Date(body.endDate),
         String(body.status || "فعال"),
-        String(body.paymentMethod || "لاحقًا"),
+        paymentMethod,
+
         body.hofaaEnabled ? 1 : 0,
         hofaaPrice,
+
         body.thirdPartyEnabled ? 1 : 0,
         thirdPartyPrice,
+
         body.fullEnabled ? 1 : 0,
         fullPrice,
+
         totalAmount,
         paidAmount,
+        cashAmount,
+        visaAmount,
+        checksAmount,
         remainingAmount,
         paymentStatus,
       ]
     );
+
     const insuranceId = insuranceResult.insertId;
 
     for (const row of buildDocumentRows(insuranceId, body)) {
-      await execute("INSERT INTO Document (insuranceId, type, fileUrl, fileName) VALUES (?, ?, ?, ?)", row);
+      await execute(
+        "INSERT INTO Document (insuranceId, type, fileUrl, fileName) VALUES (?, ?, ?, ?)",
+        row
+      );
     }
 
-    if (String(body.paymentMethod || "") === "شيكات" && Array.isArray(body.checks)) {
+    if (Array.isArray(body.checks)) {
       for (const check of body.checks) {
-        if (String(check.checkNumber || "").trim() || String(check.bankName || "").trim() || numberValue(check.amount) > 0) {
+        const hasCheckData =
+          String(check.checkNumber || "").trim() ||
+          String(check.bankName || "").trim() ||
+          numberValue(check.amount) > 0;
+
+        if (hasCheckData) {
           await execute(
-            "INSERT INTO PaymentCheck (insuranceId, checkNumber, bankName, dueDate, amount, createdAt) VALUES (?, ?, ?, ?, ?, NOW())",
-            [insuranceId, String(check.checkNumber || ""), String(check.bankName || ""), new Date(check.dueDate || new Date()), numberValue(check.amount)]
+            `
+            INSERT INTO PaymentCheck
+            (
+              insuranceId,
+              checkNumber,
+              bankName,
+              dueDate,
+              amount,
+              createdAt
+            )
+            VALUES
+            (
+              ?,
+              ?,
+              ?,
+              ?,
+              ?,
+              NOW()
+            )
+            `,
+            [
+              insuranceId,
+              String(check.checkNumber || ""),
+              String(check.bankName || ""),
+              new Date(check.dueDate || new Date()),
+              numberValue(check.amount),
+            ]
           );
         }
       }
     }
 
-    const fullCustomer = (await getFullCustomers()).find((customer) => Number(customer.id) === customerId);
+    const fullCustomer = (await getFullCustomers()).find(
+      (customer) => Number(customer.id) === customerId
+    );
+
     return NextResponse.json(fullCustomer);
   } catch (error: any) {
     console.error("POST /api/customers error:", error);
-    return NextResponse.json({ error: "Failed to create customer", message: error?.message }, { status: 500 });
+
+    return NextResponse.json(
+      {
+        error: "Failed to create customer",
+        message: error?.message,
+      },
+      { status: 500 }
+    );
   }
 }

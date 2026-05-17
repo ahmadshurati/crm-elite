@@ -22,145 +22,352 @@ function fileNameFromUrl(url: string) {
 
 function buildDocumentRows(insuranceId: number, body: any) {
   const rows: any[] = [];
+
   const addDocument = (type: string, fileUrl: unknown) => {
     const url = String(fileUrl || "").trim();
+
     if (!url || url.includes("placehold.co")) return;
-    rows.push([insuranceId, type, url, fileNameFromUrl(url)]);
+
+    rows.push([
+      insuranceId,
+      type,
+      url,
+      fileNameFromUrl(url),
+    ]);
   };
 
   addDocument("policyImage", body.policyImage);
 
-  if (body.documents && typeof body.documents === "object") {
+  if (body.documents) {
     addDocument("drivingLicense", body.documents.drivingLicense);
-    addDocument("insurancePolicy1", body.documents.insurancePolicy1);
-    addDocument("insurancePolicy2", body.documents.insurancePolicy2);
-    addDocument("other", body.documents.other);
+
+    addDocument(
+      "carLicense",
+      body.documents.carLicense
+    );
+
+    addDocument(
+      "companionId",
+      body.documents.companionId
+    );
+
+    addDocument(
+      "carImage1",
+      body.documents.carImage1
+    );
+
+    addDocument(
+      "carImage2",
+      body.documents.carImage2
+    );
+
+    addDocument(
+      "carImage3",
+      body.documents.carImage3
+    );
+
+    addDocument(
+      "carImage4",
+      body.documents.carImage4
+    );
+
+    addDocument(
+      "carImage5",
+      body.documents.carImage5
+    );
+
+    addDocument(
+      "insurancePolicy1",
+      body.documents.insurancePolicy1
+    );
+
+    addDocument(
+      "insurancePolicy2",
+      body.documents.insurancePolicy2
+    );
+
+    addDocument(
+      "other",
+      body.documents.other
+    );
   }
 
   return rows;
 }
 
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: Request,
+  context: { params: Promise<{ id: string }> }
+) {
   try {
     const { id } = await context.params;
+
     const body = await req.json();
 
     const customerId = Number(id);
+
     const carId = Number(body.carId);
-    const insuranceId = Number(body.insuranceId);
 
-    const hofaaPrice = numberValue(body.hofaaPrice);
-    const thirdPartyPrice = numberValue(body.thirdPartyPrice);
-    const fullPrice = numberValue(body.fullPrice);
-    const totalAmount = numberValue(body.totalAmount || hofaaPrice + thirdPartyPrice + fullPrice);
-    const paidAmount = numberValue(body.paidAmount);
-    const remainingAmount = Math.max(totalAmount - paidAmount, 0);
-    const paymentStatus = calcPaymentStatus(totalAmount, paidAmount);
+    const insuranceId = Number(
+      body.insuranceId
+    );
 
-    await execute("UPDATE Customer SET name = ?, phone = ? WHERE id = ?", [
-      String(body.name || ""),
-      body.phone ? String(body.phone) : null,
-      customerId,
-    ]);
+    const hofaaPrice = numberValue(
+      body.hofaaPrice
+    );
 
-    await execute("UPDATE Car SET carName = ?, carNumber = ? WHERE id = ?", [
-      String(body.carName || ""),
-      String(body.carNumber || ""),
-      carId,
-    ]);
+    const thirdPartyPrice = numberValue(
+      body.thirdPartyPrice
+    );
+
+    const fullPrice = numberValue(
+      body.fullPrice
+    );
+
+    const totalAmount = numberValue(
+      body.totalAmount ||
+      hofaaPrice +
+      thirdPartyPrice +
+      fullPrice
+    );
+
+    const cashAmount = numberValue(
+      body.cashAmount
+    );
+
+    const visaAmount = numberValue(
+      body.visaAmount
+    );
+
+    const checksAmount = numberValue(
+      body.checksAmount
+    );
+
+    const paidAmount =
+      cashAmount +
+      visaAmount +
+      checksAmount;
+
+    const remainingAmount =
+      Math.max(
+        totalAmount -
+        paidAmount,
+        0
+      );
+
+    const paymentStatus =
+      calcPaymentStatus(
+        totalAmount,
+        paidAmount
+      );
+
+    const paymentMethods=[];
+
+    if(cashAmount>0)
+      paymentMethods.push("كاش");
+
+    if(visaAmount>0)
+      paymentMethods.push("فيزا");
+
+    if(checksAmount>0)
+      paymentMethods.push("شيكات");
+
+    const paymentMethod =
+      paymentMethods.join(" + ");
 
     await execute(
-      `UPDATE Insurance SET
-        insuranceType = ?, insuranceCompany = ?, startDate = ?, endDate = ?, status = ?, paymentMethod = ?,
-        hofaaEnabled = ?, hofaaPrice = ?, thirdPartyEnabled = ?, thirdPartyPrice = ?, fullEnabled = ?, fullPrice = ?,
-        totalAmount = ?, paidAmount = ?, remainingAmount = ?, paymentStatus = ?
-      WHERE id = ?`,
+      "UPDATE Customer SET name=?, phone=? WHERE id=?",
       [
-        String(body.insuranceType || ""),
-        String(body.insuranceCompany || ""),
-        new Date(body.startDate),
-        new Date(body.endDate),
-        String(body.status || "فعال"),
-        String(body.paymentMethod || "لاحقًا"),
-        body.hofaaEnabled ? 1 : 0,
-        hofaaPrice,
-        body.thirdPartyEnabled ? 1 : 0,
-        thirdPartyPrice,
-        body.fullEnabled ? 1 : 0,
-        fullPrice,
-        totalAmount,
-        paidAmount,
-        remainingAmount,
-        paymentStatus,
-        insuranceId,
+        String(body.name || ""),
+        body.phone || null,
+        customerId
       ]
     );
 
-    await execute("DELETE FROM Document WHERE insuranceId = ?", [insuranceId]);
-    for (const row of buildDocumentRows(insuranceId, body)) {
-      await execute("INSERT INTO Document (insuranceId, type, fileUrl, fileName) VALUES (?, ?, ?, ?)", row);
+    await execute(
+      `
+      UPDATE Car
+      SET
+      carName=?,
+      carNumber=?,
+      carYear=?
+      WHERE id=?
+      `,
+      [
+        String(body.carName || ""),
+        String(body.carNumber || ""),
+        String(body.carYear || ""),
+        carId
+      ]
+    );
+
+    await execute(
+`
+UPDATE Insurance
+SET
+
+insuranceType=?,
+insuranceCompany=?,
+
+startDate=?,
+endDate=?,
+
+status=?,
+paymentMethod=?,
+
+hofaaEnabled=?,
+hofaaPrice=?,
+
+thirdPartyEnabled=?,
+thirdPartyPrice=?,
+
+fullEnabled=?,
+fullPrice=?,
+
+totalAmount=?,
+paidAmount=?,
+
+cashAmount=?,
+visaAmount=?,
+checksAmount=?,
+
+remainingAmount=?,
+paymentStatus=?
+
+WHERE id=?
+`,
+[
+String(body.insuranceType||""),
+String(body.insuranceCompany||""),
+
+new Date(body.startDate),
+new Date(body.endDate),
+
+String(body.status||"فعال"),
+paymentMethod,
+
+body.hofaaEnabled?1:0,
+hofaaPrice,
+
+body.thirdPartyEnabled?1:0,
+thirdPartyPrice,
+
+body.fullEnabled?1:0,
+fullPrice,
+
+totalAmount,
+paidAmount,
+
+cashAmount,
+visaAmount,
+checksAmount,
+
+remainingAmount,
+paymentStatus,
+
+insuranceId
+]
+);
+
+    await execute(
+      "DELETE FROM Document WHERE insuranceId=?",
+      [insuranceId]
+    );
+
+    for (const row of buildDocumentRows(
+      insuranceId,
+      body
+    )) {
+
+      await execute(
+        `
+INSERT INTO Document
+(
+insuranceId,
+type,
+fileUrl,
+fileName
+)
+VALUES
+(
+?,
+?,
+?,
+?
+)
+`,
+row
+);
+
     }
 
-    await execute("DELETE FROM PaymentCheck WHERE insuranceId = ?", [insuranceId]);
-    if (String(body.paymentMethod || "") === "شيكات" && Array.isArray(body.checks)) {
-      for (const check of body.checks) {
-        if (String(check.checkNumber || "").trim() || String(check.bankName || "").trim() || numberValue(check.amount) > 0) {
-          await execute(
-            "INSERT INTO PaymentCheck (insuranceId, checkNumber, bankName, dueDate, amount, createdAt) VALUES (?, ?, ?, ?, ?, NOW())",
-            [insuranceId, String(check.checkNumber || ""), String(check.bankName || ""), new Date(check.dueDate || new Date()), numberValue(check.amount)]
-          );
-        }
-      }
-    }
+    await execute(
+      "DELETE FROM PaymentCheck WHERE insuranceId=?",
+      [insuranceId]
+    );
 
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error("PATCH /api/customers/[id] error:", error);
-    return NextResponse.json({ error: "Failed to update subscriber", message: error?.message }, { status: 500 });
-  }
+    if(Array.isArray(body.checks)){
+
+      for(const check of body.checks){
+
+        if(
+String(check.checkNumber||"").trim() ||
+String(check.bankName||"").trim() ||
+numberValue(check.amount)>0
+){
+
+await execute(
+`
+INSERT INTO PaymentCheck
+(
+insuranceId,
+checkNumber,
+bankName,
+dueDate,
+amount,
+createdAt
+)
+VALUES
+(
+?,
+?,
+?,
+?,
+?,
+NOW()
+)
+`,
+[
+insuranceId,
+String(check.checkNumber||""),
+String(check.bankName||""),
+new Date(check.dueDate||new Date()),
+numberValue(check.amount)
+]
+);
+
 }
 
-export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
-  try {
-    const { id } = await context.params;
-    const insuranceId = Number(id);
+      }
 
-    if (!Number.isFinite(insuranceId)) {
-      return NextResponse.json({ error: "Invalid subscriber id" }, { status: 400 });
     }
 
-    const insurance = await queryOne<any>("SELECT * FROM Insurance WHERE id = ? LIMIT 1", [insuranceId]);
+    return NextResponse.json({
+      ok:true
+    });
 
-    if (!insurance) {
-      return NextResponse.json({ error: "Insurance not found" }, { status: 404 });
-    }
+  } catch (error:any) {
 
-    await execute("DELETE FROM PaymentCheck WHERE insuranceId = ?", [insuranceId]);
-    await execute("DELETE FROM Document WHERE insuranceId = ?", [insuranceId]);
-    await execute("DELETE FROM Insurance WHERE id = ?", [insuranceId]);
+console.error(error);
 
-    const carInsurances = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM Insurance WHERE carId = ?", [insurance.carId]);
-    const carAccidents = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AccidentCase WHERE carId = ?", [insurance.carId]);
+return NextResponse.json(
+{
+error:"Failed"
+},
+{
+status:500
+}
+);
 
-    if (Number(carInsurances?.count || 0) === 0 && Number(carAccidents?.count || 0) === 0) {
-      await execute("DELETE FROM Car WHERE id = ?", [insurance.carId]);
-    }
-
-    const customerCars = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM Car WHERE customerId = ?", [insurance.customerId]);
-    const customerInsurances = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM Insurance WHERE customerId = ?", [insurance.customerId]);
-    const customerAccidents = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AccidentCase WHERE customerId = ?", [insurance.customerId]);
-
-    if (
-      Number(customerCars?.count || 0) === 0 &&
-      Number(customerInsurances?.count || 0) === 0 &&
-      Number(customerAccidents?.count || 0) === 0
-    ) {
-      await execute("DELETE FROM Customer WHERE id = ?", [insurance.customerId]);
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error("DELETE /api/customers/[id] error:", error);
-    return NextResponse.json({ error: "Failed to delete subscriber", message: error?.message }, { status: 500 });
   }
 }
