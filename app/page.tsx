@@ -22,6 +22,7 @@ const ACCIDENTS_API_URL = "/api/accidents";
 
 type MenuKey =
   | "active-subscribers"
+  | "active-customers"
   | "inactive-subscribers"
   | "subscriber-history"
   | "renewals-this-month"
@@ -354,6 +355,17 @@ function isExpiringThisMonth(endDateValue: string) {
   );
 }
 
+function isPastDate(value: string) {
+  const date = parseEndDate(value);
+  if (!date) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+
+  return date < today;
+}
+
 function normalizeStatus(value: any): InsuranceStatus {
   const text = String(value ?? "").trim().toLowerCase();
 
@@ -453,7 +465,9 @@ function mapDbCustomersToSubscribers(customers: any[]): Subscriber[] {
           insuranceCompany: String(insurance.insuranceCompany || ""),
           startDate: formatDateForInput(insurance.startDate),
           endDate: formatDateForInput(insurance.endDate),
-          insuranceStatus: normalizeStatus(insurance.status),
+          insuranceStatus: isPastDate(formatDateForInput(insurance.endDate))
+            ? "منتهي"
+            : normalizeStatus(insurance.status),
           paidStatus: normalizePaid(insurance.paymentMethod),
 
           hofaaEnabled: Boolean(insurance.hofaaEnabled),
@@ -1693,6 +1707,140 @@ function SubscriberHistoryDashboard({
   );
 }
 
+
+function ActiveCustomersDashboard({
+  subscribers,
+  loading,
+  onOpenHistory,
+}: {
+  subscribers: Subscriber[];
+  loading: boolean;
+  onOpenHistory: (subscriber: Subscriber) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  const rows = useMemo(() => {
+    const map = new Map<number, Subscriber[]>();
+
+    subscribers
+      .filter((subscriber) => subscriber.insuranceStatus === "فعال")
+      .forEach((subscriber) => {
+        const key = Number(subscriber.customerId);
+        map.set(key, [...(map.get(key) || []), subscriber]);
+      });
+
+    return Array.from(map.values())
+      .map((items) => {
+        const sorted = [...items].sort((a, b) =>
+          String(b.endDate || "").localeCompare(String(a.endDate || ""))
+        );
+
+        const latest = sorted[0];
+
+        return {
+          latest,
+          activeInsuranceCount: items.length,
+          carsText: Array.from(
+            new Set(items.map((item) => `${item.carName || "-"} - ${item.carNumber || "-"}`))
+          ).join(" / "),
+        };
+      })
+      .sort((a, b) =>
+        a.latest.subscriberName.localeCompare(b.latest.subscriberName, "ar")
+      );
+  }, [subscribers]);
+
+  const filteredRows = rows.filter((row) => {
+    const term = normalizeSearchText(query);
+    const compactTerm = compactSearchText(query);
+    if (!term && !compactTerm) return true;
+
+    const text = normalizeSearchText([
+      row.latest.subscriberName,
+      row.latest.customerNumber,
+      row.carsText,
+      row.latest.insuranceCompany,
+      row.latest.insuranceType,
+    ].join(" "));
+
+    const compactText = compactSearchText(text);
+
+    return text.includes(term) || (!!compactTerm && compactText.includes(compactTerm));
+  });
+
+  return (
+    <section className="mt-8 rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
+      <div className="border-b border-[#EEF1F4] px-6 py-5">
+        <h3 className="text-[22px] font-bold text-[#1F2937]">المشتركين الفعالين</h3>
+        <p className="mt-1 text-[14px] text-[#707A84]">
+          هذه القائمة تعرض كل زبون مرة واحدة فقط، حتى لو عنده أكثر من تأمين فعال
+        </p>
+
+        <div className="relative mt-5 max-w-xl">
+          <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A7B0B8]" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-[14px] outline-none focus:border-[#0F8B94]"
+            placeholder="بحث باسم الزبون، الهاتف، رقم السيارة..."
+          />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[980px] w-full text-right text-sm">
+          <thead>
+            <tr className="border-b border-[#EEF1F4] text-[#8B95A1]">
+              <th className="px-5 py-4">اسم الزبون</th>
+              <th className="px-5 py-4">الهاتف</th>
+              <th className="px-5 py-4">السيارات الفعالة</th>
+              <th className="px-5 py-4">آخر شركة</th>
+              <th className="px-5 py-4">عدد التأمينات الفعالة</th>
+              <th className="px-5 py-4">إجراء</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-[#707A84]">
+                  جاري تحميل المشتركين الفعالين...
+                </td>
+              </tr>
+            ) : filteredRows.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-6 py-12 text-center text-[#707A84]">
+                  لا يوجد مشتركين فعالين
+                </td>
+              </tr>
+            ) : (
+              filteredRows.map((row) => (
+                <tr key={row.latest.customerId} className="border-b border-[#F1F5F9] last:border-none hover:bg-[#F8FAFC]">
+                  <td className="px-5 py-4 font-bold text-[#1F2937]">{row.latest.subscriberName || "بدون اسم"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]" dir="ltr">{row.latest.customerNumber || "-"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]">{row.carsText || "-"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]">{row.latest.insuranceCompany || "-"}</td>
+                  <td className="px-5 py-4 font-bold text-emerald-700">{row.activeInsuranceCount}</td>
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => onOpenHistory(row.latest)}
+                      className="rounded-xl bg-[#0F8B94] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                    >
+                      عرض السجل
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+
 function RenewalsTable({
   data,
   loading,
@@ -1700,6 +1848,7 @@ function RenewalsTable({
   onTerminate,
   onOpenHistory,
   onViewDocuments,
+  isRenewed,
 }: {
   data: Subscriber[];
   loading: boolean;
@@ -1707,6 +1856,7 @@ function RenewalsTable({
   onTerminate: (subscriber: Subscriber) => void;
   onOpenHistory: (subscriber: Subscriber) => void;
   onViewDocuments: (subscriber: Subscriber) => void;
+  isRenewed: (subscriber: Subscriber) => boolean;
 }) {
   return (
     <section className="mt-8 rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
@@ -1779,22 +1929,28 @@ function RenewalsTable({
                     </button>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => onRenew(row)}
-                        className="rounded-xl bg-[#0F8B94] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
-                      >
-                        تجديد
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onTerminate(row)}
-                        className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
-                      >
-                        إنهاء الاشتراك
-                      </button>
-                    </div>
+                    {isRenewed(row) ? (
+                      <span className="inline-flex rounded-xl bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700">
+                        تم تجديده
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onRenew(row)}
+                          className="rounded-xl bg-[#0F8B94] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                        >
+                          تجديد
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onTerminate(row)}
+                          className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                        >
+                          إنهاء الاشتراك
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
@@ -2657,11 +2813,27 @@ function SubscriberForm({
       body: formDataToUpload,
     });
 
+    const responseText = await res.text();
+
     if (!res.ok) {
-      throw new Error("Failed to upload file");
+      console.error("UPLOAD API ERROR:", responseText);
+      throw new Error(responseText || "Failed to upload file");
     }
 
-    const data = await res.json();
+    let data: any = {};
+
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      console.error("UPLOAD JSON PARSE ERROR:", responseText, error);
+      throw new Error("Upload response is not valid JSON");
+    }
+
+    if (!data.fileUrl) {
+      console.error("UPLOAD MISSING FILE URL:", data);
+      throw new Error("Upload response missing fileUrl");
+    }
+
     return String(data.fileUrl || "");
   };
 
@@ -3437,13 +3609,35 @@ export default function Home() {
     (s) => s.insuranceStatus === "غير فعال" || s.insuranceStatus === "منتهي"
   );
 
-  const newSubscribers = subscribers.filter((s) => s.insuranceStatus === "جديد");
+  const hasRenewalForSubscriber = (subscriber: Subscriber) => {
+    const subscriberEndDate = parseEndDate(subscriber.endDate);
+    if (!subscriberEndDate) return false;
 
-  const renewalsThisMonth = subscribers.filter((subscriber) =>
-    isExpiringThisMonth(subscriber.endDate)
+    return subscribers.some((item) => {
+      if (Number(item.customerId) !== Number(subscriber.customerId)) return false;
+      if (Number(item.id) === Number(subscriber.id)) return false;
+      if (item.insuranceStatus !== "فعال") return false;
+
+      const itemEndDate = parseEndDate(item.endDate);
+      if (!itemEndDate) return false;
+
+      return itemEndDate > subscriberEndDate;
+    });
+  };
+
+  const renewalInsuranceRows = subscribers.filter(
+    (subscriber) =>
+      subscriber.insuranceStatus === "فعال" &&
+      isExpiringThisMonth(subscriber.endDate)
   );
 
-  const renewalsThisMonthCount = renewalsThisMonth.length;
+  const pendingRenewalsThisMonth = renewalInsuranceRows.filter(
+    (subscriber) => !hasRenewalForSubscriber(subscriber)
+  );
+
+  const renewalsThisMonth = renewalInsuranceRows;
+
+  const renewalsThisMonthCount = pendingRenewalsThisMonth.length;
 
   const customerNodes = useMemo(() => buildCustomerNodes(subscribers), [subscribers]);
 
@@ -3837,7 +4031,8 @@ export default function Home() {
           label: "الاشتراكات",
           icon: Car,
           children: [
-            { label: "المشتركين الفعالين", key: "active-subscribers" },
+            { label: "التأمينات الفعالة", key: "active-subscribers" },
+            { label: "المشتركين الفعالين", key: "active-customers" },
             { label: "المشتركين غير الفعالين", key: "inactive-subscribers" },
             { label: "السجل", key: "subscriber-history" },
             {
@@ -3907,12 +4102,22 @@ export default function Home() {
       return (
         <SubscribersTable
           data={filteredSubscribers(activeSubscribers)}
-          title="المشتركين الفعالين"
+          title="التأمينات الفعالة"
           loading={loading}
           onViewDocuments={setDocumentsPreview}
           onOpenHistory={setHistoryPreview}
           onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
           onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
+        />
+      );
+    }
+
+    if (activeMenu === "active-customers") {
+      return (
+        <ActiveCustomersDashboard
+          subscribers={filteredSubscribers(activeSubscribers)}
+          loading={loading}
+          onOpenHistory={setHistoryPreview}
         />
       );
     }
@@ -3950,6 +4155,7 @@ export default function Home() {
           onTerminate={handleTerminateSubscriber}
           onOpenHistory={setHistoryPreview}
           onViewDocuments={setDocumentsPreview}
+          isRenewed={hasRenewalForSubscriber}
         />
       );
     }
@@ -4120,8 +4326,9 @@ export default function Home() {
               </div>
             )}
 
-            <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-4">
-              <StatCard label="فعالين" value={activeSubscribers.length} helper="Active" />
+            <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-5">
+              <StatCard label="تأمينات فعالة" value={activeSubscribers.length} helper="Active policies" />
+              <StatCard label="مشتركين فعالين" value={customerNodes.filter((customer) => customer.cars.some((car) => car.insuranceStatus === "فعال")).length} helper="Active clients" />
               <StatCard label="عملاء بالسجل" value={customerNodes.length} helper="History" />
               <StatCard
                 label="حوادث مفتوحة"

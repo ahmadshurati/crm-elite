@@ -1,8 +1,6 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -33,8 +31,12 @@ export async function POST(req: Request) {
     console.error("UPLOAD ERROR:", error);
 
     return NextResponse.json(
-      { error: "Upload failed" },
-      { status: 500 }
+      {
+        error: "Upload failed",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }

@@ -52,6 +52,11 @@ function buildDocumentRows(insuranceId: number, body: any) {
 }
 
 async function getFullCustomers() {
+  await execute(
+    "UPDATE Insurance SET status = 'منتهي' WHERE endDate < CURDATE() AND status NOT IN ('منتهي', 'غير فعال')",
+    []
+  );
+
   const customers = await query<any>("SELECT * FROM Customer ORDER BY id DESC");
   const cars = await query<any>("SELECT * FROM Car ORDER BY id DESC");
   const insurances = await query<any>("SELECT * FROM Insurance ORDER BY id DESC");
