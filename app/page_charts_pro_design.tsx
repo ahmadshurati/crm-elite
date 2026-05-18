@@ -797,11 +797,11 @@ function DashboardInsights({
   const buildConfig = () => {
     if (mode === "active-subscribers") {
       return {
-        eyebrow: "",
+        eyebrow: "Active Policies Intelligence",
         description: "تحليل خاص بالتأمينات الفعالة: شركات التأمين، أنواع التغطية، وقرب الانتهاء.",
         cards: [
           { label: "تأمينات فعالة", value: safeSubscribers.length, helper: "سجل تأمين" },
-          { label: "زبائن", value: uniqueCustomers, helper: "زبون" },
+          { label: "زبائن داخلها", value: uniqueCustomers, helper: "زبون" },
           { label: "شركات تأمين", value: companyData.length, helper: "شركة" },
           { label: "أنواع تغطية", value: typeData.length, helper: "نوع" },
           { label: "تنتهي هذا الشهر", value: safeSubscribers.filter((item) => isExpiringThisMonth(item.endDate)).length, helper: "تنبيه" },
@@ -816,7 +816,7 @@ function DashboardInsights({
 
     if (mode === "active-customers") {
       return {
-        eyebrow: "",
+        eyebrow: "Active Clients Intelligence",
         description: "تحليل خاص بالمشتركين الفعالين: كل زبون مرة واحدة مع ثقل التأمينات والسيارات المرتبطة به.",
         cards: [
           { label: "مشتركين فعالين", value: uniqueCustomers, helper: "زبون" },
@@ -835,7 +835,7 @@ function DashboardInsights({
 
     if (mode === "inactive-subscribers") {
       return {
-        eyebrow: "",
+        eyebrow: "Inactive & Expired Intelligence",
         description: "تحليل خاص بالمنتهية وغير الفعالة: أين تتراكم الانتهاءات ومن أي شركات تأتي.",
         cards: [
           { label: "سجلات غير فعالة", value: safeSubscribers.length, helper: "سجل" },
@@ -854,7 +854,7 @@ function DashboardInsights({
 
     if (mode === "subscriber-history") {
       return {
-        eyebrow: "",
+        eyebrow: "History Intelligence",
         description: "تحليل خاص بالسجل: كثافة التأمينات لكل زبون، النشاط التاريخي، والحالات المتراكمة.",
         cards: [
           { label: "زبائن بالسجل", value: uniqueCustomers, helper: "زبون" },
@@ -878,7 +878,7 @@ function DashboardInsights({
       ];
 
       return {
-        eyebrow: "",
+        eyebrow: "Renewals Intelligence",
         description: "تحليل خاص بتجديدات الشهر: من تم تجديده ومن بقي للتواصل معه، مع توزيع الشركات والمواعيد.",
         cards: [
           { label: "مطلوب تجديد", value: safeSubscribers.length, helper: "هذا الشهر" },
@@ -896,7 +896,7 @@ function DashboardInsights({
     }
 
     return {
-      eyebrow: "Financial",
+      eyebrow: "Financial Intelligence",
       description: "تحليل خاص بالحسابات فقط: المدفوع، المتبقي، طرق الدفع، والتحصيل الشهري.",
       cards: [
         { label: "إجمالي المطلوب", value: money(totalRevenue), helper: "Revenue" },

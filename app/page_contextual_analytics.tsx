@@ -27,8 +27,6 @@ import {
   Bar,
   XAxis,
   Tooltip,
-  CartesianGrid,
-  YAxis,
 } from "recharts";
 
 const CUSTOMERS_API_URL = "/api/customers";
@@ -677,7 +675,7 @@ function DashboardInsights({
   const safeSubscribers = Array.isArray(subscribers) ? subscribers : [];
   const fullSubscribers = Array.isArray(allSubscribers) ? allSubscribers : safeSubscribers;
 
-  const COLORS = ["#0F8B94", "#2563EB", "#7C3AED", "#10B981", "#F59E0B", "#EF4444", "#14B8A6", "#0EA5E9"];
+  const COLORS = ["#0F8B94", "#7C3AED", "#10B981", "#F59E0B", "#EF4444", "#2563EB", "#14B8A6"];
 
   const money = (value: number) => formatMoney(numberValue(value));
 
@@ -797,11 +795,11 @@ function DashboardInsights({
   const buildConfig = () => {
     if (mode === "active-subscribers") {
       return {
-        eyebrow: "",
+        eyebrow: "Active Policies Intelligence",
         description: "تحليل خاص بالتأمينات الفعالة: شركات التأمين، أنواع التغطية، وقرب الانتهاء.",
         cards: [
           { label: "تأمينات فعالة", value: safeSubscribers.length, helper: "سجل تأمين" },
-          { label: "زبائن", value: uniqueCustomers, helper: "زبون" },
+          { label: "زبائن داخلها", value: uniqueCustomers, helper: "زبون" },
           { label: "شركات تأمين", value: companyData.length, helper: "شركة" },
           { label: "أنواع تغطية", value: typeData.length, helper: "نوع" },
           { label: "تنتهي هذا الشهر", value: safeSubscribers.filter((item) => isExpiringThisMonth(item.endDate)).length, helper: "تنبيه" },
@@ -816,7 +814,7 @@ function DashboardInsights({
 
     if (mode === "active-customers") {
       return {
-        eyebrow: "",
+        eyebrow: "Active Clients Intelligence",
         description: "تحليل خاص بالمشتركين الفعالين: كل زبون مرة واحدة مع ثقل التأمينات والسيارات المرتبطة به.",
         cards: [
           { label: "مشتركين فعالين", value: uniqueCustomers, helper: "زبون" },
@@ -835,7 +833,7 @@ function DashboardInsights({
 
     if (mode === "inactive-subscribers") {
       return {
-        eyebrow: "",
+        eyebrow: "Inactive & Expired Intelligence",
         description: "تحليل خاص بالمنتهية وغير الفعالة: أين تتراكم الانتهاءات ومن أي شركات تأتي.",
         cards: [
           { label: "سجلات غير فعالة", value: safeSubscribers.length, helper: "سجل" },
@@ -854,7 +852,7 @@ function DashboardInsights({
 
     if (mode === "subscriber-history") {
       return {
-        eyebrow: "",
+        eyebrow: "History Intelligence",
         description: "تحليل خاص بالسجل: كثافة التأمينات لكل زبون، النشاط التاريخي، والحالات المتراكمة.",
         cards: [
           { label: "زبائن بالسجل", value: uniqueCustomers, helper: "زبون" },
@@ -878,7 +876,7 @@ function DashboardInsights({
       ];
 
       return {
-        eyebrow: "",
+        eyebrow: "Renewals Intelligence",
         description: "تحليل خاص بتجديدات الشهر: من تم تجديده ومن بقي للتواصل معه، مع توزيع الشركات والمواعيد.",
         cards: [
           { label: "مطلوب تجديد", value: safeSubscribers.length, helper: "هذا الشهر" },
@@ -896,7 +894,7 @@ function DashboardInsights({
     }
 
     return {
-      eyebrow: "Financial",
+      eyebrow: "Financial Intelligence",
       description: "تحليل خاص بالحسابات فقط: المدفوع، المتبقي، طرق الدفع، والتحصيل الشهري.",
       cards: [
         { label: "إجمالي المطلوب", value: money(totalRevenue), helper: "Revenue" },
@@ -920,146 +918,65 @@ function DashboardInsights({
     return Number(value || 0).toLocaleString("he-IL");
   };
 
-  const renderTooltipValue = (chart: any, value: any) =>
-    chart.money ? money(Number(value)) : Number(value || 0).toLocaleString("he-IL");
-
-  const chartTotal = (data: any[]) =>
-    data.reduce((sum, item) => sum + numberValue(item.value), 0);
-
-  const ProTooltip = ({ active, payload, label, chart }: any) => {
-    if (!active || !payload || !payload.length) return null;
-
-    const item = payload[0];
-    const name = item?.payload?.name || label || "";
-    const value = item?.value ?? item?.payload?.value ?? 0;
-
-    return (
-      <div className="rounded-2xl border border-white/70 bg-white/95 px-4 py-3 text-right shadow-2xl backdrop-blur-xl">
-        <p className="text-[12px] font-black text-[#1F2937]">{name}</p>
-        <p className="mt-1 text-[15px] font-black text-[#0F8B94]">
-          {renderTooltipValue(chart, value)}
-        </p>
-      </div>
-    );
-  };
-
   const renderChart = (chart: any, index: number) => {
     const data = chart.data && chart.data.length ? chart.data : [{ name: "لا يوجد", value: 1 }];
     const gradientId = `analyticsGradient-${mode}-${index}`;
-    const barGradientId = `barGradient-${mode}-${index}`;
-    const shadowId = `chartShadow-${mode}-${index}`;
-    const total = chartTotal(data);
 
     if (chart.kind === "pie") {
       return (
         <PieChart>
-          <defs>
-            <filter id={shadowId} x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#0F172A" floodOpacity="0.16" />
-            </filter>
-            {data.map((_: any, i: number) => (
-              <linearGradient key={`pie-gradient-${mode}-${index}-${i}`} id={`pieFill-${mode}-${index}-${i}`} x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor={COLORS[i % COLORS.length]} stopOpacity="0.95" />
-                <stop offset="100%" stopColor={COLORS[(i + 2) % COLORS.length]} stopOpacity="0.72" />
-              </linearGradient>
-            ))}
-          </defs>
-
           <Pie
             data={data}
             dataKey="value"
             nameKey="name"
-            innerRadius={72}
-            outerRadius={106}
-            paddingAngle={4}
-            cornerRadius={12}
-            stroke="rgba(255,255,255,0.9)"
-            strokeWidth={3}
-            filter={`url(#${shadowId})`}
+            innerRadius={66}
+            outerRadius={98}
+            paddingAngle={5}
           >
             {data.map((_: any, i: number) => (
-              <Cell key={`cell-${mode}-${index}-${i}`} fill={`url(#pieFill-${mode}-${index}-${i})`} />
+              <Cell key={`cell-${mode}-${index}-${i}`} fill={COLORS[i % COLORS.length]} />
             ))}
           </Pie>
-
-          <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="fill-[#8B95A1] text-[11px] font-bold">
-            المجموع
-          </text>
-          <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" className="fill-[#1F2937] text-[20px] font-black">
-            {chart.money ? money(total) : total.toLocaleString("he-IL")}
-          </text>
-
-          <Tooltip content={<ProTooltip chart={chart} />} />
+          <Tooltip formatter={(value: any) => chart.money ? money(Number(value)) : Number(value).toLocaleString("he-IL")} />
         </PieChart>
       );
     }
 
     if (chart.kind === "bar") {
       return (
-        <BarChart data={data} margin={{ top: 18, right: 8, left: 8, bottom: 0 }}>
-          <defs>
-            <linearGradient id={barGradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0F8B94" stopOpacity="1" />
-              <stop offset="55%" stopColor="#14B8A6" stopOpacity="0.88" />
-              <stop offset="100%" stopColor="#CCFBF1" stopOpacity="0.8" />
-            </linearGradient>
-          </defs>
-          <CartesianGrid vertical={false} stroke="#EEF2F6" strokeDasharray="4 8" />
-          <XAxis
-            dataKey="name"
-            tickLine={false}
-            axisLine={false}
-            fontSize={11}
-            tickMargin={12}
-            interval={0}
-            minTickGap={8}
-          />
-          <YAxis hide />
-          <Tooltip cursor={{ fill: "rgba(15,139,148,0.06)", radius: 18 }} content={<ProTooltip chart={chart} />} />
-          <Bar
-            dataKey="value"
-            fill={`url(#${barGradientId})`}
-            radius={[18, 18, 8, 8]}
-            maxBarSize={58}
-            background={{ fill: "#F8FAFC", radius: 18 }}
-          />
+        <BarChart data={data} margin={{ top: 18, right: 10, left: 10, bottom: 0 }}>
+          <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
+          <Tooltip formatter={(value: any) => chart.money ? money(Number(value)) : Number(value).toLocaleString("he-IL")} />
+          <Bar dataKey="value" fill="#0F8B94" radius={[14, 14, 0, 0]} />
         </BarChart>
       );
     }
 
     return (
-      <AreaChart data={data} margin={{ top: 20, right: 8, left: 8, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 18, right: 10, left: 10, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#0F8B94" stopOpacity={0.44} />
-            <stop offset="45%" stopColor="#14B8A6" stopOpacity={0.18} />
-            <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.02} />
+            <stop offset="5%" stopColor="#0F8B94" stopOpacity={0.42} />
+            <stop offset="95%" stopColor="#0F8B94" stopOpacity={0.04} />
           </linearGradient>
-          <filter id={shadowId} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#0F8B94" floodOpacity="0.18" />
-          </filter>
         </defs>
-        <CartesianGrid vertical={false} stroke="#EEF2F6" strokeDasharray="4 8" />
-        <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} tickMargin={12} />
-        <YAxis hide />
-        <Tooltip cursor={{ stroke: "#0F8B94", strokeWidth: 1, strokeDasharray: "5 5" }} content={<ProTooltip chart={chart} />} />
+        <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} />
+        <Tooltip formatter={(value: any) => chart.money ? money(Number(value)) : Number(value).toLocaleString("he-IL")} />
         <Area
           type="monotone"
           dataKey="value"
           stroke="#0F8B94"
-          strokeWidth={4}
+          strokeWidth={3}
           fill={`url(#${gradientId})`}
-          dot={false}
-          activeDot={{ r: 7, strokeWidth: 4, stroke: "#FFFFFF", fill: "#0F8B94" }}
-          filter={`url(#${shadowId})`}
+          dot={{ r: 5 }}
         />
       </AreaChart>
     );
   };
 
   return (
-    <section className="mt-8 overflow-hidden rounded-[42px] border border-[#DDE7EA] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_100%)] shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-      <div className="relative overflow-hidden border-b border-[#E6EEF1] bg-[radial-gradient(circle_at_top_left,_rgba(15,139,148,0.22),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(124,58,237,0.14),_transparent_28%),linear-gradient(270deg,#ECFBFA_0%,#FFFFFF_46%,#F8FAFC_100%)] px-7 py-8">
+    <section className="mt-8 overflow-hidden rounded-[38px] border border-[#E7ECEF] bg-white shadow-sm">
+      <div className="relative overflow-hidden border-b border-[#EEF1F4] bg-[radial-gradient(circle_at_top_left,_rgba(15,139,148,0.16),_transparent_32%),linear-gradient(270deg,#ECFBFA_0%,#FFFFFF_48%,#F8FAFC_100%)] px-6 py-7">
         <div className="absolute left-8 top-6 h-24 w-24 rounded-full bg-[#0F8B94]/10 blur-2xl" />
         <div className="absolute left-32 top-14 h-20 w-20 rounded-full bg-purple-500/10 blur-2xl" />
         <div className="absolute bottom-0 right-0 h-28 w-28 rounded-full bg-emerald-400/10 blur-3xl" />
@@ -1084,12 +1001,11 @@ function DashboardInsights({
         {config.cards.map((card: any, index: number) => (
           <div
             key={`${mode}-card-${index}`}
-            className="group relative overflow-hidden rounded-[30px] border border-white/80 bg-white p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)] ring-1 ring-[#EEF2F6] transition hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]"
+            className="group rounded-[28px] border border-[#EAECEF] bg-[#FAFAFA] p-5 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
           >
-            <div className="absolute -left-8 -top-8 h-20 w-20 rounded-full bg-[#0F8B94]/10 blur-2xl" />
-            <p className="relative text-xs font-extrabold text-[#8B95A1]">{card.label}</p>
-            <p className="relative mt-3 truncate text-3xl font-black tracking-tight text-[#1F2937]">{renderValue(card.value)}</p>
-            <span className="relative mt-3 inline-flex rounded-full bg-[#E7F6F5] px-3 py-1 text-[11px] font-bold text-[#0F8B94]">
+            <p className="text-xs font-extrabold text-[#8B95A1]">{card.label}</p>
+            <p className="mt-3 truncate text-2xl font-black text-[#1F2937]">{renderValue(card.value)}</p>
+            <span className="mt-3 inline-flex rounded-full bg-[#E7F6F5] px-3 py-1 text-[11px] font-bold text-[#0F8B94]">
               {card.helper}
             </span>
           </div>
@@ -1103,29 +1019,23 @@ function DashboardInsights({
           return (
             <div
               key={`${mode}-chart-${index}`}
-              className="group relative overflow-hidden rounded-[34px] border border-white/80 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] ring-1 ring-[#E8EEF2] transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(15,23,42,0.12)]"
+              className="rounded-[32px] border border-[#EAECEF] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-[#0F8B94]/10 blur-3xl" />
-              <div className="pointer-events-none absolute -right-16 bottom-0 h-32 w-32 rounded-full bg-[#7C3AED]/10 blur-3xl" />
-
-              <div className="relative mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-[15px] font-black text-[#1F2937]">{chart.title}</h3>
-                  <p className="mt-1 text-[11px] font-bold text-[#8B95A1]">Live data visualization</p>
-                </div>
-                <span className="rounded-full border border-[#D8F3F1] bg-[#F1FBFA] px-3 py-1 text-[11px] font-extrabold text-[#0F8B94] shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="font-black text-[#1F2937]">{chart.title}</h3>
+                <span className="rounded-full bg-[#F1FBFA] px-3 py-1 text-[11px] font-extrabold text-[#0F8B94]">
                   {chart.badge}
                 </span>
               </div>
 
-              <div className="relative h-[295px] rounded-[28px] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_100%)] p-2">
+              <div className="h-[270px]">
                 <ResponsiveContainer width="100%" height="100%">
                   {renderChart(chart, index)}
                 </ResponsiveContainer>
               </div>
 
               {data.length > 0 && (
-                <div className="relative mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   {data.slice(0, 4).map((item: any, i: number) => (
                     <span key={`${chart.title}-${item.name}-${i}`} className="rounded-full bg-[#F8FAFC] px-3 py-1 text-[11px] font-bold text-[#4B5563]">
                       <span
