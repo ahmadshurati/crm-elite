@@ -175,12 +175,24 @@ export async function POST(req: Request) {
     const paymentMethod =
       paymentMethods.length > 0 ? paymentMethods.join(" + ") : "لاحقًا";
 
-    const customerResult = await execute(
-      "INSERT INTO Customer (name, phone, createdAt) VALUES (?, ?, NOW())",
-      [String(body.name || ""), body.phone ? String(body.phone) : null]
-    );
+    const existingCustomerId = Number(body.customerId || 0);
+    let customerId: number;
 
-    const customerId = customerResult.insertId;
+    if (Number.isFinite(existingCustomerId) && existingCustomerId > 0) {
+      customerId = existingCustomerId;
+
+      await execute(
+        "UPDATE Customer SET name = ?, phone = ? WHERE id = ?",
+        [String(body.name || ""), body.phone ? String(body.phone) : null, customerId]
+      );
+    } else {
+      const customerResult = await execute(
+        "INSERT INTO Customer (name, phone, createdAt) VALUES (?, ?, NOW())",
+        [String(body.name || ""), body.phone ? String(body.phone) : null]
+      );
+
+      customerId = customerResult.insertId;
+    }
 
     const carResult = await execute(
       `

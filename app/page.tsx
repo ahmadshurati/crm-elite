@@ -23,7 +23,7 @@ const ACCIDENTS_API_URL = "/api/accidents";
 type MenuKey =
   | "active-subscribers"
   | "inactive-subscribers"
-  | "new-subscribers"
+  | "subscriber-history"
   | "renewals-this-month"
   | "add-new-subscriber"
   | "accident"
@@ -639,6 +639,7 @@ function SubscribersTable({
   title,
   loading,
   onViewDocuments,
+  onOpenHistory,
   onEdit,
   onDelete,
 }: {
@@ -646,6 +647,7 @@ function SubscribersTable({
   title: string;
   loading: boolean;
   onViewDocuments: (subscriber: Subscriber) => void;
+  onOpenHistory: (subscriber: Subscriber) => void;
   onEdit: (subscriber: Subscriber) => void;
   onDelete: (id: number) => void;
 }) {
@@ -734,7 +736,16 @@ function SubscribersTable({
                     </span>
                   </td>
 
-                  <td className="truncate px-1 py-3 text-[#4B5563]">{row.history}</td>
+                  <td className="px-1 py-3">
+                    <button
+                      type="button"
+                      onClick={() => onOpenHistory(row)}
+                      className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-[10px] font-bold text-[#0F8B94] transition hover:bg-[#F1FBFA]"
+                      title="عرض سجل المشترك"
+                    >
+                      عرض السجل
+                    </button>
+                  </td>
 
                   <td className="px-1 py-3">
                     <button
@@ -1426,6 +1437,374 @@ function DocumentsModal({
   );
 }
 
+
+
+function CustomerHistoryModal({
+  subscriber,
+  subscribers,
+  onClose,
+  onViewDocuments,
+}: {
+  subscriber: Subscriber;
+  subscribers: Subscriber[];
+  onClose: () => void;
+  onViewDocuments: (subscriber: Subscriber) => void;
+}) {
+  const customerHistory = subscribers
+    .filter((item) => Number(item.customerId) === Number(subscriber.customerId))
+    .sort((a, b) => String(b.startDate || "").localeCompare(String(a.startDate || "")));
+
+  const totalPaid = customerHistory.reduce(
+    (sum, item) => sum + numberValue(item.paidAmount),
+    0
+  );
+
+  const totalRemaining = customerHistory.reduce(
+    (sum, item) => sum + numberValue(item.remainingAmount),
+    0
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+      <div className="relative max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-3xl bg-[#F7F8FA] p-6 shadow-2xl">
+        <button
+          onClick={onClose}
+          className="absolute left-5 top-5 z-10 rounded-full bg-white p-2 shadow hover:bg-gray-100"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6">
+          <h3 className="text-2xl font-bold text-[#1F2937]">
+            سجل المشترك: {subscriber.subscriberName || "بدون اسم"}
+          </h3>
+          <p className="mt-2 text-sm text-[#707A84]" dir="ltr">
+            {subscriber.customerNumber || "بدون هاتف"}
+          </p>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+            <div className="rounded-2xl bg-[#FAFAFA] p-4">
+              <p className="text-sm text-[#8B95A1]">عدد التأمينات</p>
+              <p className="mt-2 text-2xl font-bold text-[#1F2937]">{customerHistory.length}</p>
+            </div>
+            <div className="rounded-2xl bg-[#FAFAFA] p-4">
+              <p className="text-sm text-[#8B95A1]">آخر حالة</p>
+              <p className="mt-2 text-2xl font-bold text-[#1F2937]">{subscriber.insuranceStatus}</p>
+            </div>
+            <div className="rounded-2xl bg-[#FAFAFA] p-4">
+              <p className="text-sm text-[#8B95A1]">إجمالي المدفوع</p>
+              <p className="mt-2 text-2xl font-bold text-emerald-700">{formatMoney(totalPaid)}</p>
+            </div>
+            <div className="rounded-2xl bg-[#FAFAFA] p-4">
+              <p className="text-sm text-[#8B95A1]">إجمالي المتبقي</p>
+              <p className="mt-2 text-2xl font-bold text-rose-600">{formatMoney(totalRemaining)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-3xl border border-[#E5E7EB] bg-white p-6">
+          <h4 className="text-xl font-bold text-[#1F2937]">كل التأمينات المرتبطة بهذا الزبون</h4>
+
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-[980px] w-full text-right text-sm">
+              <thead>
+                <tr className="border-b border-[#EEF1F4] text-[#8B95A1]">
+                  <th className="px-4 py-3">السيارة</th>
+                  <th className="px-4 py-3">رقم السيارة</th>
+                  <th className="px-4 py-3">نوع التأمين</th>
+                  <th className="px-4 py-3">الشركة</th>
+                  <th className="px-4 py-3">البداية</th>
+                  <th className="px-4 py-3">النهاية</th>
+                  <th className="px-4 py-3">الحالة</th>
+                  <th className="px-4 py-3">الدفع</th>
+                  <th className="px-4 py-3">وثائق</th>
+                </tr>
+              </thead>
+              <tbody>
+                {customerHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-6 py-10 text-center text-[#707A84]">
+                      لا يوجد سجل لهذا المشترك
+                    </td>
+                  </tr>
+                ) : (
+                  customerHistory.map((item) => (
+                    <tr key={item.id} className="border-b border-[#F1F5F9] last:border-none">
+                      <td className="px-4 py-4 font-semibold text-[#1F2937]">{item.carName || "-"}</td>
+                      <td className="px-4 py-4 text-[#4B5563]">{item.carNumber || "-"}</td>
+                      <td className="px-4 py-4 text-[#4B5563]">{item.insuranceType || "-"}</td>
+                      <td className="px-4 py-4 text-[#4B5563]">{item.insuranceCompany || "-"}</td>
+                      <td className="px-4 py-4 text-[#4B5563]">{item.startDate || "-"}</td>
+                      <td className="px-4 py-4 text-[#4B5563]">{item.endDate || "-"}</td>
+                      <td className="px-4 py-4">
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor(item.insuranceStatus)}`}>
+                          {item.insuranceStatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className={`rounded-full px-3 py-1 text-xs font-bold ${paymentStatusColor(item.paymentStatus)}`}>
+                          {item.paymentStatus}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <button
+                          type="button"
+                          onClick={() => onViewDocuments(item)}
+                          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#0F8B94] hover:bg-[#F1FBFA]"
+                        >
+                          عرض الوثائق
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SubscriberHistoryDashboard({
+  subscribers,
+  loading,
+  onOpenHistory,
+}: {
+  subscribers: Subscriber[];
+  loading: boolean;
+  onOpenHistory: (subscriber: Subscriber) => void;
+}) {
+  const [query, setQuery] = useState("");
+
+  const customerRows = useMemo(() => {
+    const map = new Map<number, Subscriber[]>();
+
+    subscribers.forEach((subscriber) => {
+      const key = Number(subscriber.customerId);
+      map.set(key, [...(map.get(key) || []), subscriber]);
+    });
+
+    return Array.from(map.values()).map((items) => {
+      const sorted = [...items].sort((a, b) => String(b.endDate || "").localeCompare(String(a.endDate || "")));
+      const latest = sorted[0];
+
+      return {
+        latest,
+        count: items.length,
+        activeCount: items.filter((item) => item.insuranceStatus === "فعال").length,
+        expiredCount: items.filter((item) => item.insuranceStatus === "منتهي" || item.insuranceStatus === "غير فعال").length,
+      };
+    });
+  }, [subscribers]);
+
+  const filteredRows = customerRows.filter((row) => {
+    const term = normalizeSearchText(query);
+    const compactTerm = compactSearchText(query);
+    if (!term && !compactTerm) return true;
+
+    const text = normalizeSearchText([
+      row.latest.subscriberName,
+      row.latest.customerNumber,
+      row.latest.carName,
+      row.latest.carNumber,
+      row.latest.insuranceCompany,
+      row.latest.insuranceType,
+    ].join(" "));
+
+    const compactText = compactSearchText(text);
+
+    return text.includes(term) || (!!compactTerm && compactText.includes(compactTerm));
+  });
+
+  return (
+    <section className="mt-8 rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
+      <div className="border-b border-[#EEF1F4] px-6 py-5">
+        <h3 className="text-[22px] font-bold text-[#1F2937]">سجل المشتركين</h3>
+        <p className="mt-1 text-[14px] text-[#707A84]">
+          ابحث عن أي زبون واعرض كل التأمينات السابقة والحالية المرتبطة به
+        </p>
+
+        <div className="relative mt-5 max-w-xl">
+          <Search className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A7B0B8]" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-[14px] outline-none focus:border-[#0F8B94]"
+            placeholder="بحث باسم الزبون، الهاتف، رقم السيارة..."
+          />
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[980px] w-full text-right text-sm">
+          <thead>
+            <tr className="border-b border-[#EEF1F4] text-[#8B95A1]">
+              <th className="px-5 py-4">اسم الزبون</th>
+              <th className="px-5 py-4">الهاتف</th>
+              <th className="px-5 py-4">آخر سيارة</th>
+              <th className="px-5 py-4">آخر شركة</th>
+              <th className="px-5 py-4">عدد التأمينات</th>
+              <th className="px-5 py-4">فعال</th>
+              <th className="px-5 py-4">منتهي</th>
+              <th className="px-5 py-4">إجراء</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={8} className="px-6 py-12 text-center text-[#707A84]">
+                  جاري تحميل السجل...
+                </td>
+              </tr>
+            ) : filteredRows.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-6 py-12 text-center text-[#707A84]">
+                  لا يوجد نتائج
+                </td>
+              </tr>
+            ) : (
+              filteredRows.map((row) => (
+                <tr key={row.latest.customerId} className="border-b border-[#F1F5F9] last:border-none hover:bg-[#F8FAFC]">
+                  <td className="px-5 py-4 font-bold text-[#1F2937]">{row.latest.subscriberName || "بدون اسم"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]" dir="ltr">{row.latest.customerNumber || "-"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]">{row.latest.carName || "-"} - {row.latest.carNumber || "-"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]">{row.latest.insuranceCompany || "-"}</td>
+                  <td className="px-5 py-4 font-bold text-[#1F2937]">{row.count}</td>
+                  <td className="px-5 py-4 text-emerald-700 font-bold">{row.activeCount}</td>
+                  <td className="px-5 py-4 text-rose-600 font-bold">{row.expiredCount}</td>
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => onOpenHistory(row.latest)}
+                      className="rounded-xl bg-[#0F8B94] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                    >
+                      عرض السجل
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function RenewalsTable({
+  data,
+  loading,
+  onRenew,
+  onTerminate,
+  onOpenHistory,
+  onViewDocuments,
+}: {
+  data: Subscriber[];
+  loading: boolean;
+  onRenew: (subscriber: Subscriber) => void;
+  onTerminate: (subscriber: Subscriber) => void;
+  onOpenHistory: (subscriber: Subscriber) => void;
+  onViewDocuments: (subscriber: Subscriber) => void;
+}) {
+  return (
+    <section className="mt-8 rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
+      <div className="flex items-center justify-between border-b border-[#EEF1F4] px-5 py-4">
+        <div>
+          <h3 className="text-[18px] font-semibold text-[#1F2937]">التأمينات التي تحتاج تجديد هذا الشهر</h3>
+          <p className="mt-1 text-[13px] text-[#707A84]">
+            {loading ? "جاري تحميل البيانات..." : `عدد السجلات: ${data.length}`}
+          </p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[1100px] w-full text-right text-sm">
+          <thead>
+            <tr className="border-b border-[#EEF1F4] text-[#8B95A1]">
+              <th className="px-5 py-4">الاسم</th>
+              <th className="px-5 py-4">الهاتف</th>
+              <th className="px-5 py-4">السيارة</th>
+              <th className="px-5 py-4">الشركة</th>
+              <th className="px-5 py-4">تاريخ الانتهاء</th>
+              <th className="px-5 py-4">الحالة</th>
+              <th className="px-5 py-4">السجل</th>
+              <th className="px-5 py-4">وثائق</th>
+              <th className="px-5 py-4">إجراءات التجديد</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={9} className="px-6 py-12 text-center text-[#707A84]">
+                  جاري تحميل التجديدات...
+                </td>
+              </tr>
+            ) : data.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-6 py-12 text-center text-[#707A84]">
+                  لا يوجد تأمينات تحتاج تجديد هذا الشهر
+                </td>
+              </tr>
+            ) : (
+              data.map((row) => (
+                <tr key={row.id} className="border-b border-[#F1F5F9] last:border-none hover:bg-[#F8FAFC]">
+                  <td className="px-5 py-4 font-bold text-[#1F2937]">{row.subscriberName}</td>
+                  <td className="px-5 py-4 text-[#4B5563]" dir="ltr">{row.customerNumber || "-"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]">{row.carName} - {row.carNumber}</td>
+                  <td className="px-5 py-4 text-[#4B5563]">{row.insuranceCompany}</td>
+                  <td className="px-5 py-4 font-bold text-rose-600">{row.endDate}</td>
+                  <td className="px-5 py-4">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusColor(row.insuranceStatus)}`}>
+                      {row.insuranceStatus}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => onOpenHistory(row)}
+                      className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#0F8B94] hover:bg-[#F1FBFA]"
+                    >
+                      عرض السجل
+                    </button>
+                  </td>
+                  <td className="px-5 py-4">
+                    <button
+                      type="button"
+                      onClick={() => onViewDocuments(row)}
+                      className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#0F8B94] hover:bg-[#F1FBFA]"
+                    >
+                      عرض الوثائق
+                    </button>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onRenew(row)}
+                        className="rounded-xl bg-[#0F8B94] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                      >
+                        تجديد
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onTerminate(row)}
+                        className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                      >
+                        إنهاء الاشتراك
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
 
 function formatMoney(value: number) {
   return `${numberValue(value).toLocaleString("he-IL")} ₪`;
@@ -2200,7 +2579,7 @@ function SubscriberForm({
 }: {
   initialSubscriber?: Subscriber | null;
   onSave: (
-    subscriber: Omit<Subscriber, "id" | "customerId" | "carId">,
+    subscriber: Omit<Subscriber, "id" | "customerId" | "carId"> & { customerId?: number },
     editId?: number
   ) => void | Promise<void>;
   onCancel?: () => void;
@@ -2418,6 +2797,7 @@ function SubscriberForm({
       await onSave(
       {
         subscriberName: formData.subscriberName,
+        customerId: initialSubscriber?.id === 0 ? initialSubscriber.customerId : undefined,
         carName: formData.carName,
         carNumber: formData.carNumber,
         carYear: formData.carYear,
@@ -2976,6 +3356,7 @@ export default function Home() {
   const [accidentCases, setAccidentCases] = useState<AccidentCase[]>([]);
   const [search, setSearch] = useState("");
   const [documentsPreview, setDocumentsPreview] = useState<Subscriber | null>(null);
+  const [historyPreview, setHistoryPreview] = useState<Subscriber | null>(null);
   const [editingSubscriber, setEditingSubscriber] = useState<Subscriber | null>(null);
   const [selectedAccident, setSelectedAccident] = useState<AccidentCase | null>(null);
   const [addAccidentOpen, setAddAccidentOpen] = useState(false);
@@ -3141,7 +3522,7 @@ export default function Home() {
   };
 
   const handleSaveSubscriber = async (
-    subscriber: Omit<Subscriber, "id" | "customerId" | "carId">,
+    subscriber: Omit<Subscriber, "id" | "customerId" | "carId"> & { customerId?: number },
     editId?: number
   ) => {
     try {
@@ -3211,6 +3592,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          customerId: subscriber.customerId,
           name: subscriber.subscriberName,
           phone: subscriber.customerNumber,
           carName: subscriber.carName,
@@ -3282,6 +3664,89 @@ export default function Home() {
     } catch (error) {
       console.error("Delete subscriber error:", error);
       alert("صار خطأ أثناء حذف المشترك من قاعدة البيانات");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  const handleRenewSubscriber = (subscriber: Subscriber) => {
+    if (!canCreateSubscribers) {
+      alert("لا يوجد لديك صلاحية إضافة مشترك");
+      return;
+    }
+
+    setEditingSubscriber({
+      ...subscriber,
+      id: 0,
+      carId: 0,
+      subscriberName: subscriber.subscriberName,
+      customerNumber: subscriber.customerNumber,
+      carName: "",
+      carNumber: "",
+      carYear: "",
+      insuranceType: "غير محدد",
+      insuranceCompany: "",
+      startDate: "",
+      endDate: "",
+      insuranceStatus: "فعال",
+      paidStatus: "لاحقًا",
+      hofaaEnabled: false,
+      hofaaPrice: 0,
+      thirdPartyEnabled: false,
+      thirdPartyPrice: 0,
+      fullEnabled: false,
+      fullPrice: 0,
+      totalAmount: 0,
+      paidAmount: 0,
+      cashAmount: 0,
+      visaAmount: 0,
+      checksAmount: 0,
+      remainingAmount: 0,
+      paymentStatus: "غير مدفوع",
+      checks: emptyForm.checks,
+      history: "",
+      policyImage: "",
+      documents: emptyDocuments,
+    });
+
+    setNotificationsOpen(false);
+    setActiveMenu("add-new-subscriber");
+  };
+
+  const handleTerminateSubscriber = async (subscriber: Subscriber) => {
+    if (!canEditSubscribers) {
+      alert("لا يوجد لديك صلاحية إنهاء الاشتراك");
+      return;
+    }
+
+    const ok = confirm(`هل تريد إنهاء اشتراك ${subscriber.subscriberName}؟`);
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${CUSTOMERS_API_URL}/${subscriber.customerId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "terminate",
+          insuranceId: subscriber.id,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to terminate subscriber");
+      }
+
+      await logActivity("إنهاء اشتراك", "المشتركين", `${subscriber.subscriberName} - ${subscriber.carNumber}`, subscriber.id);
+      await loadDatabaseData();
+      setActiveMenu("renewals-this-month");
+    } catch (error) {
+      console.error("Terminate subscriber error:", error);
+      alert("صار خطأ أثناء إنهاء الاشتراك");
     } finally {
       setLoading(false);
     }
@@ -3374,7 +3839,7 @@ export default function Home() {
           children: [
             { label: "المشتركين الفعالين", key: "active-subscribers" },
             { label: "المشتركين غير الفعالين", key: "inactive-subscribers" },
-            { label: "المشتركين الجدد", key: "new-subscribers" },
+            { label: "السجل", key: "subscriber-history" },
             {
               label: "تجديدات هذا الشهر",
               key: "renewals-this-month",
@@ -3417,8 +3882,8 @@ export default function Home() {
       ? "المشتركين الفعالين"
       : activeMenu === "inactive-subscribers"
       ? "المشتركين غير الفعالين"
-      : activeMenu === "new-subscribers"
-      ? "المشتركين الجدد"
+      : activeMenu === "subscriber-history"
+      ? "السجل"
       : activeMenu === "renewals-this-month"
       ? "تجديدات هذا الشهر"
       : activeMenu === "add-new-subscriber"
@@ -3445,6 +3910,7 @@ export default function Home() {
           title="المشتركين الفعالين"
           loading={loading}
           onViewDocuments={setDocumentsPreview}
+          onOpenHistory={setHistoryPreview}
           onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
           onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
         />
@@ -3458,34 +3924,32 @@ export default function Home() {
           title="المشتركين غير الفعالين"
           loading={loading}
           onViewDocuments={setDocumentsPreview}
+          onOpenHistory={setHistoryPreview}
           onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
           onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
         />
       );
     }
 
-    if (activeMenu === "new-subscribers") {
+    if (activeMenu === "subscriber-history") {
       return (
-        <SubscribersTable
-          data={filteredSubscribers(newSubscribers)}
-          title="المشتركين الجدد"
+        <SubscriberHistoryDashboard
+          subscribers={filteredSubscribers(subscribers)}
           loading={loading}
-          onViewDocuments={setDocumentsPreview}
-          onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
-          onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
+          onOpenHistory={setHistoryPreview}
         />
       );
     }
 
     if (activeMenu === "renewals-this-month") {
       return (
-        <SubscribersTable
+        <RenewalsTable
           data={filteredSubscribers(renewalsThisMonth)}
-          title="التأمينات التي تحتاج تجديد هذا الشهر"
           loading={loading}
+          onRenew={handleRenewSubscriber}
+          onTerminate={handleTerminateSubscriber}
+          onOpenHistory={setHistoryPreview}
           onViewDocuments={setDocumentsPreview}
-          onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
-          onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
         />
       );
     }
@@ -3561,6 +4025,8 @@ export default function Home() {
     loading,
     renewalsThisMonth,
     accidentCases,
+    handleRenewSubscriber,
+    handleTerminateSubscriber,
     currentUser,
     canEditSubscribers,
     canDeleteSubscribers,
@@ -3656,7 +4122,7 @@ export default function Home() {
 
             <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-4">
               <StatCard label="فعالين" value={activeSubscribers.length} helper="Active" />
-              <StatCard label="جدد" value={newSubscribers.length} helper="New" />
+              <StatCard label="عملاء بالسجل" value={customerNodes.length} helper="History" />
               <StatCard
                 label="حوادث مفتوحة"
                 value={accidentCases.filter((a) => a.status === "مفتوح").length}
@@ -3722,6 +4188,17 @@ export default function Home() {
         <DocumentsModal
           subscriber={documentsPreview}
           onClose={() => setDocumentsPreview(null)}
+        />
+      )}
+
+      {historyPreview && (
+        <CustomerHistoryModal
+          subscriber={historyPreview}
+          subscribers={subscribers}
+          onClose={() => setHistoryPreview(null)}
+          onViewDocuments={(subscriber) => {
+            setDocumentsPreview(subscriber);
+          }}
         />
       )}
 
