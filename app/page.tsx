@@ -1058,11 +1058,9 @@ function DashboardInsights({
   };
 
   return (
-    <section className="mt-8 overflow-hidden rounded-[42px] border border-[#DDE7EA] bg-[linear-gradient(180deg,#FFFFFF_0%,#F8FAFC_100%)] shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-      <div className="relative overflow-hidden border-b border-[#E6EEF1] bg-[radial-gradient(circle_at_top_left,_rgba(15,139,148,0.22),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(124,58,237,0.14),_transparent_28%),linear-gradient(270deg,#ECFBFA_0%,#FFFFFF_46%,#F8FAFC_100%)] px-7 py-8">
-        <div className="absolute left-8 top-6 h-24 w-24 rounded-full bg-[#0F8B94]/10 blur-2xl" />
-        <div className="absolute left-32 top-14 h-20 w-20 rounded-full bg-purple-500/10 blur-2xl" />
-        <div className="absolute bottom-0 right-0 h-28 w-28 rounded-full bg-emerald-400/10 blur-3xl" />
+    <section className="mt-8 overflow-hidden rounded-[42px] border border-[#DDE7EA] bg-[#FFFFFF] shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+      <div className="relative overflow-hidden border-b border-[#E6EEF1] bg-[#F7FAFB] px-7 py-8">
+        
 
         <div className="relative flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -4808,7 +4806,12 @@ export default function Home() {
             <div className="flex items-center justify-between flex-row-reverse">
               <div dir="ltr" className="rounded-xl border bg-white px-4 py-2 text-sm">
                 <CalendarDays className="mr-2 inline h-4 w-4" />
-                4/29 12:00 PM - 4/30 10:00 PM
+                {new Date().toLocaleDateString("en-US", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
               </div>
 
               <div>
