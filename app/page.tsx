@@ -4744,7 +4744,7 @@ export default function Home() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#F7F8FA] text-[#1F2937]">
-      <div className="flex min-h-screen">
+      <div className="flex min-h-screen flex-row-reverse">
         <main className="min-w-0 flex-1 overflow-hidden">
           <div className="border-b border-[#EAECEF] bg-white px-6 py-5">
             <div className="flex items-center justify-between">
@@ -4805,7 +4805,7 @@ export default function Home() {
           </div>
 
           <div className="p-8">
-            <div className="flex items-center justify-between gap-5">
+            <div className="flex items-center justify-between flex-row-reverse">
               <div dir="ltr" className="rounded-xl border bg-white px-4 py-2 text-sm">
                 <CalendarDays className="mr-2 inline h-4 w-4" />
                 4/29 12:00 PM - 4/30 10:00 PM
