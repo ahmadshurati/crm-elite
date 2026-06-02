@@ -661,7 +661,7 @@ function SidebarItem({
       </button>
 
       {item.children && (
-        <div className="mr-8 mt-2 space-y-1">
+        <div className="me-8 mt-2 space-y-1">
           {item.children.map((child: any) => (
             <button
               key={child.key}
@@ -685,7 +685,7 @@ function SidebarItem({
       )}
 
       {item.key && (
-        <div className="mr-8 mt-2">
+        <div className="me-8 mt-2">
           <button
             onClick={() => setActiveMenu(item.key)}
             className={`block w-full rounded-xl px-4 py-2 text-right text-[14px] transition ${
@@ -700,6 +700,36 @@ function SidebarItem({
       )}
     </div>
   );
+}
+
+function formatHeaderDate() {
+  return new Intl.DateTimeFormat("ar", {
+    weekday: "long",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date());
+}
+
+function getPageDescription(menu: MenuKey) {
+  switch (menu) {
+    case "renewals-this-month":
+      return "تحليل خاص بتجديدات الشهر: من تم تجديده ومن بقي للتواصل معه، مع توزيع الشركات والمواعيد.";
+    case "active-subscribers":
+      return "متابعة التأمينات الفعالة وحالة كل وثيقة.";
+    case "active-customers":
+      return "عرض المشتركين الذين لديهم تأمينات فعالة حالياً.";
+    case "inactive-subscribers":
+      return "متابعة المشتركين غير الفعالين والوثائق المنتهية.";
+    case "subscriber-history":
+      return "السجل الكامل لكل التأمينات والزبائن.";
+    case "accounting":
+      return "متابعة المدفوعات والمتبقي وطرق التحصيل.";
+    case "accident":
+      return "إدارة حالات الحوادث وتحديثاتها.";
+    default:
+      return "إدارة المشتركين وبيانات التأمين والحوادث من داخل النظام";
+  }
 }
 
 function StatCard({
@@ -1120,22 +1150,22 @@ function DashboardInsights({
   };
 
   return (
-    <section className="mt-8 overflow-hidden rounded-[42px] border border-[#DDE7EA] bg-[#FFFFFF] shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
-      <div className="relative overflow-hidden border-b border-[#E6EEF1] bg-[#F7FAFB] px-7 py-8">
-        
-
-        <div className="relative flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-extrabold tracking-wide text-[#0F8B94]">{config.eyebrow}</p>
-            <h2 className="mt-2 text-3xl font-black text-[#1F2937]">{title}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-7 text-[#707A84]">
-              {config.description}
-            </p>
+    <section className="mt-8 overflow-hidden rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
+      <div className="border-b border-[#E6EEF1] bg-[#F1FBFA] px-7 py-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="text-right">
+            {config.eyebrow ? (
+              <p className="text-[13px] font-bold text-[#0F8B94]">{config.eyebrow}</p>
+            ) : null}
+            <h2 className="mt-1 text-3xl font-bold text-[#1F2937]">{title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-7 text-[#707A84]">{config.description}</p>
           </div>
 
-          <div className="rounded-[22px] border border-[#D9EFEE] bg-white/85 px-5 py-4 text-right shadow-sm backdrop-blur">
+          <div className="rounded-2xl border border-[#D9EFEE] bg-white px-5 py-4 text-right shadow-sm">
             <p className="text-[11px] font-bold text-[#8B95A1]">المعروض الآن</p>
-            <p className="mt-1 text-2xl font-black text-[#0F8B94]">{safeSubscribers.length.toLocaleString("he-IL")}</p>
+            <p className="mt-1 text-2xl font-bold text-[#0F8B94]">
+              {safeSubscribers.length.toLocaleString("he-IL")}
+            </p>
           </div>
         </div>
       </div>
@@ -5125,10 +5155,54 @@ function HomePage() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#F7F8FA] text-[#1F2937]">
-      <div className="flex min-h-screen flex-row-reverse">
+      <div className="flex min-h-screen">
+        <aside className="sticky top-0 flex h-screen w-[280px] shrink-0 flex-col border-l border-[#EAECEF] bg-white">
+          <div className="flex items-center justify-between p-1">
+            <div className="flex w-full justify-center py-1">
+              <Image
+                src="/loag.png"
+                alt="Elite Insurance"
+                width={140}
+                height={30}
+                className="object-contain"
+                priority
+              />
+            </div>
+          </div>
+
+          <div className="px-6 text-sm font-medium text-[#9AA3AD]">القائمة</div>
+
+          <div className="mt-3 flex-1 overflow-y-auto px-4 pb-6">
+            {sidebarApps.map((item) => (
+              <SidebarItem
+                key={item.label}
+                item={item}
+                activeMenu={activeMenu}
+                setActiveMenu={(value) => {
+                  setEditingSubscriber(null);
+                  navigateToMenu(value);
+                }}
+              />
+            ))}
+
+            {canCreateSubscribers && (
+              <button
+                onClick={() => {
+                  setEditingSubscriber(null);
+                  navigateToMenu("add-new-subscriber");
+                }}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-3 font-semibold text-white transition hover:opacity-90"
+              >
+                <Plus className="h-5 w-5" />
+                إضافة مشترك
+              </button>
+            )}
+          </div>
+        </aside>
+
         <main className="min-w-0 flex-1 overflow-hidden">
-          <div className="border-b border-[#EAECEF] bg-white px-6 py-5">
-            <div className="flex items-center justify-between">
+          <div className="sticky top-0 z-40 border-b border-[#EAECEF] bg-white px-6 py-5 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <ProfileDropdown user={currentUser} />
 
@@ -5186,22 +5260,20 @@ function HomePage() {
           </div>
 
           <div className="p-8">
-            <div className="flex items-center justify-between flex-row-reverse">
-              <div dir="ltr" className="rounded-xl border bg-white px-4 py-2 text-sm">
-                <CalendarDays className="mr-2 inline h-4 w-4" />
-                {new Date().toLocaleDateString("en-US", {
-                      weekday: "long",
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
+            <div className="flex flex-wrap items-start justify-between gap-5">
+              <div className="text-right">
+                <h1 className="text-5xl font-bold tracking-tight text-[#1F2937]">{pageTitle}</h1>
+                <p className="mt-3 max-w-4xl text-[15px] leading-7 text-[#707A84]">
+                  {getPageDescription(activeMenu)}
+                </p>
               </div>
 
-              <div>
-                <h1 className="text-5xl font-bold tracking-tight">{pageTitle}</h1>
-                <p className="mt-3 text-[#707A84]">
-                  إدارة المشتركين وبيانات التأمين والحوادث من داخل النظام
-                </p>
+              <div
+                dir="ltr"
+                className="shrink-0 rounded-2xl border border-[#EAECEF] bg-white px-5 py-3 text-sm font-medium text-[#4B5563] shadow-sm"
+              >
+                <CalendarDays className="me-2 inline h-4 w-4 text-[#0F8B94]" />
+                {formatHeaderDate()}
               </div>
             </div>
 
@@ -5261,50 +5333,6 @@ function HomePage() {
             {content}
           </div>
         </main>
-
-        <aside className="w-[280px] shrink-0 border-l border-[#EAECEF] bg-white">
-          <div className="flex items-center justify-between p-1">
-            <div className="flex justify-center w-full py-1">
-                <Image
-                  src="/loag.png"
-                  alt="Elite Insurance"
-                  width={140}
-                  height={30}
-                  className="object-contain"
-                  priority
-                />
-              </div>
-          </div>
-
-          <div className="px-6 text-sm font-medium text-[#9AA3AD]">القائمة</div>
-
-          <div className="mt-3 px-4">
-            {sidebarApps.map((item) => (
-              <SidebarItem
-                key={item.label}
-                item={item}
-                activeMenu={activeMenu}
-                setActiveMenu={(value) => {
-                  setEditingSubscriber(null);
-                  navigateToMenu(value);
-                }}
-              />
-            ))}
-
-            {canCreateSubscribers && (
-              <button
-                onClick={() => {
-                  setEditingSubscriber(null);
-                  navigateToMenu("add-new-subscriber");
-                }}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-3 font-semibold text-white transition hover:opacity-90"
-              >
-                <Plus className="h-5 w-5" />
-                إضافة مشترك
-              </button>
-            )}
-          </div>
-        </aside>
       </div>
 
       {documentsPreview && (
