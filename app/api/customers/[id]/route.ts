@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
+import { getCustomerGraphById } from "@/lib/customers-data";
 import { queryOne, withTransaction } from "@/lib/db";
 import {
   assertInsuranceBelongsToCustomer,
@@ -101,7 +102,8 @@ async function handlePatch(
         insuranceId
       );
 
-      return NextResponse.json({ ok: true, action: "terminate", insuranceId });
+      const terminatedCustomer = await getCustomerGraphById(customerId);
+      return NextResponse.json(terminatedCustomer);
     }
 
     if (!Number.isFinite(carId) || carId <= 0 || !Number.isFinite(insuranceId) || insuranceId <= 0) {
@@ -214,7 +216,8 @@ async function handlePatch(
       insuranceId
     );
 
-    return NextResponse.json({ ok: true });
+    const updatedCustomer = await getCustomerGraphById(customerId);
+    return NextResponse.json(updatedCustomer);
   } catch (error: any) {
     console.error(error);
 

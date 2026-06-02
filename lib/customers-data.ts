@@ -1,4 +1,4 @@
-import { execute, query, queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
 import { buildPaginationMeta, type PaginationMeta } from "@/lib/pagination";
 
 export type CustomerStats = {
@@ -14,13 +14,6 @@ export type PaginatedCustomersResult = {
   pagination: PaginationMeta;
   stats: CustomerStats;
 };
-
-async function expireInsurances() {
-  await execute(
-    "UPDATE Insurance SET status = 'منتهي' WHERE endDate < CURDATE() AND status NOT IN ('منتهي', 'غير فعال')",
-    []
-  );
-}
 
 function buildInsuranceFilterClause(filter: string) {
   switch (filter) {
@@ -56,7 +49,7 @@ function buildSearchClause(search: string) {
   };
 }
 
-async function getCustomerStats(): Promise<CustomerStats> {
+export async function getCustomerStats(): Promise<CustomerStats> {
   const [activePolicies, activeCustomers, totalCustomers, openAccidents, renewalsThisMonth] =
     await Promise.all([
       queryOne<{ count: number }>(
@@ -204,8 +197,6 @@ export async function getPaginatedCustomers(options: {
   filter?: string;
   search?: string;
 }): Promise<PaginatedCustomersResult> {
-  await expireInsurances();
-
   const filter = options.filter || "all";
   const search = buildSearchClause(options.search || "");
   const whereClause = `${buildInsuranceFilterClause(filter)}${search.clause}`;
@@ -243,8 +234,6 @@ export async function getPaginatedCustomers(options: {
 }
 
 export async function getCustomerGraphById(customerId: number) {
-  await expireInsurances();
-
   const insuranceRows = await query<{ id: number }>(
     "SELECT id FROM Insurance WHERE customerId = ? ORDER BY id DESC",
     [customerId]

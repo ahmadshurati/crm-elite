@@ -31,6 +31,20 @@ Tune via environment variables:
 | `DATABASE_POOL_LIMIT` | `10` | Max pooled MySQL connections per Node process |
 | `DATABASE_QUEUE_LIMIT` | `0` | Queue size when pool is exhausted (`0` = unlimited queue) |
 
+## Scheduled jobs
+
+Insurance expiry (`status = 'منتهي'` for past `endDate`) runs via Vercel Cron:
+
+- Path: `/api/cron/expire-insurances`
+- Schedule: daily at 03:00 UTC (`vercel.json`)
+- Auth: set `CRON_SECRET` in production; requests must send `Authorization: Bearer $CRON_SECRET`
+
+Local manual run (development only, when `CRON_SECRET` is unset):
+
+```bash
+curl http://localhost:3000/api/cron/expire-insurances
+```
+
 On serverless hosts, keep pool limits low and prefer a managed connection proxy when traffic grows.
 
 ## Observability

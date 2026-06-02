@@ -4388,6 +4388,27 @@ function HomePage() {
     }
   };
 
+  const refreshDashboardStats = async () => {
+    try {
+      const res = await fetch("/api/customers/stats", { cache: "no-store" });
+      if (!res.ok) return;
+      setDashboardStats(await res.json());
+    } catch (error) {
+      console.error("Refresh stats error:", error);
+    }
+  };
+
+  const mergeCustomerGraphIntoSubscribers = (graph: any) => {
+    const customerId = Number(graph?.id);
+    if (!Number.isFinite(customerId)) return;
+
+    const mapped = mapDbCustomersToSubscribers([graph]);
+    setSubscribers((prev) => [
+      ...prev.filter((item) => Number(item.customerId) !== customerId),
+      ...mapped,
+    ]);
+  };
+
   useEffect(() => {
     loadCurrentUser();
   }, []);
@@ -4574,7 +4595,9 @@ function HomePage() {
         );
 
         if (!res.ok) throw new Error("Failed to update subscriber");
-        await loadDatabaseData();
+        const graph = await res.json();
+        mergeCustomerGraphIntoSubscribers(graph);
+        await refreshDashboardStats();
         setEditingSubscriber(null);
         navigateToMenu("active-subscribers");
         return;
@@ -4619,7 +4642,12 @@ function HomePage() {
       });
 
       if (!res.ok) throw new Error("Failed to create subscriber");
-      await loadDatabaseData();
+      const graph = await res.json();
+      mergeCustomerGraphIntoSubscribers(graph);
+      setCustomersPagination((prev) =>
+        prev ? { ...prev, total: prev.total + 1 } : prev
+      );
+      await refreshDashboardStats();
       navigateToMenu("active-subscribers");
     } catch (error) {
       console.error("Save subscriber error:", error);
@@ -4651,7 +4679,11 @@ function HomePage() {
         throw new Error("Failed to delete subscriber");
       }
 
-      await loadDatabaseData();
+      setSubscribers((prev) => prev.filter((item) => item.id !== id));
+      setCustomersPagination((prev) =>
+        prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev
+      );
+      await refreshDashboardStats();
     } catch (error) {
       console.error("Delete subscriber error:", error);
       alert("صار خطأ أثناء حذف المشترك من قاعدة البيانات");
@@ -4731,7 +4763,10 @@ function HomePage() {
       if (!res.ok) {
         throw new Error("Failed to terminate subscriber");
       }
-      await loadDatabaseData();
+
+      const graph = await res.json();
+      mergeCustomerGraphIntoSubscribers(graph);
+      await refreshDashboardStats();
       navigateToMenu("renewals-this-month");
     } catch (error) {
       console.error("Terminate subscriber error:", error);
@@ -4809,7 +4844,17 @@ function HomePage() {
 
         if (!updateRes.ok) throw new Error("Failed to create accident update");
       }
-      await loadDatabaseData();
+
+      const detailRes = await fetch(`${ACCIDENTS_API_URL}/${updatedAccident.id}`, {
+        cache: "no-store",
+      });
+      if (!detailRes.ok) throw new Error("Failed to reload accident");
+
+      const freshAccident = mapDbAccidentToCase(await detailRes.json());
+      setAccidentCases((prev) =>
+        prev.map((accident) => (accident.id === freshAccident.id ? freshAccident : accident))
+      );
+      setSelectedAccident(null);
     } catch (error) {
       console.error("Save accident details error:", error);
       alert("صار خطأ بحفظ تحديثات الحادث");
@@ -4837,7 +4882,11 @@ function HomePage() {
       }
 
       setSelectedAccident(null);
-      await loadDatabaseData();
+      setAccidentCases((prev) => prev.filter((accident) => accident.id !== id));
+      setAccidentsPagination((prev) =>
+        prev ? { ...prev, total: Math.max(0, prev.total - 1) } : prev
+      );
+      await refreshDashboardStats();
     } catch (error) {
       console.error("Delete accident error:", error);
       alert("صار خطأ أثناء حذف الحادث");
