@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { execute, query, queryOne } from "@/lib/db";
-import { cleanUser, getCurrentUser } from "@/lib/auth";
+import { cleanUser } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,28 +27,23 @@ const permissionFields = [
 
 export async function GET() {
   try {
-    const currentUser = await getCurrentUser();
-
-    if (!currentUser || Number(currentUser.viewUsers) !== 1) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requirePermission("viewUsers");
+    if (isErrorResponse(auth)) return auth;
 
     const users = await query<any>("SELECT * FROM AppUser ORDER BY id ASC");
     return NextResponse.json(users.map(cleanUser));
   } catch (error: any) {
     console.error("GET /api/users error:", error);
-    return NextResponse.json({ error: "Failed to load users", message: error?.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load users" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
+    const auth = await requirePermission("createUsers");
+    if (isErrorResponse(auth)) return auth;
 
-    if (!currentUser || Number(currentUser.createUsers) !== 1) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+    const { user: currentUser } = auth;
     const body = await req.json();
     const username = String(body.username || "").trim().toLowerCase();
     const password = String(body.password || "").trim();
@@ -54,6 +51,8 @@ export async function POST(req: Request) {
     if (!username || !password) {
       return NextResponse.json({ error: "Missing username or password" }, { status: 400 });
     }
+
+    const hashedPassword = await hashPassword(password);
 
     const result = await execute(
       `INSERT INTO AppUser (
@@ -66,7 +65,7 @@ export async function POST(req: Request) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         username,
-        password,
+        hashedPassword,
         String(body.role || "user") === "master" ? "master" : "user",
         body.isActive ? 1 : 0,
         ...permissionFields.map((field) => (body[field] ? 1 : 0)),
@@ -82,6 +81,6 @@ export async function POST(req: Request) {
     return NextResponse.json(cleanUser(createdUser));
   } catch (error: any) {
     console.error("POST /api/users error:", error);
-    return NextResponse.json({ error: "Failed to create user", message: error?.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 }

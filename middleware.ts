@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
 
   const isPublic =
     path.startsWith("/login") ||
     path.startsWith("/api/login") ||
     path.startsWith("/api/logout") ||
-    path.startsWith("/api/debug-db") ||
-    path.startsWith("/api/debug-users") ||
     path.startsWith("/api/ping") ||
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
@@ -21,10 +20,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const auth = req.cookies.get("elite_auth")?.value;
-  const userId = req.cookies.get("elite_user_id")?.value;
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const session = token ? await verifySessionToken(token) : null;
 
-  if (auth !== "yes" || !userId) {
+  if (!session) {
+    if (path.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
     return NextResponse.redirect(new URL("/login", req.url));
   }
 

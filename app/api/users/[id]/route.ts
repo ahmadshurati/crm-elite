@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { execute, queryOne } from "@/lib/db";
-import { cleanUser, getCurrentUser } from "@/lib/auth";
+import { cleanUser } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,20 +27,20 @@ const permissionFields = [
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const currentUser = await getCurrentUser();
+    const auth = await requirePermission("editUsers");
+    if (isErrorResponse(auth)) return auth;
 
-    if (!currentUser || Number(currentUser.editUsers) !== 1) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+    const { user: currentUser } = auth;
     const { id } = await context.params;
     const userId = Number(id);
     const body = await req.json();
     const username = String(body.username || "").trim().toLowerCase();
     const role = String(body.role || "user") === "master" ? "master" : "user";
     const baseParams = [username, body.isActive ? 1 : 0, role, ...permissionFields.map((field) => (body[field] ? 1 : 0))];
+    const newPassword = String(body.password || "").trim();
 
-    if (String(body.password || "").trim()) {
+    if (newPassword) {
+      const hashedPassword = await hashPassword(newPassword);
       await execute(
         `UPDATE AppUser SET
           username = ?, isActive = ?, role = ?,
@@ -48,7 +50,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
           viewUsers = ?, createUsers = ?, editUsers = ?, deleteUsers = ?,
           viewActivityLog = ?, password = ?, updatedAt = NOW()
         WHERE id = ?`,
-        [...baseParams, String(body.password || "").trim(), userId]
+        [...baseParams, hashedPassword, userId]
       );
     } else {
       await execute(
@@ -73,18 +75,16 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     return NextResponse.json(cleanUser(updatedUser));
   } catch (error: any) {
     console.error("PATCH /api/users/[id] error:", error);
-    return NextResponse.json({ error: "Failed to update user", message: error?.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const currentUser = await getCurrentUser();
+    const auth = await requirePermission("deleteUsers");
+    if (isErrorResponse(auth)) return auth;
 
-    if (!currentUser || Number(currentUser.deleteUsers) !== 1) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
+    const { user: currentUser } = auth;
     const { id } = await context.params;
     const userId = Number(id);
     const user = await queryOne<any>("SELECT * FROM AppUser WHERE id = ? LIMIT 1", [userId]);
@@ -103,6 +103,6 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error("DELETE /api/users/[id] error:", error);
-    return NextResponse.json({ error: "Failed to delete user", message: error?.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
   }
 }

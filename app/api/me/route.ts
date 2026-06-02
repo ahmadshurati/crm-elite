@@ -1,18 +1,16 @@
 import { NextResponse } from "next/server";
-import { cleanUser, getCurrentUser } from "@/lib/auth";
+import { cleanUser } from "@/lib/auth";
+import { isErrorResponse, requireUser } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const user = await getCurrentUser();
+    const auth = await requireUser();
+    if (isErrorResponse(auth)) return auth;
 
-    if (!user || Number(user.isActive) !== 1) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-
-    return NextResponse.json(cleanUser(user));
+    return NextResponse.json(cleanUser(auth.user));
   } catch (error: any) {
     console.error("GET /api/me error:", error);
     return NextResponse.json({ error: "Failed to load user", message: error?.message }, { status: 500 });

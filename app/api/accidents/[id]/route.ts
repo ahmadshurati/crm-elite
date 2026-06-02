@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { execute, query, queryOne } from "@/lib/db";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ async function getAccident(id: number) {
 }
 
 export async function GET(req: Request, context: { params: Promise<{ id: string }> }) {
+  const auth = await requirePermission("viewAccidents");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     const { id } = await context.params;
     return NextResponse.json(await getAccident(Number(id)));
@@ -26,6 +30,9 @@ export async function GET(req: Request, context: { params: Promise<{ id: string 
 }
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
+  const auth = await requirePermission("editAccidents");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     const { id } = await context.params;
     const body = await req.json();

@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { queryOne } from "@/lib/db";
+import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
 export type CurrentUser = {
   id: number;
@@ -26,11 +27,19 @@ export type CurrentUser = {
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
-  const userId = Number(cookieStore.get("elite_user_id")?.value || 0);
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
 
-  if (!userId) return null;
+  if (!token) {
+    return null;
+  }
 
-  return queryOne<CurrentUser>("SELECT * FROM AppUser WHERE id = ? LIMIT 1", [userId]);
+  const session = await verifySessionToken(token);
+
+  if (!session) {
+    return null;
+  }
+
+  return queryOne<CurrentUser>("SELECT * FROM AppUser WHERE id = ? LIMIT 1", [session.userId]);
 }
 
 export function cleanUser(user: any) {

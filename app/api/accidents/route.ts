@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { execute, query } from "@/lib/db";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +20,9 @@ async function getAccidents() {
 }
 
 export async function GET() {
+  const auth = await requirePermission("viewAccidents");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     return NextResponse.json(await getAccidents());
   } catch (error: any) {
@@ -28,6 +32,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("createAccidents");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     const body = await req.json();
 

@@ -12,6 +12,8 @@
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "@vercel/blob": "^2.3.3",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.3",
     "lucide-react": "^1.8.0",
     "mysql2": "^3.22.3",
     "next": "16.2.3",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

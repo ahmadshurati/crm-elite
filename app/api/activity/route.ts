@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
 import { execute, query } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { isErrorResponse, requirePermission, requireUser } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const currentUser = await getCurrentUser();
-
-    if (!currentUser || Number(currentUser.viewActivityLog) !== 1) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requirePermission("viewActivityLog");
+    if (isErrorResponse(auth)) return auth;
 
     const logs = await query<any>("SELECT * FROM ActivityLog ORDER BY id DESC LIMIT 200");
     return NextResponse.json(logs);
@@ -23,11 +20,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
+    const auth = await requireUser();
+    if (isErrorResponse(auth)) return auth;
+    const { user: currentUser } = auth;
 
     const body = await req.json();
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { execute, query } from "@/lib/db";
+import { isErrorResponse, requireAnyPermission, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -137,6 +138,9 @@ async function getFullCustomers() {
 }
 
 export async function GET() {
+  const auth = await requireAnyPermission("viewSubscribers", "viewAccounting");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     return NextResponse.json(await getFullCustomers());
   } catch (error: any) {
@@ -153,6 +157,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const auth = await requirePermission("createSubscribers");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     const body = await req.json();
 

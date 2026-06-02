@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { execute, queryOne } from "@/lib/db";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,9 +101,11 @@ export async function PATCH(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params;
-
     const body = await req.json();
+    const auth = await requirePermission("editSubscribers");
+    if (isErrorResponse(auth)) return auth;
+
+    const { id } = await context.params;
 
     const customerId = Number(id);
 
@@ -405,6 +408,9 @@ export async function DELETE(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requirePermission("deleteSubscribers");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     const { id } = await context.params;
 

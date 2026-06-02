@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { execute, queryOne } from "@/lib/db";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
+  const auth = await requirePermission("editAccidents");
+  if (isErrorResponse(auth)) return auth;
+
   try {
     const { id } = await context.params;
     const body = await req.json();

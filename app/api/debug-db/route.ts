@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { assertDebugAccess } from "@/lib/debug-access";
 import { queryOne } from "@/lib/db";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  const denied = assertDebugAccess(req);
+  if (denied) return denied;
+
   try {
     const users = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AppUser");
     const logs = await queryOne<{ count: number }>("SELECT COUNT(*) as count FROM ActivityLog");
@@ -15,9 +19,6 @@ export async function GET() {
       logsCount: Number(logs?.count || 0),
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { ok: false, message: error?.message, code: error?.code, name: error?.name },
-      { status: 500 }
-    );
+    return NextResponse.json({ ok: false, error: "Database check failed" }, { status: 500 });
   }
 }
