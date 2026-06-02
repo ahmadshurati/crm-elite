@@ -30,6 +30,7 @@ import {
   CartesianGrid,
   YAxis,
 } from "recharts";
+import { useModalA11y } from "@/lib/modal-a11y";
 
 const CUSTOMERS_API_URL = "/api/customers";
 const ACCIDENTS_API_URL = "/api/accidents";
@@ -1456,6 +1457,7 @@ function AddAccidentModal({
   onClose: () => void;
   onSave: (accident: Omit<AccidentCase, "id" | "updates">) => void;
 }) {
+  useModalA11y(true, onClose);
   const [query, setQuery] = useState("");
   const [selectedCustomerKey, setSelectedCustomerKey] = useState("");
   const [selectedCarId, setSelectedCarId] = useState("");
@@ -1524,23 +1526,35 @@ function AddAccidentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
-      <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-accident-title"
+        className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+      >
         <button
+          type="button"
           onClick={onClose}
+          aria-label="إغلاق"
           className="absolute left-5 top-5 rounded-full bg-white p-2 shadow hover:bg-gray-100"
         >
           <X className="h-5 w-5" />
         </button>
 
-        <h3 className="text-2xl font-bold text-[#1F2937]">إضافة حالة حادث جديدة</h3>
+        <h3 id="add-accident-title" className="text-2xl font-bold text-[#1F2937]">
+          إضافة حالة حادث جديدة
+        </h3>
         <p className="mt-1 text-sm text-[#707A84]">
           اختار الزبون حسب الاسم أو رقم الهاتف أو رقم السيارة
         </p>
 
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="md:col-span-2">
-            <label className={labelClass}>بحث عن الزبون</label>
+            <label htmlFor="add-accident-search" className={labelClass}>
+              بحث عن الزبون
+            </label>
             <input
+              id="add-accident-search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className={inputClass}
@@ -1619,8 +1633,11 @@ function AddAccidentModal({
           )}
 
           <div className="md:col-span-2">
-            <label className={labelClass}>تفاصيل الحادث</label>
+            <label htmlFor="add-accident-details" className={labelClass}>
+              تفاصيل الحادث
+            </label>
             <textarea
+              id="add-accident-details"
               value={details}
               onChange={(e) => setDetails(e.target.value)}
               className="min-h-[140px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#0F8B94]"
@@ -1655,11 +1672,16 @@ function AccidentDetailsModal({
   accident,
   onClose,
   onSave,
+  canDelete,
+  onDelete,
 }: {
   accident: AccidentCase;
   onClose: () => void;
   onSave: (accident: AccidentCase) => void;
+  canDelete?: boolean;
+  onDelete?: (id: number) => void;
 }) {
+  useModalA11y(true, onClose);
   const [localAccident, setLocalAccident] = useState<AccidentCase>(accident);
   const [newUpdate, setNewUpdate] = useState("");
 
@@ -1691,9 +1713,16 @@ function AccidentDetailsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
-      <div className="relative max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-[#F7F8FA] p-6 shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="accident-details-title"
+        className="relative max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-[#F7F8FA] p-6 shadow-2xl"
+      >
         <button
+          type="button"
           onClick={onClose}
+          aria-label="إغلاق"
           className="absolute left-5 top-5 z-10 rounded-full bg-white p-2 shadow hover:bg-gray-100"
         >
           <X className="h-5 w-5" />
@@ -1702,7 +1731,7 @@ function AccidentDetailsModal({
         <div className="rounded-3xl border border-[#E5E7EB] bg-white p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h3 className="text-2xl font-bold text-[#1F2937]">
+              <h3 id="accident-details-title" className="text-2xl font-bold text-[#1F2937]">
                 حالة حادث: {localAccident.caseNumber}
               </h3>
               <p className="mt-2 text-sm text-[#707A84]">
@@ -1752,10 +1781,11 @@ function AccidentDetailsModal({
           </div>
 
           <div className="mt-6">
-            <label className="mb-2 block text-sm font-bold text-[#374151]">
+            <label htmlFor="accident-details-text" className="mb-2 block text-sm font-bold text-[#374151]">
               تفاصيل الحادث
             </label>
             <textarea
+              id="accident-details-text"
               value={localAccident.details}
               onChange={(e) =>
                 setLocalAccident((prev) => ({
@@ -1794,11 +1824,12 @@ function AccidentDetailsModal({
           </div>
 
           <div className="mt-6">
-            <label className="mb-2 block text-sm font-bold text-[#374151]">
+            <label htmlFor="accident-new-update" className="mb-2 block text-sm font-bold text-[#374151]">
               إضافة تحديث جديد
             </label>
 
             <textarea
+              id="accident-new-update"
               value={newUpdate}
               onChange={(e) => setNewUpdate(e.target.value)}
               className="min-h-[110px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#0F8B94]"
@@ -1829,6 +1860,16 @@ function AccidentDetailsModal({
               >
                 رجوع بدون حفظ
               </button>
+
+              {canDelete && onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(localAccident.id)}
+                  className="rounded-2xl bg-rose-600 px-6 py-3 font-bold text-white"
+                >
+                  حذف الحادث
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1983,6 +2024,7 @@ function DocumentsModal({
   subscriber: Subscriber;
   onClose: () => void;
 }) {
+  useModalA11y(true, onClose);
   const documentsList = [
     {
       label: "صورة وثيقة التأمين",
@@ -1996,16 +2038,23 @@ function DocumentsModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
-      <div className="relative max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-3xl bg-[#F7F8FA] p-6 shadow-2xl">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="documents-modal-title"
+        className="relative max-h-[90vh] w-full max-w-6xl overflow-y-auto rounded-3xl bg-[#F7F8FA] p-6 shadow-2xl"
+      >
         <button
+          type="button"
           onClick={onClose}
+          aria-label="إغلاق"
           className="absolute left-5 top-5 z-10 rounded-full bg-white p-2 shadow hover:bg-gray-100"
         >
           <X className="h-5 w-5" />
         </button>
 
         <div className="mb-6 pr-2">
-          <h3 className="text-2xl font-bold text-[#1F2937]">
+          <h3 id="documents-modal-title" className="text-2xl font-bold text-[#1F2937]">
             مستندات {subscriber.subscriberName}
           </h3>
           <p className="mt-1 text-sm text-[#707A84]">
@@ -2572,10 +2621,12 @@ function AccountingDashboard({
   subscribers,
   loading,
   onEdit,
+  canExport,
 }: {
   subscribers: Subscriber[];
   loading: boolean;
   onEdit: (subscriber: Subscriber) => void;
+  canExport?: boolean;
 }) {
   const [paymentFilter, setPaymentFilter] = useState<
     "all" | "paid" | "partial" | "unpaid" | "checks" | "remaining"
@@ -2670,9 +2721,22 @@ function AccountingDashboard({
             </p>
           </div>
 
-          <span className="rounded-full bg-[#E7F6F5] px-4 py-2 text-[13px] font-bold text-[#0F8B94]">
-            {subscribers.length} مشترك
-          </span>
+          <div className="flex flex-wrap items-center gap-3">
+            {canExport && (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/api/customers/export";
+                }}
+                className="rounded-2xl border border-[#0F8B94] bg-white px-4 py-2 text-[13px] font-bold text-[#0F8B94] hover:bg-[#E7F6F5]"
+              >
+                تصدير CSV
+              </button>
+            )}
+            <span className="rounded-full bg-[#E7F6F5] px-4 py-2 text-[13px] font-bold text-[#0F8B94]">
+              {subscribers.length} مشترك
+            </span>
+          </div>
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-4">
@@ -2918,6 +2982,13 @@ function AccountingDashboard({
 
 function ProfileDropdown({ user }: { user: AppUser | null }) {
   const [open, setOpen] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   const handleLogout = async () => {
     await fetch("/api/logout", { method: "POST" });
@@ -2925,6 +2996,50 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
   };
 
   const displayName = user?.username || "مستخدم";
+
+  const handlePasswordChange = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setPasswordMessage("");
+    setPasswordError("");
+
+    if (newPassword.length < 8) {
+      setPasswordError("كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError("كلمة المرور الجديدة وتأكيدها غير متطابقين");
+      return;
+    }
+
+    try {
+      setPasswordSaving(true);
+
+      const res = await fetch("/api/me/password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setPasswordError(String(data.error || "فشل تغيير كلمة المرور"));
+        return;
+      }
+
+      setPasswordMessage("تم تغيير كلمة المرور بنجاح");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPasswordForm(false);
+    } catch (error) {
+      console.error("Password change error:", error);
+      setPasswordError("صار خطأ أثناء تغيير كلمة المرور");
+    } finally {
+      setPasswordSaving(false);
+    }
+  };
 
   return (
     <div className="relative">
@@ -2956,6 +3071,77 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                 <span className="mt-3 inline-block rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94]">
                   Master User
                 </span>
+              )}
+            </div>
+
+            <div className="border-b border-[#EEF1F4] p-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordForm((prev) => !prev);
+                  setPasswordMessage("");
+                  setPasswordError("");
+                }}
+                className="block w-full px-0 py-1 text-right text-sm font-bold text-[#0F8B94] hover:text-[#0B6E75]"
+              >
+                {showPasswordForm ? "إخفاء تغيير كلمة المرور" : "تغيير كلمة المرور"}
+              </button>
+
+              {showPasswordForm && (
+                <form onSubmit={handlePasswordChange} className="mt-3 space-y-3">
+                  <div>
+                    <label htmlFor="profile-current-password" className="mb-1 block text-xs text-[#707A84]">
+                      كلمة المرور الحالية
+                    </label>
+                    <input
+                      id="profile-current-password"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#0F8B94]"
+                      autoComplete="current-password"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="profile-new-password" className="mb-1 block text-xs text-[#707A84]">
+                      كلمة المرور الجديدة
+                    </label>
+                    <input
+                      id="profile-new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#0F8B94]"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="profile-confirm-password" className="mb-1 block text-xs text-[#707A84]">
+                      تأكيد كلمة المرور
+                    </label>
+                    <input
+                      id="profile-confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#0F8B94]"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                  {passwordError && (
+                    <p className="text-xs font-bold text-rose-600">{passwordError}</p>
+                  )}
+                  {passwordMessage && (
+                    <p className="text-xs font-bold text-[#0F8B94]">{passwordMessage}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={passwordSaving}
+                    className="w-full rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                  >
+                    {passwordSaving ? "جاري الحفظ..." : "حفظ كلمة المرور"}
+                  </button>
+                </form>
               )}
             </div>
 
@@ -4194,7 +4380,9 @@ export default function Home() {
     loadDatabaseData(1, 1);
   }, [activeMenu, search, currentUser]);
 
-  const activeSubscribers = subscribers.filter((s) => s.insuranceStatus === "فعال");
+  const activeSubscribers = subscribers.filter(
+    (s) => s.insuranceStatus === "فعال" || s.insuranceStatus === "جديد"
+  );
 
   const inactiveSubscribers = subscribers.filter(
     (s) => s.insuranceStatus === "غير فعال" || s.insuranceStatus === "منتهي"
@@ -4207,7 +4395,7 @@ export default function Home() {
     return subscribers.some((item) => {
       if (Number(item.customerId) !== Number(subscriber.customerId)) return false;
       if (Number(item.id) === Number(subscriber.id)) return false;
-      if (item.insuranceStatus !== "فعال") return false;
+      if (item.insuranceStatus !== "فعال" && item.insuranceStatus !== "جديد") return false;
 
       const itemEndDate = parseEndDate(item.endDate);
       if (!itemEndDate) return false;
@@ -4239,6 +4427,7 @@ export default function Home() {
   const canViewAccidents = Boolean(currentUser?.viewAccidents);
   const canCreateAccidents = Boolean(currentUser?.createAccidents);
   const canEditAccidents = Boolean(currentUser?.editAccidents);
+  const canDeleteAccidents = Boolean(currentUser?.deleteAccidents);
   const canViewAccounting = Boolean(currentUser?.viewAccounting);
   const canEditPayments = Boolean(currentUser?.editPayments);
   const canViewUsers = Boolean(currentUser?.viewUsers);
@@ -4605,6 +4794,36 @@ export default function Home() {
     }
   };
 
+  const handleDeleteAccident = async (id: number) => {
+    if (!canDeleteAccidents) {
+      alert("لا يوجد لديك صلاحية حذف الحوادث");
+      return;
+    }
+
+    const ok = confirm("هل أنت متأكد أنك تريد حذف هذا الحادث؟");
+    if (!ok) return;
+
+    try {
+      setLoading(true);
+
+      const res = await fetch(`${ACCIDENTS_API_URL}/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to delete accident");
+      }
+
+      setSelectedAccident(null);
+      await loadDatabaseData();
+    } catch (error) {
+      console.error("Delete accident error:", error);
+      alert("صار خطأ أثناء حذف الحادث");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sidebarApps = [
     canViewSubscribers
       ? {
@@ -4778,6 +4997,7 @@ export default function Home() {
           subscribers={filteredSubscribers(subscribers)}
           loading={loading}
           onEdit={canEditPayments ? handleEdit : () => alert("لا يوجد لديك صلاحية تعديل المدفوعات")}
+          canExport={canViewAccounting}
         />
       );
     }
@@ -5047,6 +5267,8 @@ export default function Home() {
           accident={selectedAccident}
           onClose={() => setSelectedAccident(null)}
           onSave={handleSaveAccidentDetails}
+          canDelete={canDeleteAccidents}
+          onDelete={handleDeleteAccident}
         />
       )}
     </div>

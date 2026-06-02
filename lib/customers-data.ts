@@ -25,7 +25,7 @@ async function expireInsurances() {
 function buildInsuranceFilterClause(filter: string) {
   switch (filter) {
     case "active":
-      return "i.status = 'فعال' AND i.endDate >= CURDATE()";
+      return "(i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE())";
     case "inactive":
       return "(i.status IN ('غير فعال', 'منتهي') OR i.endDate < CURDATE())";
     case "renewals-this-month":
@@ -60,10 +60,10 @@ async function getCustomerStats(): Promise<CustomerStats> {
   const [activePolicies, activeCustomers, totalCustomers, openAccidents, renewalsThisMonth] =
     await Promise.all([
       queryOne<{ count: number }>(
-        "SELECT COUNT(*) as count FROM Insurance WHERE status = 'فعال' AND endDate >= CURDATE()"
+        "SELECT COUNT(*) as count FROM Insurance WHERE status IN ('فعال', 'جديد') AND endDate >= CURDATE()"
       ),
       queryOne<{ count: number }>(
-        "SELECT COUNT(DISTINCT customerId) as count FROM Insurance WHERE status = 'فعال' AND endDate >= CURDATE()"
+        "SELECT COUNT(DISTINCT customerId) as count FROM Insurance WHERE status IN ('فعال', 'جديد') AND endDate >= CURDATE()"
       ),
       queryOne<{ count: number }>("SELECT COUNT(*) as count FROM Customer"),
       queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AccidentCase WHERE status = 'مفتوح'"),

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
-import { execute, query, queryOne } from "@/lib/db";
+import { execute, query, queryOne, withTransaction } from "@/lib/db";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
@@ -75,5 +75,47 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   } catch (error: any) {
     console.error("PATCH /api/accidents/[id] error:", error);
     return NextResponse.json({ error: "Failed to update accident", message: error?.message }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+  const auth = await requirePermission("deleteAccidents");
+  if (isErrorResponse(auth)) return auth;
+  const { user: currentUser } = auth;
+
+  try {
+    const { id } = await context.params;
+    const accidentId = Number(id);
+
+    if (!Number.isFinite(accidentId) || accidentId <= 0) {
+      return NextResponse.json({ error: "Invalid accident id" }, { status: 400 });
+    }
+
+    const existing = await queryOne<any>(
+      "SELECT id, caseNumber, details FROM AccidentCase WHERE id = ? LIMIT 1",
+      [accidentId]
+    );
+
+    if (!existing) {
+      return NextResponse.json({ error: "Accident not found" }, { status: 404 });
+    }
+
+    await withTransaction(async (tx) => {
+      await tx.execute("DELETE FROM AccidentUpdate WHERE accidentCaseId = ?", [accidentId]);
+      await tx.execute("DELETE FROM AccidentCase WHERE id = ?", [accidentId]);
+    });
+
+    await writeActivityLog(
+      currentUser,
+      "حذف حادث",
+      "الحوادث",
+      `${String(existing.caseNumber || "")} - ${String(existing.details || "").slice(0, 80)}`,
+      accidentId
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    console.error("DELETE /api/accidents/[id] error:", error);
+    return NextResponse.json({ error: "Failed to delete accident", message: error?.message }, { status: 500 });
   }
 }
