@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
 import { execute, query, withTransaction } from "@/lib/db";
+import { getCustomerGraphById, getPaginatedCustomers } from "@/lib/customers-data";
 import { assertCustomerExists, OwnershipError } from "@/lib/ownership";
+import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requireAnyPermission, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
@@ -54,97 +56,18 @@ function buildDocumentRows(insuranceId: number, body: any) {
   return rows;
 }
 
-async function getFullCustomers() {
-  await execute(
-    "UPDATE Insurance SET status = 'منتهي' WHERE endDate < CURDATE() AND status NOT IN ('منتهي', 'غير فعال')",
-    []
-  );
-
-  const customers = await query<any>("SELECT * FROM Customer ORDER BY id DESC");
-  const cars = await query<any>("SELECT * FROM Car ORDER BY id DESC");
-  const insurances = await query<any>("SELECT * FROM Insurance ORDER BY id DESC");
-  const documents = await query<any>("SELECT * FROM Document ORDER BY id ASC");
-  const checks = await query<any>("SELECT * FROM PaymentCheck ORDER BY id ASC");
-  const accidents = await query<any>("SELECT * FROM AccidentCase ORDER BY id DESC");
-  const updates = await query<any>("SELECT * FROM AccidentUpdate ORDER BY id ASC");
-
-  const documentsByInsurance = new Map<number, any[]>();
-  documents.forEach((doc) => {
-    const key = Number(doc.insuranceId);
-    documentsByInsurance.set(key, [...(documentsByInsurance.get(key) || []), doc]);
-  });
-
-  const checksByInsurance = new Map<number, any[]>();
-  checks.forEach((check) => {
-    const key = Number(check.insuranceId);
-    checksByInsurance.set(key, [...(checksByInsurance.get(key) || []), check]);
-  });
-
-  const insurancesByCar = new Map<number, any[]>();
-  insurances.forEach((insurance) => {
-    const key = Number(insurance.carId);
-    const fullInsurance = {
-      ...insurance,
-      documents: documentsByInsurance.get(Number(insurance.id)) || [],
-      checks: checksByInsurance.get(Number(insurance.id)) || [],
-    };
-
-    insurancesByCar.set(key, [
-      ...(insurancesByCar.get(key) || []),
-      fullInsurance,
-    ]);
-  });
-
-  const updatesByAccident = new Map<number, any[]>();
-  updates.forEach((update) => {
-    const key = Number(update.accidentCaseId);
-    updatesByAccident.set(key, [
-      ...(updatesByAccident.get(key) || []),
-      update,
-    ]);
-  });
-
-  const carsByCustomer = new Map<number, any[]>();
-  cars.forEach((car) => {
-    const key = Number(car.customerId);
-    carsByCustomer.set(key, [
-      ...(carsByCustomer.get(key) || []),
-      {
-        ...car,
-        insurances: insurancesByCar.get(Number(car.id)) || [],
-      },
-    ]);
-  });
-
-  const accidentsByCustomer = new Map<number, any[]>();
-  accidents.forEach((accident) => {
-    const key = Number(accident.customerId);
-    const car =
-      cars.find((row) => Number(row.id) === Number(accident.carId)) || null;
-
-    accidentsByCustomer.set(key, [
-      ...(accidentsByCustomer.get(key) || []),
-      {
-        ...accident,
-        car,
-        updates: updatesByAccident.get(Number(accident.id)) || [],
-      },
-    ]);
-  });
-
-  return customers.map((customer) => ({
-    ...customer,
-    cars: carsByCustomer.get(Number(customer.id)) || [],
-    accidents: accidentsByCustomer.get(Number(customer.id)) || [],
-  }));
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireAnyPermission("viewSubscribers", "viewAccounting");
   if (isErrorResponse(auth)) return auth;
 
   try {
-    return NextResponse.json(await getFullCustomers());
+    const url = new URL(req.url);
+    const { page, limit, offset } = parsePaginationParams(url);
+    const filter = String(url.searchParams.get("filter") || "all");
+    const search = String(url.searchParams.get("q") || "");
+
+    const result = await getPaginatedCustomers({ page, limit, offset, filter, search });
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("GET /api/customers error:", error);
 
@@ -289,9 +212,7 @@ export async function POST(req: Request) {
       return { customerId: resolvedCustomerId, insuranceId: resolvedInsuranceId };
     });
 
-    const fullCustomer = (await getFullCustomers()).find(
-      (customer) => Number(customer.id) === customerId
-    );
+    const fullCustomer = await getCustomerGraphById(customerId);
 
     await writeActivityLog(
       currentUser,

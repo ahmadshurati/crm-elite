@@ -34,6 +34,77 @@ import {
 const CUSTOMERS_API_URL = "/api/customers";
 const ACCIDENTS_API_URL = "/api/accidents";
 
+const DEFAULT_PAGE_LIMIT = 50;
+
+type PaginationMeta = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type DashboardStats = {
+  activePolicies: number;
+  activeCustomers: number;
+  totalCustomers: number;
+  openAccidents: number;
+  renewalsThisMonth: number;
+};
+
+function mapMenuToCustomerFilter(menu: MenuKey) {
+  switch (menu) {
+    case "active-subscribers":
+    case "active-customers":
+      return "active";
+    case "inactive-subscribers":
+      return "inactive";
+    case "renewals-this-month":
+      return "renewals-this-month";
+    default:
+      return "all";
+  }
+}
+
+function TablePagination({
+  pagination,
+  onPageChange,
+  loading,
+}: {
+  pagination: PaginationMeta | null;
+  onPageChange: (page: number) => void;
+  loading?: boolean;
+}) {
+  if (!pagination || pagination.totalPages <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center justify-between border-t border-[#EEF1F4] px-5 py-4 text-[13px] text-[#707A84]">
+      <span>
+        صفحة {pagination.page} من {pagination.totalPages} ({pagination.total} سجل)
+      </span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={loading || pagination.page <= 1}
+          onClick={() => onPageChange(pagination.page - 1)}
+          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 font-bold text-[#0F8B94] transition hover:bg-[#F1FBFA] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          السابق
+        </button>
+        <button
+          type="button"
+          disabled={loading || pagination.page >= pagination.totalPages}
+          onClick={() => onPageChange(pagination.page + 1)}
+          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 font-bold text-[#0F8B94] transition hover:bg-[#F1FBFA] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          التالي
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type MenuKey =
   | "active-subscribers"
   | "active-customers"
@@ -1147,6 +1218,8 @@ function SubscribersTable({
   data,
   title,
   loading,
+  pagination,
+  onPageChange,
   onViewDocuments,
   onOpenHistory,
   onEdit,
@@ -1155,6 +1228,8 @@ function SubscribersTable({
   data: Subscriber[];
   title: string;
   loading: boolean;
+  pagination?: PaginationMeta | null;
+  onPageChange?: (page: number) => void;
   onViewDocuments: (subscriber: Subscriber) => void;
   onOpenHistory: (subscriber: Subscriber) => void;
   onEdit: (subscriber: Subscriber) => void;
@@ -1166,7 +1241,7 @@ function SubscribersTable({
         <div>
           <h3 className="text-[18px] font-semibold text-[#1F2937]">{title}</h3>
           <p className="mt-1 text-[13px] text-[#707A84]">
-            {loading ? "جاري تحميل البيانات..." : `عدد السجلات: ${data.length}`}
+            {loading ? "جاري تحميل البيانات..." : pagination ? `عدد السجلات: ${pagination.total} (الصفحة ${pagination.page})` : `عدد السجلات: ${data.length}`}
           </p>
         </div>
       </div>
@@ -1292,22 +1367,29 @@ function SubscribersTable({
           </tbody>
         </table>
       </div>
+      <TablePagination pagination={pagination || null} onPageChange={onPageChange || (() => {})} loading={loading} />
     </section>
   );
 }
 
 function AccidentTable({
   data,
+  loading,
+  pagination,
+  onPageChange,
   onOpenCase,
 }: {
   data: AccidentCase[];
+  loading?: boolean;
+  pagination?: PaginationMeta | null;
+  onPageChange?: (page: number) => void;
   onOpenCase: (accident: AccidentCase) => void;
 }) {
   return (
     <section className="mt-8 rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
       <div className="border-b border-[#EEF1F4] px-6 py-5">
         <h3 className="text-[20px] font-semibold">حالات الحوادث</h3>
-        <p className="mt-1 text-[14px] text-[#707A84]">عدد الحالات: {data.length}</p>
+        <p className="mt-1 text-[14px] text-[#707A84]">{pagination ? `عدد الحالات: ${pagination.total} (الصفحة ${pagination.page})` : `عدد الحالات: ${data.length}`}</p>
       </div>
 
       <table className="min-w-full text-right text-sm">
@@ -1360,6 +1442,7 @@ function AccidentTable({
           )}
         </tbody>
       </table>
+      <TablePagination pagination={pagination || null} onPageChange={onPageChange || (() => {})} loading={loading} />
     </section>
   );
 }
@@ -4028,6 +4111,11 @@ export default function Home() {
   const [selectedAccident, setSelectedAccident] = useState<AccidentCase | null>(null);
   const [addAccidentOpen, setAddAccidentOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [customersPage, setCustomersPage] = useState(1);
+  const [accidentsPage, setAccidentsPage] = useState(1);
+  const [customersPagination, setCustomersPagination] = useState<PaginationMeta | null>(null);
+  const [accidentsPagination, setAccidentsPagination] = useState<PaginationMeta | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [sheetError, setSheetError] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -4048,32 +4136,42 @@ export default function Home() {
   };
 
 
-  const loadDatabaseData = async () => {
+  const loadDatabaseData = async (
+    nextCustomersPage = customersPage,
+    nextAccidentsPage = accidentsPage
+  ) => {
     try {
       setLoading(true);
       setSheetError("");
 
-      const [customersRes, accidentsRes] = await Promise.all([
-        fetch(CUSTOMERS_API_URL, { cache: "no-store" }),
-        fetch(ACCIDENTS_API_URL, { cache: "no-store" }),
-      ]);
+      const customerFilter = mapMenuToCustomerFilter(activeMenu);
+      const searchQuery = encodeURIComponent(search.trim());
+      const customersUrl = `${CUSTOMERS_API_URL}?page=${nextCustomersPage}&limit=${DEFAULT_PAGE_LIMIT}&filter=${customerFilter}&q=${searchQuery}`;
+      const accidentsUrl = `${ACCIDENTS_API_URL}?page=${nextAccidentsPage}&limit=${DEFAULT_PAGE_LIMIT}&q=${searchQuery}`;
 
+      const customersRes = await fetch(customersUrl, { cache: "no-store" });
       if (!customersRes.ok) throw new Error("Failed to load customers");
-      if (!accidentsRes.ok) throw new Error("Failed to load accidents");
 
-      const customersData = await customersRes.json();
-      const accidentsData = await accidentsRes.json();
+      const customersPayload = await customersRes.json();
+      const customerItems = Array.isArray(customersPayload?.items) ? customersPayload.items : [];
 
-      const formattedSubscribers = mapDbCustomersToSubscribers(
-        Array.isArray(customersData) ? customersData : []
-      );
+      let accidentItems: any[] = [];
+      let accidentsPayload: any = null;
 
-      const formattedAccidents = Array.isArray(accidentsData)
-        ? accidentsData.map(mapDbAccidentToCase)
-        : [];
+      if (canViewAccidents) {
+        const accidentsRes = await fetch(accidentsUrl, { cache: "no-store" });
+        if (!accidentsRes.ok) throw new Error("Failed to load accidents");
+        accidentsPayload = await accidentsRes.json();
+        accidentItems = Array.isArray(accidentsPayload?.items) ? accidentsPayload.items : [];
+      }
 
-      setSubscribers(formattedSubscribers);
-      setAccidentCases(formattedAccidents);
+      setSubscribers(mapDbCustomersToSubscribers(customerItems));
+      setAccidentCases(accidentItems.map(mapDbAccidentToCase));
+      setCustomersPagination(customersPayload?.pagination || null);
+      setAccidentsPagination(accidentsPayload?.pagination || null);
+      setDashboardStats(customersPayload?.stats || null);
+      setCustomersPage(nextCustomersPage);
+      setAccidentsPage(nextAccidentsPage);
     } catch (error) {
       console.error("Database load error:", error);
       setSheetError("صار خطأ بتحميل بيانات قاعدة البيانات");
@@ -4084,8 +4182,17 @@ export default function Home() {
 
   useEffect(() => {
     loadCurrentUser();
-    loadDatabaseData();
   }, []);
+
+  useEffect(() => {
+    setCustomersPage(1);
+    setAccidentsPage(1);
+  }, [activeMenu, search]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    loadDatabaseData(1, 1);
+  }, [activeMenu, search, currentUser]);
 
   const activeSubscribers = subscribers.filter((s) => s.insuranceStatus === "فعال");
 
@@ -4579,6 +4686,8 @@ export default function Home() {
           data={filteredSubscribers(activeSubscribers)}
           title="التأمينات الفعالة"
           loading={loading}
+          pagination={customersPagination}
+          onPageChange={(page) => loadDatabaseData(page, accidentsPage)}
           onViewDocuments={setDocumentsPreview}
           onOpenHistory={setHistoryPreview}
           onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
@@ -4603,6 +4712,8 @@ export default function Home() {
           data={filteredSubscribers(inactiveSubscribers)}
           title="المشتركين غير الفعالين"
           loading={loading}
+          pagination={customersPagination}
+          onPageChange={(page) => loadDatabaseData(page, accidentsPage)}
           onViewDocuments={setDocumentsPreview}
           onOpenHistory={setHistoryPreview}
           onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
@@ -4694,6 +4805,9 @@ export default function Home() {
 
         <AccidentTable
           data={accidentCases}
+          loading={loading}
+          pagination={accidentsPagination}
+          onPageChange={(page) => loadDatabaseData(customersPage, page)}
           onOpenCase={(accident) => canEditAccidents ? setSelectedAccident(accident) : alert("لا يوجد لديك صلاحية تعديل الحوادث")}
         />
       </>
@@ -4807,17 +4921,17 @@ export default function Home() {
             )}
 
             <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-5">
-              <StatCard label="تأمينات فعالة" value={activeSubscribers.length} helper="Active policies" />
-              <StatCard label="مشتركين فعالين" value={customerNodes.filter((customer) => customer.cars.some((car) => car.insuranceStatus === "فعال")).length} helper="Active clients" />
-              <StatCard label="عملاء بالسجل" value={customerNodes.length} helper="History" />
+              <StatCard label="تأمينات فعالة" value={dashboardStats?.activePolicies ?? activeSubscribers.length} helper="Active policies" />
+              <StatCard label="مشتركين فعالين" value={dashboardStats?.activeCustomers ?? customerNodes.filter((customer) => customer.cars.some((car) => car.insuranceStatus === "فعال")).length} helper="Active clients" />
+              <StatCard label="عملاء بالسجل" value={dashboardStats?.totalCustomers ?? customerNodes.length} helper="History" />
               <StatCard
                 label="حوادث مفتوحة"
-                value={accidentCases.filter((a) => a.status === "مفتوح").length}
+                value={dashboardStats?.openAccidents ?? accidentCases.filter((a) => a.status === "مفتوح").length}
                 helper="Open"
               />
               <StatCard
                 label="تجديدات هذا الشهر"
-                value={renewalsThisMonthCount}
+                value={dashboardStats?.renewalsThisMonth ?? renewalsThisMonthCount}
                 helper="Renewals"
               />
             </div>

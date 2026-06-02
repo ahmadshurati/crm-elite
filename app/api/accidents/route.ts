@@ -1,32 +1,26 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
 import { execute, query } from "@/lib/db";
+import { getAccidentById, getPaginatedAccidents } from "@/lib/accidents-data";
 import { assertCarBelongsToCustomer, OwnershipError } from "@/lib/ownership";
+import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function getAccidents() {
-  const accidents = await query<any>("SELECT * FROM AccidentCase ORDER BY id DESC");
-  const customers = await query<any>("SELECT * FROM Customer");
-  const cars = await query<any>("SELECT * FROM Car");
-  const updates = await query<any>("SELECT * FROM AccidentUpdate ORDER BY id ASC");
-
-  return accidents.map((accident) => ({
-    ...accident,
-    customer: customers.find((customer) => Number(customer.id) === Number(accident.customerId)) || null,
-    car: cars.find((car) => Number(car.id) === Number(accident.carId)) || null,
-    updates: updates.filter((update) => Number(update.accidentCaseId) === Number(accident.id)),
-  }));
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requirePermission("viewAccidents");
   if (isErrorResponse(auth)) return auth;
 
   try {
-    return NextResponse.json(await getAccidents());
+    const url = new URL(req.url);
+    const { page, limit, offset } = parsePaginationParams(url);
+    const filter = String(url.searchParams.get("filter") || "all");
+    const search = String(url.searchParams.get("q") || "");
+
+    const result = await getPaginatedAccidents({ page, limit, offset, filter, search });
+    return NextResponse.json(result);
   } catch (error: any) {
     console.error("GET /api/accidents error:", error);
     return NextResponse.json({ error: "Failed to load accidents", message: error?.message }, { status: 500 });
@@ -60,7 +54,7 @@ export async function POST(req: Request) {
       ]
     );
 
-    const accident = (await getAccidents()).find((row) => Number(row.id) === result.insertId);
+    const accident = await getAccidentById(result.insertId);
 
     await writeActivityLog(
       currentUser,
