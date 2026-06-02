@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { execute, query } from "@/lib/db";
+import { writeActivityLog } from "@/lib/audit-log";
+import { execute, query, withTransaction } from "@/lib/db";
+import { assertCustomerExists, OwnershipError } from "@/lib/ownership";
 import { isErrorResponse, requireAnyPermission, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
@@ -159,6 +161,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requirePermission("createSubscribers");
   if (isErrorResponse(auth)) return auth;
+  const { user: currentUser } = auth;
 
   try {
     const body = await req.json();
@@ -187,197 +190,124 @@ export async function POST(req: Request) {
     const paymentMethod =
       paymentMethods.length > 0 ? paymentMethods.join(" + ") : "لاحقًا";
 
-    const existingCustomerId = Number(body.customerId || 0);
-    let customerId: number;
+    const { customerId, insuranceId } = await withTransaction(async (tx) => {
+      const existingCustomerId = Number(body.customerId || 0);
+      let resolvedCustomerId: number;
 
-    if (Number.isFinite(existingCustomerId) && existingCustomerId > 0) {
-      customerId = existingCustomerId;
+      if (Number.isFinite(existingCustomerId) && existingCustomerId > 0) {
+        resolvedCustomerId = existingCustomerId;
+        await assertCustomerExists(resolvedCustomerId);
 
-      await execute(
-        "UPDATE Customer SET name = ?, phone = ? WHERE id = ?",
-        [String(body.name || ""), body.phone ? String(body.phone) : null, customerId]
+        await tx.execute(
+          "UPDATE Customer SET name = ?, phone = ? WHERE id = ?",
+          [String(body.name || ""), body.phone ? String(body.phone) : null, resolvedCustomerId]
+        );
+      } else {
+        const customerResult = await tx.execute(
+          "INSERT INTO Customer (name, phone, createdAt) VALUES (?, ?, NOW())",
+          [String(body.name || ""), body.phone ? String(body.phone) : null]
+        );
+
+        resolvedCustomerId = customerResult.insertId;
+      }
+
+      const carResult = await tx.execute(
+        "INSERT INTO Car (customerId, carName, carNumber, carYear) VALUES (?, ?, ?, ?)",
+        [
+          resolvedCustomerId,
+          String(body.carName || ""),
+          String(body.carNumber || ""),
+          String(body.carYear || ""),
+        ]
       );
-    } else {
-      const customerResult = await execute(
-        "INSERT INTO Customer (name, phone, createdAt) VALUES (?, ?, NOW())",
-        [String(body.name || ""), body.phone ? String(body.phone) : null]
+
+      const carId = carResult.insertId;
+
+      const insuranceResult = await tx.execute(
+        `INSERT INTO Insurance (
+          customerId, carId, insuranceType, insuranceCompany, startDate, endDate, status, paymentMethod,
+          hofaaEnabled, hofaaPrice, thirdPartyEnabled, thirdPartyPrice, fullEnabled, fullPrice,
+          totalAmount, paidAmount, cashAmount, visaAmount, checksAmount, remainingAmount, paymentStatus
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          resolvedCustomerId,
+          carId,
+          String(body.insuranceType || ""),
+          String(body.insuranceCompany || ""),
+          new Date(body.startDate),
+          new Date(body.endDate),
+          String(body.status || "فعال"),
+          paymentMethod,
+          body.hofaaEnabled ? 1 : 0,
+          hofaaPrice,
+          body.thirdPartyEnabled ? 1 : 0,
+          thirdPartyPrice,
+          body.fullEnabled ? 1 : 0,
+          fullPrice,
+          totalAmount,
+          paidAmount,
+          cashAmount,
+          visaAmount,
+          checksAmount,
+          remainingAmount,
+          paymentStatus,
+        ]
       );
 
-      customerId = customerResult.insertId;
-    }
+      const resolvedInsuranceId = insuranceResult.insertId;
 
-    const carResult = await execute(
-      `
-      INSERT INTO Car
-      (
-        customerId,
-        carName,
-        carNumber,
-        carYear
-      )
-      VALUES
-      (
-        ?,
-        ?,
-        ?,
-        ?
-      )
-      `,
-      [
-        customerId,
-        String(body.carName || ""),
-        String(body.carNumber || ""),
-        String(body.carYear || ""),
-      ]
-    );
+      for (const row of buildDocumentRows(resolvedInsuranceId, body)) {
+        await tx.execute(
+          "INSERT INTO Document (insuranceId, type, fileUrl, fileName) VALUES (?, ?, ?, ?)",
+          row
+        );
+      }
 
-    const carId = carResult.insertId;
+      if (Array.isArray(body.checks)) {
+        for (const check of body.checks) {
+          const hasCheckData =
+            String(check.checkNumber || "").trim() ||
+            String(check.bankName || "").trim() ||
+            numberValue(check.amount) > 0;
 
-    const insuranceResult = await execute(
-      `
-      INSERT INTO Insurance
-      (
-        customerId,
-        carId,
-        insuranceType,
-        insuranceCompany,
-        startDate,
-        endDate,
-        status,
-        paymentMethod,
-
-        hofaaEnabled,
-        hofaaPrice,
-
-        thirdPartyEnabled,
-        thirdPartyPrice,
-
-        fullEnabled,
-        fullPrice,
-
-        totalAmount,
-        paidAmount,
-        cashAmount,
-        visaAmount,
-        checksAmount,
-        remainingAmount,
-        paymentStatus
-      )
-      VALUES
-      (
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-
-        ?,
-        ?,
-
-        ?,
-        ?,
-
-        ?,
-        ?,
-
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-        ?,
-        ?
-      )
-      `,
-      [
-        customerId,
-        carId,
-        String(body.insuranceType || ""),
-        String(body.insuranceCompany || ""),
-        new Date(body.startDate),
-        new Date(body.endDate),
-        String(body.status || "فعال"),
-        paymentMethod,
-
-        body.hofaaEnabled ? 1 : 0,
-        hofaaPrice,
-
-        body.thirdPartyEnabled ? 1 : 0,
-        thirdPartyPrice,
-
-        body.fullEnabled ? 1 : 0,
-        fullPrice,
-
-        totalAmount,
-        paidAmount,
-        cashAmount,
-        visaAmount,
-        checksAmount,
-        remainingAmount,
-        paymentStatus,
-      ]
-    );
-
-    const insuranceId = insuranceResult.insertId;
-
-    for (const row of buildDocumentRows(insuranceId, body)) {
-      await execute(
-        "INSERT INTO Document (insuranceId, type, fileUrl, fileName) VALUES (?, ?, ?, ?)",
-        row
-      );
-    }
-
-    if (Array.isArray(body.checks)) {
-      for (const check of body.checks) {
-        const hasCheckData =
-          String(check.checkNumber || "").trim() ||
-          String(check.bankName || "").trim() ||
-          numberValue(check.amount) > 0;
-
-        if (hasCheckData) {
-          await execute(
-            `
-            INSERT INTO PaymentCheck
-            (
-              insuranceId,
-              checkNumber,
-              bankName,
-              dueDate,
-              amount,
-              createdAt
-            )
-            VALUES
-            (
-              ?,
-              ?,
-              ?,
-              ?,
-              ?,
-              NOW()
-            )
-            `,
-            [
-              insuranceId,
-              String(check.checkNumber || ""),
-              String(check.bankName || ""),
-              new Date(check.dueDate || new Date()),
-              numberValue(check.amount),
-            ]
-          );
+          if (hasCheckData) {
+            await tx.execute(
+              `INSERT INTO PaymentCheck (insuranceId, checkNumber, bankName, dueDate, amount, createdAt)
+               VALUES (?, ?, ?, ?, ?, NOW())`,
+              [
+                resolvedInsuranceId,
+                String(check.checkNumber || ""),
+                String(check.bankName || ""),
+                new Date(check.dueDate || new Date()),
+                numberValue(check.amount),
+              ]
+            );
+          }
         }
       }
-    }
+
+      return { customerId: resolvedCustomerId, insuranceId: resolvedInsuranceId };
+    });
 
     const fullCustomer = (await getFullCustomers()).find(
       (customer) => Number(customer.id) === customerId
     );
 
+    await writeActivityLog(
+      currentUser,
+      "إضافة مشترك",
+      "المشتركين",
+      `${String(body.name || "")} - ${String(body.carNumber || "")}`,
+      insuranceId
+    );
+
     return NextResponse.json(fullCustomer);
   } catch (error: any) {
     console.error("POST /api/customers error:", error);
+
+    if (error instanceof OwnershipError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
 
     return NextResponse.json(
       {

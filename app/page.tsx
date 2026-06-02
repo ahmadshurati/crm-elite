@@ -4047,17 +4047,6 @@ export default function Home() {
     }
   };
 
-  const logActivity = async (action: string, module: string, details?: string, targetId?: string | number) => {
-    try {
-      await fetch("/api/activity", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, module, details, targetId: targetId ? String(targetId) : undefined }),
-      });
-    } catch (error) {
-      console.error("Activity log error:", error);
-    }
-  };
 
   const loadDatabaseData = async () => {
     try {
@@ -4267,8 +4256,6 @@ export default function Home() {
         );
 
         if (!res.ok) throw new Error("Failed to update subscriber");
-
-        await logActivity("تعديل مشترك", "المشتركين", `${subscriber.subscriberName} - ${subscriber.carNumber}`, existingSubscriber.id);
         await loadDatabaseData();
         setEditingSubscriber(null);
         setActiveMenu("active-subscribers");
@@ -4314,8 +4301,6 @@ export default function Home() {
       });
 
       if (!res.ok) throw new Error("Failed to create subscriber");
-
-      await logActivity("إضافة مشترك", "المشتركين", `${subscriber.subscriberName} - ${subscriber.carNumber}`);
       await loadDatabaseData();
       setActiveMenu("active-subscribers");
     } catch (error) {
@@ -4348,7 +4333,6 @@ export default function Home() {
         throw new Error("Failed to delete subscriber");
       }
 
-      await logActivity("حذف مشترك", "المشتركين", deletedSubscriber ? `${deletedSubscriber.subscriberName} - ${deletedSubscriber.carNumber}` : String(id), id);
       await loadDatabaseData();
     } catch (error) {
       console.error("Delete subscriber error:", error);
@@ -4429,8 +4413,6 @@ export default function Home() {
       if (!res.ok) {
         throw new Error("Failed to terminate subscriber");
       }
-
-      await logActivity("إنهاء اشتراك", "المشتركين", `${subscriber.subscriberName} - ${subscriber.carNumber}`, subscriber.id);
       await loadDatabaseData();
       setActiveMenu("renewals-this-month");
     } catch (error) {
@@ -4461,8 +4443,6 @@ export default function Home() {
 
       const created = await res.json();
       const formatted = mapDbAccidentToCase(created);
-
-      await logActivity("إضافة حادث", "الحوادث", `${accident.caseNumber} - ${accident.subscriberName}`, formatted.id);
       setAccidentCases((prev) => [formatted, ...prev]);
     } catch (error) {
       console.error("Add accident error:", error);
@@ -4511,8 +4491,6 @@ export default function Home() {
 
         if (!updateRes.ok) throw new Error("Failed to create accident update");
       }
-
-      await logActivity("تعديل حادث", "الحوادث", `${updatedAccident.caseNumber} - ${updatedAccident.subscriberName}`, updatedAccident.id);
       await loadDatabaseData();
     } catch (error) {
       console.error("Save accident details error:", error);

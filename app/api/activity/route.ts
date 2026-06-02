@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { execute, query } from "@/lib/db";
-import { isErrorResponse, requirePermission, requireUser } from "@/lib/permissions";
+import { query } from "@/lib/db";
+import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,29 +18,6 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
-  try {
-    const auth = await requireUser();
-    if (isErrorResponse(auth)) return auth;
-    const { user: currentUser } = auth;
-
-    const body = await req.json();
-
-    const result = await execute(
-      "INSERT INTO ActivityLog (userId, username, action, module, targetId, details, createdAt) VALUES (?, ?, ?, ?, ?, ?, NOW())",
-      [
-        currentUser.id,
-        currentUser.username,
-        String(body.action || "عملية"),
-        String(body.module || "النظام"),
-        body.targetId ? String(body.targetId) : null,
-        body.details ? String(body.details) : null,
-      ]
-    );
-
-    return NextResponse.json({ id: result.insertId, ok: true });
-  } catch (error: any) {
-    console.error("POST /api/activity error:", error);
-    return NextResponse.json({ error: "Failed to create activity log", message: error?.message }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json({ error: "Activity logs are recorded server-side only" }, { status: 405 });
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { writeActivityLog } from "@/lib/audit-log";
 import { execute, query } from "@/lib/db";
+import { assertCarBelongsToCustomer, OwnershipError } from "@/lib/ownership";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
 
 export const runtime = "nodejs";
@@ -34,15 +36,24 @@ export async function GET() {
 export async function POST(req: Request) {
   const auth = await requirePermission("createAccidents");
   if (isErrorResponse(auth)) return auth;
+  const { user: currentUser } = auth;
 
   try {
     const body = await req.json();
+    const customerId = Number(body.customerId);
+    const carId = Number(body.carId);
+
+    if (!Number.isFinite(customerId) || customerId <= 0 || !Number.isFinite(carId) || carId <= 0) {
+      return NextResponse.json({ error: "Invalid customerId or carId" }, { status: 400 });
+    }
+
+    await assertCarBelongsToCustomer(carId, customerId);
 
     const result = await execute(
       "INSERT INTO AccidentCase (customerId, carId, caseNumber, details, status, openedAt, closedAt) VALUES (?, ?, ?, ?, ?, NOW(), NULL)",
       [
-        Number(body.customerId),
-        Number(body.carId),
+        customerId,
+        carId,
         String(body.caseNumber || ""),
         String(body.details || ""),
         String(body.status || "مفتوح"),
@@ -50,9 +61,23 @@ export async function POST(req: Request) {
     );
 
     const accident = (await getAccidents()).find((row) => Number(row.id) === result.insertId);
+
+    await writeActivityLog(
+      currentUser,
+      "إضافة حادث",
+      "الحوادث",
+      `${String(body.caseNumber || "")} - ${String(body.details || "").slice(0, 80)}`,
+      result.insertId
+    );
+
     return NextResponse.json(accident);
   } catch (error: any) {
     console.error("POST /api/accidents error:", error);
+
+    if (error instanceof OwnershipError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     return NextResponse.json({ error: "Failed to create accident", message: error?.message }, { status: 500 });
   }
 }
