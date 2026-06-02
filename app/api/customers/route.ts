@@ -5,6 +5,7 @@ import { getCustomerGraphById, getPaginatedCustomers } from "@/lib/customers-dat
 import { assertCustomerExists, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requireAnyPermission, requirePermission } from "@/lib/permissions";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +57,7 @@ function buildDocumentRows(insuranceId: number, body: any) {
   return rows;
 }
 
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const auth = await requireAnyPermission("viewSubscribers", "viewAccounting");
   if (isErrorResponse(auth)) return auth;
 
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   const auth = await requirePermission("createSubscribers");
   if (isErrorResponse(auth)) return auth;
   const { user: currentUser } = auth;
@@ -239,3 +240,6 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const GET = loggedRoute("GET /api/customers", handleGet);
+export const POST = loggedRoute("POST /api/customers", handlePost);

@@ -28,6 +28,8 @@ model Car {
   customer   Customer @relation(fields: [customerId], references: [id])
   insurances Insurance[]
   accidents  AccidentCase[]
+
+  @@index([carNumber])
 }
 
 model Insurance {
@@ -60,6 +62,9 @@ model Insurance {
   car       Car      @relation(fields: [carId], references: [id])
   documents Document[]
   checks    PaymentCheck[]
+
+  @@index([endDate])
+  @@index([status])
 }
 
 model PaymentCheck {
@@ -97,6 +102,9 @@ model AccidentCase {
   customer Customer @relation(fields: [customerId], references: [id])
   car      Car      @relation(fields: [carId], references: [id])
   updates  AccidentUpdate[]
+
+  @@unique([caseNumber])
+  @@index([status])
 }
 
 model AccidentUpdate {
@@ -151,4 +159,6 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   user AppUser? @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
 }

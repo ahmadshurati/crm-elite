@@ -8,6 +8,7 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from "@/lib/session";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,11 +24,11 @@ function clean(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
 
-export async function GET() {
+async function handleGet() {
   return NextResponse.json({ ok: true, route: "login" });
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   try {
     await ensureSeedUsersFromEnv();
 
@@ -74,3 +75,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Login failed" }, { status: 500 });
   }
 }
+
+export const GET = loggedRoute("GET /api/login", handleGet);
+export const POST = loggedRoute("POST /api/login", handlePost);

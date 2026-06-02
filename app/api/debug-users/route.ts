@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { assertDebugAccess } from "@/lib/debug-access";
 import { queryOne } from "@/lib/db";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const denied = assertDebugAccess(req);
   if (denied) return denied;
 
@@ -22,3 +23,5 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "Database check failed" }, { status: 500 });
   }
 }
+
+export const GET = loggedRoute("GET /api/debug-users", handleGet);

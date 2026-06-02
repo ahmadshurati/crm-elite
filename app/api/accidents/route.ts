@@ -5,11 +5,12 @@ import { getAccidentById, getPaginatedAccidents } from "@/lib/accidents-data";
 import { assertCarBelongsToCustomer, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+async function handleGet(req: Request) {
   const auth = await requirePermission("viewAccidents");
   if (isErrorResponse(auth)) return auth;
 
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   const auth = await requirePermission("createAccidents");
   if (isErrorResponse(auth)) return auth;
   const { user: currentUser } = auth;
@@ -75,3 +76,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create accident", message: error?.message }, { status: 500 });
   }
 }
+
+export const GET = loggedRoute("GET /api/accidents", handleGet);
+export const POST = loggedRoute("POST /api/accidents", handlePost);

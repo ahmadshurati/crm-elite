@@ -3,6 +3,7 @@ import { execute, queryOne } from "@/lib/db";
 import { cleanUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ const permissionFields = [
   "viewActivityLog",
 ];
 
-export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {
+async function handlePatch(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const auth = await requirePermission("editUsers");
     if (isErrorResponse(auth)) return auth;
@@ -79,7 +80,7 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 }
 
-export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+async function handleDelete(req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const auth = await requirePermission("deleteUsers");
     if (isErrorResponse(auth)) return auth;
@@ -106,3 +107,6 @@ export async function DELETE(req: Request, context: { params: Promise<{ id: stri
     return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
   }
 }
+
+export const PATCH = loggedRoute("PATCH /api/users/[id]", handlePatch);
+export const DELETE = loggedRoute("DELETE /api/users/[id]", handleDelete);

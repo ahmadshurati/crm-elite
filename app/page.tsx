@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
-import React, { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -31,6 +32,7 @@ import {
   YAxis,
 } from "recharts";
 import { useModalA11y } from "@/lib/modal-a11y";
+import { buildSectionUrl, parseMenuFromSearchParams, type MenuKey } from "@/lib/menu-navigation";
 
 const CUSTOMERS_API_URL = "/api/customers";
 const ACCIDENTS_API_URL = "/api/accidents";
@@ -105,18 +107,6 @@ function TablePagination({
     </div>
   );
 }
-
-type MenuKey =
-  | "active-subscribers"
-  | "active-customers"
-  | "inactive-subscribers"
-  | "subscriber-history"
-  | "renewals-this-month"
-  | "add-new-subscriber"
-  | "accident"
-  | "accounting"
-  | "user-management"
-  | "activity-log";
 
 type InsuranceMainType = "" | "third" | "full";
 type InsuranceStatus = "فعال" | "جديد" | "غير فعال" | "منتهي";
@@ -4287,7 +4277,26 @@ function SubscriberForm({
 }
 
 export default function Home() {
-  const [activeMenu, setActiveMenu] = useState<MenuKey>("active-subscribers");
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#F7F8FA] text-[#707A84]">
+          جاري تحميل النظام...
+        </div>
+      }
+    >
+      <HomePage />
+    </Suspense>
+  );
+}
+
+function HomePage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [activeMenu, setActiveMenu] = useState<MenuKey>(() =>
+    parseMenuFromSearchParams(searchParams)
+  );
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [accidentCases, setAccidentCases] = useState<AccidentCase[]>([]);
   const [search, setSearch] = useState("");
@@ -4305,6 +4314,19 @@ export default function Home() {
   const [sheetError, setSheetError] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+
+  const navigateToMenu = useCallback(
+    (menu: MenuKey) => {
+      setActiveMenu(menu);
+      router.replace(buildSectionUrl(pathname, menu, searchParams), { scroll: false });
+    },
+    [router, pathname, searchParams]
+  );
+
+  useEffect(() => {
+    const menuFromUrl = parseMenuFromSearchParams(searchParams);
+    setActiveMenu((current) => (current === menuFromUrl ? current : menuFromUrl));
+  }, [searchParams]);
 
   const loadCurrentUser = async () => {
     try {
@@ -4554,7 +4576,7 @@ export default function Home() {
         if (!res.ok) throw new Error("Failed to update subscriber");
         await loadDatabaseData();
         setEditingSubscriber(null);
-        setActiveMenu("active-subscribers");
+        navigateToMenu("active-subscribers");
         return;
       }
 
@@ -4598,7 +4620,7 @@ export default function Home() {
 
       if (!res.ok) throw new Error("Failed to create subscriber");
       await loadDatabaseData();
-      setActiveMenu("active-subscribers");
+      navigateToMenu("active-subscribers");
     } catch (error) {
       console.error("Save subscriber error:", error);
       alert("صار خطأ بحفظ المشترك في قاعدة البيانات");
@@ -4609,7 +4631,7 @@ export default function Home() {
 
   const handleEdit = (subscriber: Subscriber) => {
     setEditingSubscriber(subscriber);
-    setActiveMenu("add-new-subscriber");
+    navigateToMenu("add-new-subscriber");
     setNotificationsOpen(false);
   };
 
@@ -4680,7 +4702,7 @@ export default function Home() {
     });
 
     setNotificationsOpen(false);
-    setActiveMenu("add-new-subscriber");
+    navigateToMenu("add-new-subscriber");
   };
 
   const handleTerminateSubscriber = async (subscriber: Subscriber) => {
@@ -4710,7 +4732,7 @@ export default function Home() {
         throw new Error("Failed to terminate subscriber");
       }
       await loadDatabaseData();
-      setActiveMenu("renewals-this-month");
+      navigateToMenu("renewals-this-month");
     } catch (error) {
       console.error("Terminate subscriber error:", error);
       alert("صار خطأ أثناء إنهاء الاشتراك");
@@ -4980,7 +5002,7 @@ export default function Home() {
             editingSubscriber
               ? () => {
                   setEditingSubscriber(null);
-                  setActiveMenu("active-subscribers");
+                  navigateToMenu("active-subscribers");
                 }
               : undefined
           }
@@ -5083,7 +5105,7 @@ export default function Home() {
                     renewals={renewalsThisMonth}
                     onClose={() => setNotificationsOpen(false)}
                     onOpenRenewals={() => {
-                      setActiveMenu("renewals-this-month");
+                      navigateToMenu("renewals-this-month");
                       setNotificationsOpen(false);
                     }}
                     onOpenSubscriber={(subscriber) => {
@@ -5215,7 +5237,7 @@ export default function Home() {
                 activeMenu={activeMenu}
                 setActiveMenu={(value) => {
                   setEditingSubscriber(null);
-                  setActiveMenu(value);
+                  navigateToMenu(value);
                 }}
               />
             ))}
@@ -5224,7 +5246,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   setEditingSubscriber(null);
-                  setActiveMenu("add-new-subscriber");
+                  navigateToMenu("add-new-subscriber");
                 }}
                 className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-3 font-semibold text-white transition hover:opacity-90"
               >

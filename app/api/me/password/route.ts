@@ -9,11 +9,12 @@ import {
   SESSION_COOKIE,
   sessionCookieOptions,
 } from "@/lib/session";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function PATCH(req: Request) {
+async function handlePatch(req: Request) {
   const auth = await requireUser();
   if (isErrorResponse(auth)) return auth;
   const { user: currentUser } = auth;
@@ -65,3 +66,5 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Failed to change password", message: error?.message }, { status: 500 });
   }
 }
+
+export const PATCH = loggedRoute("PATCH /api/me/password", handlePatch);

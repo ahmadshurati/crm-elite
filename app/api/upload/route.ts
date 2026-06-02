@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { isErrorResponse, requireAnyPermission } from "@/lib/permissions";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
 ]);
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   try {
     const auth = await requireAnyPermission("createSubscribers", "editSubscribers");
     if (isErrorResponse(auth)) return auth;
@@ -47,3 +48,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
+
+export const POST = loggedRoute("POST /api/upload", handlePost);

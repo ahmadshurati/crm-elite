@@ -7,6 +7,7 @@ import {
   OwnershipError,
 } from "@/lib/ownership";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ function buildPaymentMethod(cashAmount: number, visaAmount: number, checksAmount
   return paymentMethods.length > 0 ? paymentMethods.join(" + ") : "لاحقًا";
 }
 
-export async function PATCH(
+async function handlePatch(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -225,7 +226,7 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
+async function handleDelete(
   req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
@@ -278,3 +279,6 @@ export async function DELETE(
     );
   }
 }
+
+export const PATCH = loggedRoute("PATCH /api/customers/[id]", handlePatch);
+export const DELETE = loggedRoute("DELETE /api/customers/[id]", handleDelete);

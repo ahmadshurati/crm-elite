@@ -3,6 +3,7 @@ import { execute, query, queryOne } from "@/lib/db";
 import { cleanUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ const permissionFields = [
   "viewActivityLog",
 ];
 
-export async function GET() {
+async function handleGet() {
   try {
     const auth = await requirePermission("viewUsers");
     if (isErrorResponse(auth)) return auth;
@@ -38,7 +39,7 @@ export async function GET() {
   }
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   try {
     const auth = await requirePermission("createUsers");
     if (isErrorResponse(auth)) return auth;
@@ -84,3 +85,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 }
+
+export const GET = loggedRoute("GET /api/users", handleGet);
+export const POST = loggedRoute("POST /api/users", handlePost);

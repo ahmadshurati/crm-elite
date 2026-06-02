@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { logInfo } from "@/lib/logger";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
 
 export async function middleware(req: NextRequest) {
@@ -29,6 +30,14 @@ export async function middleware(req: NextRequest) {
     }
 
     return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  if (path.startsWith("/api/")) {
+    logInfo("api.access", {
+      path,
+      method: req.method,
+      userId: session.userId,
+    });
   }
 
   return NextResponse.next();

@@ -13,15 +13,27 @@ function getDatabaseUrl() {
   return url;
 }
 
+function getPoolLimit() {
+  const raw = Number(process.env.DATABASE_POOL_LIMIT || 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 10;
+}
+
+function getQueueLimit() {
+  const raw = Number(process.env.DATABASE_QUEUE_LIMIT ?? 0);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 0;
+}
+
 export function getPool() {
   if (!globalForDb.mysqlPool) {
     globalForDb.mysqlPool = mysql.createPool({
       uri: getDatabaseUrl(),
       waitForConnections: true,
-      connectionLimit: 5,
-      queueLimit: 0,
+      connectionLimit: getPoolLimit(),
+      queueLimit: getQueueLimit(),
       charset: "utf8mb4",
       dateStrings: false,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
     });
   }
 
