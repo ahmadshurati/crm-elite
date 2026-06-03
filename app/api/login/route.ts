@@ -30,7 +30,11 @@ async function handleGet() {
 
 async function handlePost(req: Request) {
   try {
-    await ensureSeedUsersFromEnv();
+    try {
+      await ensureSeedUsersFromEnv();
+    } catch (seedError) {
+      console.error("ensureSeedUsersFromEnv failed (login continues):", seedError);
+    }
 
     const body = await req.json();
     const username = clean(body.username);

@@ -11,6 +11,7 @@ export async function middleware(req: NextRequest) {
     path.startsWith("/api/login") ||
     path.startsWith("/api/logout") ||
     path.startsWith("/api/ping") ||
+    path.startsWith("/api/health") ||
     path.startsWith("/api/cron/") ||
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
