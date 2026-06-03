@@ -23,7 +23,7 @@ export default function LoginPage() {
 
     if (res.status === 500) {
       setError(
-        "خطأ في الخادم (500). افتح /api/health للتحقق من DATABASE_URL و SESSION_SECRET، ثم راجع سجلات الاستضافة."
+        "خطأ في الخادم (500). افتح /api/ping?diag=1 للتحقق من DATABASE_URL و SESSION_SECRET، ثم راجع سجلات الاستضافة."
       );
       return;
     }
