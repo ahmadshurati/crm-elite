@@ -19,7 +19,7 @@ async function handleGet(req: Request) {
       usersCount: Number(users?.count || 0),
       logsCount: Number(logs?.count || 0),
     });
-  } catch (error: any) {
+  } catch {
     return NextResponse.json({ ok: false, error: "Database check failed" }, { status: 500 });
   }
 }

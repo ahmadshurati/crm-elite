@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
-import { execute, query, withTransaction } from "@/lib/db";
+import { withTransaction } from "@/lib/db";
 import { getCustomerGraphById, getPaginatedCustomers } from "@/lib/customers-data";
 import { assertCustomerExists, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";

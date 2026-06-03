@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
-import { execute, query } from "@/lib/db";
+import { execute } from "@/lib/db";
 import { getAccidentById, getPaginatedAccidents } from "@/lib/accidents-data";
 import { assertCarBelongsToCustomer, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";
