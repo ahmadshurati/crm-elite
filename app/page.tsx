@@ -148,7 +148,9 @@ type DocumentKey =
   | "carImage5"
   | "insurancePolicy1"
   | "insurancePolicy2"
-  | "otherDocument";
+  | "otherDocument"
+  | "otherDocument2"
+  | "otherDocument3";
 
 type SubscriberDocuments = {
   drivingLicense: string;
@@ -162,6 +164,8 @@ type SubscriberDocuments = {
   insurancePolicy1: string;
   insurancePolicy2: string;
   otherDocument: string;
+  otherDocument2: string;
+  otherDocument3: string;
 };
 
 type CheckItem = {
@@ -312,6 +316,8 @@ const emptyDocuments: SubscriberDocuments = {
   insurancePolicy1: "",
   insurancePolicy2: "",
   otherDocument: "",
+  otherDocument2: "",
+  otherDocument3: "",
 };
 
 const emptyForm: FormState = {
@@ -363,6 +369,8 @@ const documentLabels: Record<DocumentKey, string> = {
   insurancePolicy1: "وثيقة التأمين 1",
   insurancePolicy2: "وثيقة التأمين 2",
   otherDocument: "مستند آخر",
+  otherDocument2: "مستند آخر 2",
+  otherDocument3: "مستند آخر 3",
 };
 
 function buildInsuranceText(type: InsuranceMainType, hofaa: boolean) {
@@ -601,6 +609,8 @@ function mapDbCustomersToSubscribers(customers: any[]): Subscriber[] {
             insurancePolicy1: findDocument("insurancePolicy1"),
             insurancePolicy2: findDocument("insurancePolicy2"),
             otherDocument: findDocument("otherDocument") || findDocument("other"),
+            otherDocument2: findDocument("otherDocument2"),
+            otherDocument3: findDocument("otherDocument3"),
           },
         });
       });
@@ -4624,6 +4634,8 @@ function HomePage() {
         subscriber.documents?.insurancePolicy1,
         subscriber.documents?.insurancePolicy2,
         subscriber.documents?.otherDocument,
+        subscriber.documents?.otherDocument2,
+        subscriber.documents?.otherDocument3,
         ...(subscriber.checks || []).flatMap((check) => [
           check.checkNumber,
           check.bankName,

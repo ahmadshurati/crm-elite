@@ -52,6 +52,8 @@ function buildDocumentRows(insuranceId: number, body: any) {
     addDocument("insurancePolicy1", body.documents.insurancePolicy1);
     addDocument("insurancePolicy2", body.documents.insurancePolicy2);
     addDocument("otherDocument", body.documents.otherDocument);
+    addDocument("otherDocument2", body.documents.otherDocument2);
+    addDocument("otherDocument3", body.documents.otherDocument3);
   }
 
   return rows;
