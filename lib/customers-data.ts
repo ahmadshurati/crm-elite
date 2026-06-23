@@ -15,7 +15,7 @@ export type PaginatedCustomersResult = {
   stats: CustomerStats;
 };
 
-function buildInsuranceFilterClause(filter: string) {
+export function buildInsuranceFilterClause(filter: string) {
   switch (filter) {
     case "active":
       return "(i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE())";
@@ -28,7 +28,7 @@ function buildInsuranceFilterClause(filter: string) {
   }
 }
 
-function buildSearchClause(search: string) {
+export function buildSearchClause(search: string) {
   const term = search.trim();
   if (!term) {
     return { clause: "", params: [] as string[] };

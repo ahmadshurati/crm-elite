@@ -35,6 +35,7 @@ import { useModalA11y } from "@/lib/modal-a11y";
 import { buildSectionUrl, parseMenuFromSearchParams, type MenuKey } from "@/lib/menu-navigation";
 
 const CUSTOMERS_API_URL = "/api/customers";
+const CUSTOMERS_INSIGHTS_API_URL = "/api/customers/insights";
 const ACCIDENTS_API_URL = "/api/accidents";
 
 const DEFAULT_PAGE_LIMIT = 50;
@@ -53,6 +54,29 @@ type DashboardStats = {
   openAccidents: number;
   renewalsThisMonth: number;
 };
+
+type MenuInsightsData = {
+  totalRecords: number;
+  eyebrow: string;
+  description: string;
+  cards: { label: string; value: number | string; helper: string }[];
+  charts: {
+    kind: "pie" | "bar" | "area";
+    title: string;
+    badge: string;
+    data: { name: string; value: number }[];
+    money?: boolean;
+  }[];
+};
+
+const INSIGHT_MENUS: MenuKey[] = [
+  "active-subscribers",
+  "active-customers",
+  "inactive-subscribers",
+  "subscriber-history",
+  "renewals-this-month",
+  "accounting",
+];
 
 function mapMenuToCustomerFilter(menu: MenuKey) {
   switch (menu) {
@@ -124,7 +148,7 @@ type DocumentKey =
   | "carImage5"
   | "insurancePolicy1"
   | "insurancePolicy2"
-  | "other";
+  | "otherDocument";
 
 type SubscriberDocuments = {
   drivingLicense: string;
@@ -137,7 +161,7 @@ type SubscriberDocuments = {
   carImage5: string;
   insurancePolicy1: string;
   insurancePolicy2: string;
-  other: string;
+  otherDocument: string;
 };
 
 type CheckItem = {
@@ -287,7 +311,7 @@ const emptyDocuments: SubscriberDocuments = {
   carImage5: "",
   insurancePolicy1: "",
   insurancePolicy2: "",
-  other: "",
+  otherDocument: "",
 };
 
 const emptyForm: FormState = {
@@ -338,7 +362,7 @@ const documentLabels: Record<DocumentKey, string> = {
   carImage5: "صورة المركبة 5",
   insurancePolicy1: "وثيقة التأمين 1",
   insurancePolicy2: "وثيقة التأمين 2",
-  other: "مستند آخر",
+  otherDocument: "مستند آخر",
 };
 
 function buildInsuranceText(type: InsuranceMainType, hofaa: boolean) {
@@ -576,7 +600,7 @@ function mapDbCustomersToSubscribers(customers: any[]): Subscriber[] {
             carImage5: findDocument("carImage5"),
             insurancePolicy1: findDocument("insurancePolicy1"),
             insurancePolicy2: findDocument("insurancePolicy2"),
-            other: findDocument("other"),
+            otherDocument: findDocument("otherDocument") || findDocument("other"),
           },
         });
       });
@@ -760,14 +784,30 @@ function DashboardInsights({
   allSubscribers,
   title = "تحليل ذكي للبيانات",
   mode,
+  insightsData,
+  totalRecords,
 }: {
   subscribers: Subscriber[];
   allSubscribers?: Subscriber[];
   title?: string;
   mode: MenuKey;
+  insightsData?: {
+    eyebrow: string;
+    description: string;
+    cards: { label: string; value: number | string; helper: string }[];
+    charts: {
+      kind: "pie" | "bar" | "area";
+      title: string;
+      badge: string;
+      data: { name: string; value: number }[];
+      money?: boolean;
+    }[];
+  } | null;
+  totalRecords?: number | null;
 }) {
   const safeSubscribers = Array.isArray(subscribers) ? subscribers : [];
   const fullSubscribers = Array.isArray(allSubscribers) ? allSubscribers : safeSubscribers;
+  const useServerInsights = Boolean(insightsData);
 
   const COLORS = ["#0F8B94", "#2563EB", "#7C3AED", "#10B981", "#F59E0B", "#EF4444", "#14B8A6", "#0EA5E9"];
 
@@ -1005,7 +1045,19 @@ function DashboardInsights({
     };
   };
 
-  const config = buildConfig();
+  const config = useServerInsights
+    ? {
+        eyebrow: insightsData!.eyebrow,
+        description: insightsData!.description,
+        cards: insightsData!.cards,
+        charts: insightsData!.charts,
+      }
+    : buildConfig();
+
+  const displayedTotal =
+    typeof totalRecords === "number" && totalRecords >= 0
+      ? totalRecords
+      : safeSubscribers.length;
 
   const renderValue = (value: any) => {
     if (typeof value === "string") return value;
@@ -1162,9 +1214,9 @@ function DashboardInsights({
           </div>
 
           <div className="rounded-2xl border border-[#D9EFEE] bg-white px-5 py-4 text-right shadow-sm">
-            <p className="text-[11px] font-bold text-[#8B95A1]">المعروض الآن</p>
+            <p className="text-[11px] font-bold text-[#8B95A1]">إجمالي السجلات</p>
             <p className="mt-1 text-2xl font-bold text-[#0F8B94]">
-              {safeSubscribers.length.toLocaleString("he-IL")}
+              {displayedTotal.toLocaleString("he-IL")}
             </p>
           </div>
         </div>
@@ -4341,6 +4393,7 @@ function HomePage() {
   const [customersPagination, setCustomersPagination] = useState<PaginationMeta | null>(null);
   const [accidentsPagination, setAccidentsPagination] = useState<PaginationMeta | null>(null);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [menuInsights, setMenuInsights] = useState<MenuInsightsData | null>(null);
   const [sheetError, setSheetError] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -4386,8 +4439,14 @@ function HomePage() {
       const searchQuery = encodeURIComponent(search.trim());
       const customersUrl = `${CUSTOMERS_API_URL}?page=${nextCustomersPage}&limit=${DEFAULT_PAGE_LIMIT}&filter=${customerFilter}&q=${searchQuery}`;
       const accidentsUrl = `${ACCIDENTS_API_URL}?page=${nextAccidentsPage}&limit=${DEFAULT_PAGE_LIMIT}&q=${searchQuery}`;
+      const shouldLoadInsights = INSIGHT_MENUS.includes(activeMenu);
+      const insightsUrl = `${CUSTOMERS_INSIGHTS_API_URL}?filter=${customerFilter}&mode=${activeMenu}&q=${searchQuery}`;
 
-      const customersRes = await fetch(customersUrl, { cache: "no-store" });
+      const [customersRes, insightsRes] = await Promise.all([
+        fetch(customersUrl, { cache: "no-store" }),
+        shouldLoadInsights ? fetch(insightsUrl, { cache: "no-store" }) : Promise.resolve(null),
+      ]);
+
       if (!customersRes.ok) throw new Error("Failed to load customers");
 
       const customersPayload = await customersRes.json();
@@ -4408,6 +4467,11 @@ function HomePage() {
       setCustomersPagination(customersPayload?.pagination || null);
       setAccidentsPagination(accidentsPayload?.pagination || null);
       setDashboardStats(customersPayload?.stats || null);
+      if (shouldLoadInsights && insightsRes?.ok) {
+        setMenuInsights(await insightsRes.json());
+      } else {
+        setMenuInsights(null);
+      }
       setCustomersPage(nextCustomersPage);
       setAccidentsPage(nextAccidentsPage);
     } catch (error) {
@@ -4423,6 +4487,16 @@ function HomePage() {
       const res = await fetch("/api/customers/stats", { cache: "no-store" });
       if (!res.ok) return;
       setDashboardStats(await res.json());
+
+      if (INSIGHT_MENUS.includes(activeMenu)) {
+        const customerFilter = mapMenuToCustomerFilter(activeMenu);
+        const searchQuery = encodeURIComponent(search.trim());
+        const insightsUrl = `${CUSTOMERS_INSIGHTS_API_URL}?filter=${customerFilter}&mode=${activeMenu}&q=${searchQuery}`;
+        const insightsRes = await fetch(insightsUrl, { cache: "no-store" });
+        if (insightsRes.ok) {
+          setMenuInsights(await insightsRes.json());
+        }
+      }
     } catch (error) {
       console.error("Refresh stats error:", error);
     }
@@ -4549,7 +4623,7 @@ function HomePage() {
         subscriber.documents?.carImage5,
         subscriber.documents?.insurancePolicy1,
         subscriber.documents?.insurancePolicy2,
-        subscriber.documents?.other,
+        subscriber.documents?.otherDocument,
         ...(subscriber.checks || []).flatMap((check) => [
           check.checkNumber,
           check.bankName,
@@ -5299,10 +5373,12 @@ function HomePage() {
               />
             </div>
 
-            {["active-subscribers", "active-customers", "inactive-subscribers", "subscriber-history", "renewals-this-month", "accounting"].includes(activeMenu) && (
+            {INSIGHT_MENUS.includes(activeMenu) && (
               <DashboardInsights
                 mode={activeMenu}
                 allSubscribers={filteredSubscribers(subscribers)}
+                insightsData={menuInsights}
+                totalRecords={menuInsights?.totalRecords ?? customersPagination?.total ?? null}
                 subscribers={
                   activeMenu === "active-subscribers"
                     ? filteredSubscribers(activeSubscribers)
