@@ -54,7 +54,6 @@ export default function LoginPage() {
         <div className="text-center">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#0F8B94]">Gosol CRM</p>
           <h1 className="mt-4 text-3xl font-bold text-[#1F2937]">تسجيل الدخول</h1>
-          <p className="mt-2 text-sm text-[#707A84]">لموظفي الشركات المسجّلة على منصة Gosol CRM</p>
         </div>
 
         <div className="mt-8 space-y-4">

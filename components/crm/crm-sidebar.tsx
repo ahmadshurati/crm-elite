@@ -137,30 +137,20 @@ export function CrmSidebar({
 
   return (
     <aside className="sticky top-0 flex h-screen w-[272px] shrink-0 flex-col border-l border-[#E5E9EF] bg-[#FAFBFC]">
-      <div className="border-b border-[#EEF1F4] px-5 py-5">
+      <div className="flex h-[76px] items-center justify-center border-b border-[#E9EDF1] bg-white px-5">
         {branding.isDemo ? (
-          <div className="text-center">
-            <p className="text-xl font-bold text-[#0F8B94]">{demoBrandName}</p>
-            <p className="mt-1 text-[11px] font-semibold tracking-wide text-[#94A3B8]">
-              {vocabulary.tagline}
-            </p>
-          </div>
+          <span className="text-[22px] font-extrabold tracking-tight text-[#0F8B94]">
+            {demoBrandName}
+          </span>
         ) : (
-          <>
-            <div className="flex justify-center">
-              <Image
-                src={branding.logoUrl || "/loag.png"}
-                alt={branding.companyName}
-                width={132}
-                height={28}
-                className="object-contain"
-                priority
-              />
-            </div>
-            <p className="mt-3 text-center text-[11px] font-semibold tracking-wide text-[#94A3B8]">
-              {vocabulary.tagline}
-            </p>
-          </>
+          <Image
+            src={branding.logoUrl || "/loag.png"}
+            alt={branding.companyName}
+            width={150}
+            height={34}
+            className="max-h-[40px] w-auto object-contain"
+            priority
+          />
         )}
       </div>
 

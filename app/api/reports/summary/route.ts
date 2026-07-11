@@ -27,13 +27,13 @@ async function handleGet() {
           (SELECT COUNT(*) FROM Customer WHERE companyId = ?) AS totalCustomers,
           (SELECT COUNT(DISTINCT i.customerId) FROM Insurance i
            INNER JOIN Customer c ON c.id = i.customerId
-           WHERE i.status = 'فعال' AND c.companyId = ?) AS activeCustomers`,
+           WHERE i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE() AND c.companyId = ?) AS activeCustomers`,
         [companyId, companyId]
       ),
       query<{ activePolicies: number; expiredPolicies: number; totalRevenue: number; totalRemaining: number }>(
         `SELECT
-          SUM(CASE WHEN i.status = 'فعال' THEN 1 ELSE 0 END) AS activePolicies,
-          SUM(CASE WHEN i.status != 'فعال' THEN 1 ELSE 0 END) AS expiredPolicies,
+          SUM(CASE WHEN i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE() THEN 1 ELSE 0 END) AS activePolicies,
+          SUM(CASE WHEN NOT (i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE()) THEN 1 ELSE 0 END) AS expiredPolicies,
           COALESCE(SUM(i.paidAmount), 0) AS totalRevenue,
           COALESCE(SUM(i.remainingAmount), 0) AS totalRemaining
          FROM Insurance i
