@@ -133,7 +133,7 @@ async function ensureCompaniesExist() {
   await execute(
     `INSERT INTO Company (id, name, slug, isActive, isDemo, notes, createdAt, updatedAt)
      VALUES (2, 'Gosol CRM — عرض تجريبي', ?, 1, 1, 'حساب تجريبي CRM شامل للعروض التقديمية', NOW(), NOW())
-     ON DUPLICATE KEY UPDATE name = VALUES(name), notes = VALUES(notes), isDemo = 1`
+     ON DUPLICATE KEY UPDATE name = VALUES(name), notes = VALUES(notes), isDemo = 1`,
     [DEMO_COMPANY_SLUG]
   );
 

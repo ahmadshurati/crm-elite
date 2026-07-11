@@ -1,5 +1,8 @@
 import { query, queryOne } from "@/lib/db";
 import { buildInsuranceFilterClause, buildSearchClause } from "@/lib/customers-data";
+import { customerCompanyClause } from "@/lib/tenant";
+
+type SqlParam = string | number;
 
 export type InsightChart = {
   kind: "pie" | "bar" | "area";
@@ -47,15 +50,19 @@ function buildFromClause(filter: string, search: string, companyId?: number | nu
     INNER JOIN Customer c ON c.id = i.customerId
     WHERE ${whereClause}`;
 
-  return { fromSql, params: [...searchClause.params, ...tenant.params], whereClause };
+  return {
+    fromSql,
+    params: [...searchClause.params, ...tenant.params] as SqlParam[],
+    whereClause,
+  };
 }
 
-async function countRows(fromSql: string, params: string[]) {
+async function countRows(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(`SELECT COUNT(*) as total ${fromSql}`, params);
   return Number(row?.total || 0);
 }
 
-async function countDistinctCustomers(fromSql: string, params: string[]) {
+async function countDistinctCustomers(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(DISTINCT c.id) as total ${fromSql}`,
     params
@@ -65,7 +72,7 @@ async function countDistinctCustomers(fromSql: string, params: string[]) {
 
 async function groupCount(
   fromSql: string,
-  params: string[],
+  params: SqlParam[],
   expression: string,
   groupBy: string,
   limit = 7
@@ -87,7 +94,7 @@ async function groupCount(
 
 async function groupByMonth(
   fromSql: string,
-  params: string[],
+  params: SqlParam[],
   dateColumn: "i.endDate" | "i.startDate"
 ) {
   const rows = await query<{ name: string; value: number }>(
@@ -105,7 +112,7 @@ async function groupByMonth(
   }));
 }
 
-async function countExpiringThisMonth(fromSql: string, params: string[]) {
+async function countExpiringThisMonth(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total ${fromSql}
      AND MONTH(i.endDate) = MONTH(CURDATE())
@@ -115,7 +122,7 @@ async function countExpiringThisMonth(fromSql: string, params: string[]) {
   return Number(row?.total || 0);
 }
 
-async function countRenewalPending(fromSql: string, params: string[]) {
+async function countRenewalPending(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total ${fromSql}
      AND NOT EXISTS (
@@ -131,7 +138,7 @@ async function countRenewalPending(fromSql: string, params: string[]) {
   return Number(row?.total || 0);
 }
 
-async function countByStatus(fromSql: string, params: string[], status: string) {
+async function countByStatus(fromSql: string, params: SqlParam[], status: string) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total ${fromSql} AND i.status = ?`,
     [...params, status]
@@ -139,7 +146,7 @@ async function countByStatus(fromSql: string, params: string[], status: string) 
   return Number(row?.total || 0);
 }
 
-async function countActivePolicies(fromSql: string, params: string[]) {
+async function countActivePolicies(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total ${fromSql}
      AND i.status IN ('فعال', 'جديد')
@@ -149,7 +156,7 @@ async function countActivePolicies(fromSql: string, params: string[]) {
   return Number(row?.total || 0);
 }
 
-async function countExpiredPolicies(fromSql: string, params: string[]) {
+async function countExpiredPolicies(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total ${fromSql}
      AND (i.status IN ('غير فعال', 'منتهي') OR i.endDate < CURDATE())`,
@@ -158,7 +165,7 @@ async function countExpiredPolicies(fromSql: string, params: string[]) {
   return Number(row?.total || 0);
 }
 
-async function countDistinctCars(fromSql: string, params: string[]) {
+async function countDistinctCars(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{ total: number }>(
     `SELECT COUNT(DISTINCT car.id) as total ${fromSql}`,
     params
@@ -166,7 +173,7 @@ async function countDistinctCars(fromSql: string, params: string[]) {
   return Number(row?.total || 0);
 }
 
-async function financialTotals(fromSql: string, params: string[]) {
+async function financialTotals(fromSql: string, params: SqlParam[]) {
   const row = await queryOne<{
     totalRevenue: number;
     totalPaid: number;

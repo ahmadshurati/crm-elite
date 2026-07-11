@@ -20,7 +20,7 @@ import {
   sectionContainsKey,
   type SidebarSection,
 } from "@/lib/crm/sidebar-config";
-import { getCrmVocabulary } from "@/lib/crm/vocabulary";
+import { getCrmVocabulary, type TenantBranding } from "@/lib/crm/vocabulary";
 
 const sectionIcons: Record<string, typeof Shield> = {
   dashboard: LayoutGrid,
