@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDashboardInsights } from "@/lib/dashboard-insights";
 import { loggedRoute } from "@/lib/api-observability";
 import { isErrorResponse, requireAnyPermission } from "@/lib/permissions";
+import { requireCompanyId } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,10 +30,12 @@ async function handleGet(req: Request) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
 
+    const companyId = requireCompanyId(auth.user);
     const insights = await getDashboardInsights(
       filter,
       search,
-      mode as Parameters<typeof getDashboardInsights>[2]
+      mode as Parameters<typeof getDashboardInsights>[2],
+      companyId
     );
 
     return NextResponse.json(insights);

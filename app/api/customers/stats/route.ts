@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { loggedRoute } from "@/lib/api-observability";
 import { getCustomerStats } from "@/lib/customers-data";
 import { isErrorResponse, requireAnyPermission } from "@/lib/permissions";
+import { requireCompanyId } from "@/lib/tenant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ async function handleGet() {
   if (isErrorResponse(auth)) return auth;
 
   try {
-    const stats = await getCustomerStats();
+    const companyId = requireCompanyId(auth.user);
+    const stats = await getCustomerStats(companyId);
     return NextResponse.json(stats);
   } catch (error: any) {
     console.error("GET /api/customers/stats error:", error);

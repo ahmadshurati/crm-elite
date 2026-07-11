@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3007",
     "build": "prisma generate && prisma migrate deploy && next build",
     "build:ci": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "bootstrap:users": "npx tsx scripts/bootstrap-users.ts",
+    "seed:demo": "npx tsx scripts/seed-demo-data.ts",
     "postinstall": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev"
@@ -21,6 +23,7 @@
     "lucide-react": "^1.8.0",
     "mysql2": "^3.22.3",
     "next": "16.2.3",
+    "otplib": "^13.4.1",
     "prisma": "^5.22.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",

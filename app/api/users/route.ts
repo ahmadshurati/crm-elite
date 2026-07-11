@@ -3,6 +3,7 @@ import { execute, query, queryOne } from "@/lib/db";
 import { cleanUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { requireCompanyId } from "@/lib/tenant";
 import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
@@ -31,7 +32,8 @@ async function handleGet() {
     const auth = await requirePermission("viewUsers");
     if (isErrorResponse(auth)) return auth;
 
-    const users = await query<any>("SELECT * FROM AppUser ORDER BY id ASC");
+    const companyId = requireCompanyId(auth.user);
+    const users = await query<any>("SELECT * FROM AppUser WHERE companyId = ? ORDER BY id ASC", [companyId]);
     return NextResponse.json(users.map(cleanUser));
   } catch (error: any) {
     console.error("GET /api/users error:", error);
@@ -45,6 +47,7 @@ async function handlePost(req: Request) {
     if (isErrorResponse(auth)) return auth;
 
     const { user: currentUser } = auth;
+    const companyId = requireCompanyId(currentUser);
     const body = await req.json();
     const username = String(body.username || "").trim().toLowerCase();
     const password = String(body.password || "").trim();
@@ -57,18 +60,19 @@ async function handlePost(req: Request) {
 
     const result = await execute(
       `INSERT INTO AppUser (
-        username, password, role, isActive,
+        username, password, role, isActive, companyId,
         viewSubscribers, createSubscribers, editSubscribers, deleteSubscribers,
         viewAccidents, createAccidents, editAccidents, deleteAccidents,
         viewAccounting, editPayments,
         viewUsers, createUsers, editUsers, deleteUsers,
         viewActivityLog, createdAt, updatedAt
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         username,
         hashedPassword,
         String(body.role || "user") === "master" ? "master" : "user",
         body.isActive ? 1 : 0,
+        companyId,
         ...permissionFields.map((field) => (body[field] ? 1 : 0)),
       ]
     );

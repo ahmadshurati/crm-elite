@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48" fill="none">
+  <rect x="0" y="4" width="40" height="40" rx="12" fill="#0F8B94"/>
+  <path d="M12 28 L20 16 L28 28 Z" fill="white"/>
+  <circle cx="20" cy="30" r="3" fill="white"/>
+  <text x="52" y="22" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#0F172A">Gosol CRM</text>
+  <text x="52" y="38" font-family="Arial, sans-serif" font-size="10" font-weight="600" fill="#64748B">Customer Platform</text>
+</svg>

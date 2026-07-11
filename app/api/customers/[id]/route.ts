@@ -1,14 +1,22 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
+import { logFieldChanges } from "@/lib/field-audit";
 import { getCustomerGraphById } from "@/lib/customers-data";
-import { queryOne, withTransaction } from "@/lib/db";
+import { queryOne, withTransaction, execute } from "@/lib/db";
 import {
+  assertCustomerExists,
   assertInsuranceBelongsToCustomer,
   assertInsuranceCarLink,
   OwnershipError,
 } from "@/lib/ownership";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { requireCompanyId } from "@/lib/tenant";
 import { loggedRoute } from "@/lib/api-observability";
+import {
+  customerProfileSqlValues,
+  customerProfileUpdateClause,
+  readCustomerProfileFromBody,
+} from "@/lib/crm/customer-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,13 +82,29 @@ async function handlePatch(
   const auth = await requirePermission("editSubscribers");
   if (isErrorResponse(auth)) return auth;
   const { user: currentUser } = auth;
+  const companyId = requireCompanyId(currentUser);
 
   try {
     const body = await req.json();
     const { id } = await context.params;
     const customerId = Number(id);
+
+    await assertCustomerExists(customerId, companyId);
+
     const carId = Number(body.carId);
     const insuranceId = Number(body.insuranceId);
+
+    if (body.action === "archive") {
+      await execute("UPDATE Customer SET isArchived = true, archivedAt = NOW() WHERE id = ?", [customerId]);
+      await writeActivityLog(currentUser, "أرشفة عميل", "المشتركين", String(customerId), customerId);
+      return NextResponse.json({ ok: true, isArchived: true });
+    }
+
+    if (body.action === "restore") {
+      await execute("UPDATE Customer SET isArchived = false, archivedAt = NULL WHERE id = ?", [customerId]);
+      await writeActivityLog(currentUser, "استعادة عميل", "المشتركين", String(customerId), customerId);
+      return NextResponse.json({ ok: true, isArchived: false });
+    }
 
     if (body.action === "terminate") {
       if (!Number.isFinite(insuranceId) || insuranceId <= 0) {
@@ -104,7 +128,7 @@ async function handlePatch(
         insuranceId
       );
 
-      const terminatedCustomer = await getCustomerGraphById(customerId);
+      const terminatedCustomer = await getCustomerGraphById(customerId, companyId);
       return NextResponse.json(terminatedCustomer);
     }
 
@@ -126,10 +150,16 @@ async function handlePatch(
     const paymentStatus = calcPaymentStatus(totalAmount, paidAmount);
     const paymentMethod = buildPaymentMethod(cashAmount, visaAmount, checksAmount);
 
+    const beforeCustomer = await queryOne<Record<string, unknown>>(
+      "SELECT name, phone, email, address, city, country, customerStatus, source, tags, notes FROM Customer WHERE id = ? LIMIT 1",
+      [customerId]
+    );
+
     await withTransaction(async (tx) => {
-      await tx.execute("UPDATE Customer SET name=?, phone=? WHERE id=?", [
+      await tx.execute(`UPDATE Customer SET name=?, phone=?, ${customerProfileUpdateClause()} WHERE id=?`, [
         String(body.name || ""),
         body.phone || null,
+        ...customerProfileSqlValues(readCustomerProfileFromBody(body)),
         customerId,
       ]);
 
@@ -210,6 +240,21 @@ async function handlePatch(
       }
     });
 
+    const profileAfter = readCustomerProfileFromBody(body);
+    await logFieldChanges({
+      user: currentUser,
+      module: "المشتركين",
+      entityType: "Customer",
+      entityId: customerId,
+      before: beforeCustomer || {},
+      after: {
+        name: String(body.name || ""),
+        phone: body.phone ?? null,
+        ...profileAfter,
+      },
+      fields: ["name", "phone", "email", "address", "city", "country", "customerStatus", "source", "tags", "notes"],
+    });
+
     await writeActivityLog(
       currentUser,
       "تعديل مشترك",
@@ -218,7 +263,7 @@ async function handlePatch(
       insuranceId
     );
 
-    const updatedCustomer = await getCustomerGraphById(customerId);
+    const updatedCustomer = await getCustomerGraphById(customerId, companyId);
     return NextResponse.json(updatedCustomer);
   } catch (error: any) {
     console.error(error);
@@ -238,6 +283,7 @@ async function handleDelete(
   const auth = await requirePermission("deleteSubscribers");
   if (isErrorResponse(auth)) return auth;
   const { user: currentUser } = auth;
+  const companyId = requireCompanyId(currentUser);
 
   try {
     const { id } = await context.params;
@@ -252,8 +298,8 @@ async function handleDelete(
        FROM Insurance i
        JOIN Customer c ON c.id = i.customerId
        JOIN Car car ON car.id = i.carId
-       WHERE i.id = ? LIMIT 1`,
-      [insuranceId]
+       WHERE i.id = ? AND c.companyId = ? LIMIT 1`,
+      [insuranceId, companyId]
     );
 
     if (!insurance) {

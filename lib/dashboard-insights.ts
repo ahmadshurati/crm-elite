@@ -38,15 +38,16 @@ function money(value: number) {
   });
 }
 
-function buildFromClause(filter: string, search: string) {
+function buildFromClause(filter: string, search: string, companyId?: number | null) {
   const searchClause = buildSearchClause(search);
-  const whereClause = `${buildInsuranceFilterClause(filter)}${searchClause.clause}`;
+  const tenant = customerCompanyClause("c", companyId);
+  const whereClause = `${buildInsuranceFilterClause(filter)}${searchClause.clause}${tenant.clause}`;
   const fromSql = `FROM Insurance i
     INNER JOIN Car car ON car.id = i.carId
     INNER JOIN Customer c ON c.id = i.customerId
     WHERE ${whereClause}`;
 
-  return { fromSql, params: searchClause.params, whereClause };
+  return { fromSql, params: [...searchClause.params, ...tenant.params], whereClause };
 }
 
 async function countRows(fromSql: string, params: string[]) {
@@ -198,9 +199,10 @@ async function financialTotals(fromSql: string, params: string[]) {
 export async function getDashboardInsights(
   filter: string,
   search: string,
-  mode: InsightMode
+  mode: InsightMode,
+  companyId?: number | null
 ): Promise<DashboardInsightsPayload> {
-  const { fromSql, params } = buildFromClause(filter, search);
+  const { fromSql, params } = buildFromClause(filter, search, companyId);
 
   const [
     totalRecords,

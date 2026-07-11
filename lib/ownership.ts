@@ -7,14 +7,16 @@ export class OwnershipError extends Error {
   }
 }
 
-export async function assertCustomerExists(customerId: number) {
-  const customer = await queryOne<{ id: number }>(
-    "SELECT id FROM Customer WHERE id = ? LIMIT 1",
-    [customerId]
-  );
+export async function assertCustomerExists(customerId: number, companyId?: number | null) {
+  const customer = companyId
+    ? await queryOne<{ id: number }>(
+        "SELECT id FROM Customer WHERE id = ? AND companyId = ? LIMIT 1",
+        [customerId, companyId]
+      )
+    : await queryOne<{ id: number }>("SELECT id FROM Customer WHERE id = ? LIMIT 1", [customerId]);
 
   if (!customer) {
-    throw new OwnershipError("Customer not found");
+    throw new OwnershipError(companyId ? "Customer not found in your company" : "Customer not found");
   }
 }
 

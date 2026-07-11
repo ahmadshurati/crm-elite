@@ -7,15 +7,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Customer {
-  id        Int      @id @default(autoincrement())
-  name      String
-  phone     String?
-  createdAt DateTime @default(now())
+model Company {
+  id           Int      @id @default(autoincrement())
+  name         String
+  slug         String   @unique
+  isActive     Boolean  @default(true)
+  isDemo       Boolean  @default(false)
+  contactEmail String?
+  contactPhone String?
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  cars       Car[]
-  insurances Insurance[]
-  accidents  AccidentCase[]
+  users      AppUser[]
+  customers  Customer[]
+  settings   SystemSetting[]
+}
+
+model Customer {
+  id             Int       @id @default(autoincrement())
+  companyId      Int       @default(1)
+  name           String
+  phone          String?
+  email          String?
+  address        String?
+  city           String?
+  country        String?
+  birthday       DateTime?
+  gender         String?
+  occupation     String?
+  customerStatus String?   @default("فعال")
+  source         String?
+  notes          String?   @db.Text
+  tags           String?
+  profileImage   String?
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  cars            Car[]
+  contracts       Contract[]
+  insurances      Insurance[]
+  accidents       AccidentCase[]
+  communications  CustomerCommunication[]
+  tasks           CrmTask[]
+  deals           Deal[]
+  quotes          Quote[]
+  invoices        Invoice[]
+  files           CrmFile[]
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
 }
 
 model Car {
@@ -117,11 +160,12 @@ model AccidentUpdate {
 }
 
 model AppUser {
-  id       Int     @id @default(autoincrement())
-  username String  @unique
-  password String
-  role     String  @default("user")
-  isActive Boolean @default(true)
+  id        Int     @id @default(autoincrement())
+  username  String  @unique
+  password  String
+  role      String  @default("user")
+  isActive  Boolean @default(true)
+  companyId Int?
 
   viewSubscribers   Boolean @default(true)
   createSubscribers Boolean @default(false)
@@ -142,10 +186,29 @@ model AppUser {
   deleteUsers     Boolean @default(false)
   viewActivityLog Boolean @default(false)
 
+  totpSecret  String?
+  totpEnabled Boolean @default(false)
+
+  roleTemplateId Int?
+  roleTemplate   RoleTemplate? @relation(fields: [roleTemplateId], references: [id])
+  company        Company?      @relation(fields: [companyId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  logs ActivityLog[]
+  logs            ActivityLog[]
+  apiKeys         ApiKey[]
+  communications  CustomerCommunication[]
+  assignedTasks   CrmTask[]               @relation("TaskAssignee")
+  createdTasks    CrmTask[]               @relation("TaskCreator")
+  assignedDeals   Deal[]                  @relation("DealAssignee")
+  createdQuotes   Quote[]                 @relation("QuoteCreator")
+  createdInvoices Invoice[]               @relation("InvoiceCreator")
+  createdContracts Contract[]             @relation("ContractCreator")
+  uploadedFiles    CrmFile[]              @relation("FileUploader")
+  notifications   CrmNotification[]
+
+  @@index([companyId])
 }
 
 model ActivityLog {
@@ -156,9 +219,351 @@ model ActivityLog {
   module    String
   targetId  String?
   details   String?
+  ipAddress String?
+  userAgent String?  @db.Text
   createdAt DateTime @default(now())
 
   user AppUser? @relation(fields: [userId], references: [id])
 
+  @@index([createdAt])
+}
+
+model RoleTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isSystem    Boolean  @default(false)
+
+  viewSubscribers   Boolean @default(true)
+  createSubscribers Boolean @default(false)
+  editSubscribers   Boolean @default(false)
+  deleteSubscribers Boolean @default(false)
+  viewAccidents     Boolean @default(true)
+  createAccidents   Boolean @default(false)
+  editAccidents     Boolean @default(false)
+  deleteAccidents   Boolean @default(false)
+  viewAccounting    Boolean @default(false)
+  editPayments      Boolean @default(false)
+  viewUsers         Boolean @default(false)
+  createUsers       Boolean @default(false)
+  editUsers         Boolean @default(false)
+  deleteUsers       Boolean @default(false)
+  viewActivityLog   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users AppUser[]
+}
+
+model SystemSetting {
+  id             Int      @id @default(autoincrement())
+  companyId      Int?     @unique
+  companyName    String   @default("Elite Insurance")
+  logoUrl        String?
+  address        String?
+  taxNumber      String?
+  currency       String   @default("ILS")
+  language       String   @default("ar")
+  timezone       String   @default("Asia/Hebron")
+  dateFormat     String   @default("yyyy-MM-dd")
+  defaultTaxRate Float    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model CustomerCommunication {
+  id            Int      @id @default(autoincrement())
+  customerId    Int
+  userId        Int?
+  username      String
+  type          String
+  occurredAt    DateTime @default(now())
+  summary       String   @db.Text
+  attachmentUrl String?
+  createdAt     DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user     AppUser? @relation(fields: [userId], references: [id])
+
+  @@index([customerId, occurredAt])
+}
+
+model CrmTask {
+  id              Int      @id @default(autoincrement())
+  customerId      Int?
+  assignedUserId  Int?
+  createdByUserId Int?
+  title           String
+  type            String   @default("follow-up")
+  description     String?  @db.Text
+  dueDate         DateTime
+  dueTime         String?
+  priority        String   @default("medium")
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  assignedUser AppUser?  @relation("TaskAssignee", fields: [assignedUserId], references: [id])
+  createdBy    AppUser?  @relation("TaskCreator", fields: [createdByUserId], references: [id])
+
+  @@index([dueDate])
+  @@index([status])
+  @@index([customerId])
+}
+
+model Deal {
+  id             Int       @id @default(autoincrement())
+  customerId     Int
+  assignedUserId Int?
+  title          String
+  stage          String    @default("new-lead")
+  value          Float     @default(0)
+  probability    Int       @default(0)
+  expectedClose  DateTime?
+  notes          String?   @db.Text
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  assignedUser AppUser? @relation("DealAssignee", fields: [assignedUserId], references: [id])
+
+  @@index([stage])
+  @@index([customerId])
+  @@index([isArchived])
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  sku         String   @unique
+  name        String
+  category    String   @default("insurance")
+  description String?  @db.Text
+  unitPrice   Float    @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category, isActive])
+}
+
+model Contract {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  createdByUserId Int?
+  contractNumber  String
+  title           String
+  status          String    @default("draft")
+  startDate       DateTime?
+  endDate         DateTime?
+  renewalDate     DateTime?
+  documentUrl     String?
+  signedAt        DateTime?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy AppUser? @relation("ContractCreator", fields: [createdByUserId], references: [id])
+
+  @@index([status])
+  @@index([customerId])
+  @@index([endDate])
+}
+
+model EmailTemplate {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  subject   String
+  bodyHtml  String   @db.Text
+  bodyText  String?  @db.Text
+  category  String   @default("general")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OutboundMessage {
+  id           Int      @id @default(autoincrement())
+  channel      String
+  recipient    String
+  subject      String?
+  body         String   @db.Text
+  status       String   @default("queued")
+  provider     String?
+  providerId   String?
+  errorMessage String?  @db.Text
+  customerId   Int?
+  userId       Int?
+  createdAt    DateTime @default(now())
+  sentAt       DateTime?
+  isRead       Boolean  @default(true)
+
+  @@index([channel, status])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+model InboundMessage {
+  id         Int      @id @default(autoincrement())
+  channel    String
+  sender     String
+  senderName String?
+  subject    String?
+  body       String   @db.Text
+  provider   String?
+  providerId String?
+  customerId Int?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@unique([provider, providerId])
+  @@index([channel, isRead])
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id              Int       @id @default(autoincrement())
+  name            String
+  keyPrefix       String
+  keyHash         String    @unique
+  scopes          String    @db.Text
+  createdByUserId Int?
+  isActive        Boolean   @default(true)
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  createdBy AppUser? @relation(fields: [createdByUserId], references: [id])
+
+  @@index([keyPrefix])
+  @@index([isActive])
+}
+
+model Quote {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  createdByUserId Int?
+  quoteNumber     String
+  title           String
+  status          String    @default("draft")
+  lineItems       String    @db.Text
+  subtotal        Float     @default(0)
+  taxRate         Float     @default(0)
+  taxAmount       Float     @default(0)
+  discount        Float     @default(0)
+  total           Float     @default(0)
+  validUntil      DateTime?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy AppUser?  @relation("QuoteCreator", fields: [createdByUserId], references: [id])
+  invoices  Invoice[]
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model Invoice {
+  id              Int       @id @default(autoincrement())
+  customerId      Int
+  quoteId         Int?
+  insuranceId     Int?
+  createdByUserId Int?
+  invoiceNumber   String
+  title           String
+  status          String    @default("draft")
+  lineItems       String    @db.Text
+  subtotal        Float     @default(0)
+  taxRate         Float     @default(0)
+  taxAmount       Float     @default(0)
+  discount        Float     @default(0)
+  total           Float     @default(0)
+  paidAmount      Float     @default(0)
+  dueDate         DateTime?
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quote     Quote?    @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdBy AppUser?  @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
+
+  @@index([status])
+  @@index([customerId])
+  @@index([dueDate])
+}
+
+model CrmNotification {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  type       String
+  title      String
+  body       String   @db.Text
+  entityType String?
+  entityId   Int?
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, entityType, entityId])
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model AutomationRule {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  triggerType String
+  actionType  String
+  config      String   @db.Text
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([triggerType, isEnabled])
+}
+
+model FieldChangeLog {
+  id         Int      @id @default(autoincrement())
+  userId     Int?
+  username   String
+  module     String
+  entityType String
+  entityId   Int
+  fieldName  String
+  oldValue   String?  @db.Text
+  newValue   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([module])
+}
+
+model CrmFile {
+  id               Int      @id @default(autoincrement())
+  customerId       Int?
+  folder           String   @default("general")
+  fileName         String
+  fileUrl          String
+  mimeType         String?
+  fileSize         Int?
+  uploadedByUserId Int?
+  createdAt        DateTime @default(now())
+
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  uploadedBy AppUser?  @relation("FileUploader", fields: [uploadedByUserId], references: [id])
+
+  @@index([customerId])
+  @@index([folder])
   @@index([createdAt])
 }

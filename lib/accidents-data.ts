@@ -1,5 +1,6 @@
 import { query, queryOne } from "@/lib/db";
 import { buildPaginationMeta, type PaginationMeta } from "@/lib/pagination";
+import { customerCompanyClause } from "@/lib/tenant";
 
 export type AccidentStats = {
   total: number;
@@ -43,10 +44,17 @@ function buildAccidentSearchClause(search: string) {
   };
 }
 
-async function getAccidentStats(): Promise<AccidentStats> {
+async function getAccidentStats(companyId?: number | null): Promise<AccidentStats> {
+  const tenant = customerCompanyClause("c", companyId);
   const [total, openCount] = await Promise.all([
-    queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AccidentCase"),
-    queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AccidentCase WHERE status = 'مفتوح'"),
+    queryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM AccidentCase ac INNER JOIN Customer c ON c.id = ac.customerId WHERE 1=1${tenant.clause}`,
+      tenant.params
+    ),
+    queryOne<{ count: number }>(
+      `SELECT COUNT(*) as count FROM AccidentCase ac INNER JOIN Customer c ON c.id = ac.customerId WHERE ac.status = 'مفتوح'${tenant.clause}`,
+      tenant.params
+    ),
   ]);
 
   return {
@@ -98,10 +106,13 @@ export async function getPaginatedAccidents(options: {
   offset: number;
   filter?: string;
   search?: string;
+  companyId?: number | null;
 }): Promise<PaginatedAccidentsResult> {
   const filter = options.filter || "all";
   const search = buildAccidentSearchClause(options.search || "");
-  const whereClause = `${buildAccidentFilterClause(filter)}${search.clause}`;
+  const tenant = customerCompanyClause("c", options.companyId);
+  const whereClause = `${buildAccidentFilterClause(filter)}${search.clause}${tenant.clause}`;
+  const params = [...search.params, ...tenant.params];
 
   const totalRow = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total
@@ -109,7 +120,7 @@ export async function getPaginatedAccidents(options: {
      LEFT JOIN Customer c ON c.id = ac.customerId
      LEFT JOIN Car car ON car.id = ac.carId
      WHERE ${whereClause}`,
-    search.params
+    params
   );
 
   const total = Number(totalRow?.total || 0);
@@ -122,10 +133,10 @@ export async function getPaginatedAccidents(options: {
      WHERE ${whereClause}
      ORDER BY ac.id DESC
      LIMIT ? OFFSET ?`,
-    [...search.params, options.limit, options.offset]
+    [...params, options.limit, options.offset]
   );
 
-  const stats = await getAccidentStats();
+  const stats = await getAccidentStats(options.companyId);
   const items = await assembleAccidents(accidentRows.map((row) => Number(row.id)));
 
   return {

@@ -1,5 +1,6 @@
 import { query, queryOne } from "@/lib/db";
 import { buildPaginationMeta, type PaginationMeta } from "@/lib/pagination";
+import { customerCompanyClause } from "@/lib/tenant";
 
 export type CustomerStats = {
   activePolicies: number;
@@ -17,14 +18,16 @@ export type PaginatedCustomersResult = {
 
 export function buildInsuranceFilterClause(filter: string) {
   switch (filter) {
+    case "archived":
+      return "c.isArchived = true";
     case "active":
-      return "(i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE())";
+      return "(c.isArchived = false AND i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE())";
     case "inactive":
-      return "(i.status IN ('غير فعال', 'منتهي') OR i.endDate < CURDATE())";
+      return "(c.isArchived = false AND (i.status IN ('غير فعال', 'منتهي') OR i.endDate < CURDATE()))";
     case "renewals-this-month":
-      return "i.status = 'فعال' AND MONTH(i.endDate) = MONTH(CURDATE()) AND YEAR(i.endDate) = YEAR(CURDATE())";
+      return "c.isArchived = false AND i.status = 'فعال' AND MONTH(i.endDate) = MONTH(CURDATE()) AND YEAR(i.endDate) = YEAR(CURDATE())";
     default:
-      return "1=1";
+      return "c.isArchived = false";
   }
 }
 
@@ -49,20 +52,41 @@ export function buildSearchClause(search: string) {
   };
 }
 
-export async function getCustomerStats(): Promise<CustomerStats> {
+export async function getCustomerStats(companyId?: number | null): Promise<CustomerStats> {
+  const tenant = customerCompanyClause("c", companyId);
+  const tenantAc = customerCompanyClause("cust", companyId);
+
   const [activePolicies, activeCustomers, totalCustomers, openAccidents, renewalsThisMonth] =
     await Promise.all([
       queryOne<{ count: number }>(
-        "SELECT COUNT(*) as count FROM Insurance WHERE status IN ('فعال', 'جديد') AND endDate >= CURDATE()"
+        `SELECT COUNT(*) as count
+         FROM Insurance i
+         INNER JOIN Customer c ON c.id = i.customerId
+         WHERE i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE()${tenant.clause}`,
+        tenant.params
       ),
       queryOne<{ count: number }>(
-        "SELECT COUNT(DISTINCT customerId) as count FROM Insurance WHERE status IN ('فعال', 'جديد') AND endDate >= CURDATE()"
+        `SELECT COUNT(DISTINCT i.customerId) as count
+         FROM Insurance i
+         INNER JOIN Customer c ON c.id = i.customerId
+         WHERE i.status IN ('فعال', 'جديد') AND i.endDate >= CURDATE()${tenant.clause}`,
+        tenant.params
       ),
-      queryOne<{ count: number }>("SELECT COUNT(*) as count FROM Customer"),
-      queryOne<{ count: number }>("SELECT COUNT(*) as count FROM AccidentCase WHERE status = 'مفتوح'"),
+      queryOne<{ count: number }>(
+        `SELECT COUNT(*) as count FROM Customer c WHERE 1=1${tenant.clause}`,
+        tenant.params
+      ),
+      queryOne<{ count: number }>(
+        `SELECT COUNT(*) as count
+         FROM AccidentCase ac
+         INNER JOIN Customer cust ON cust.id = ac.customerId
+         WHERE ac.status = 'مفتوح'${tenantAc.clause}`,
+        tenantAc.params
+      ),
       queryOne<{ count: number }>(
         `SELECT COUNT(*) as count
          FROM Insurance i
+         INNER JOIN Customer c ON c.id = i.customerId
          WHERE i.status = 'فعال'
            AND MONTH(i.endDate) = MONTH(CURDATE())
            AND YEAR(i.endDate) = YEAR(CURDATE())
@@ -73,7 +97,8 @@ export async function getCustomerStats(): Promise<CustomerStats> {
                AND newer.id <> i.id
                AND newer.status = 'فعال'
                AND newer.endDate > i.endDate
-           )`
+           )${tenant.clause}`,
+        tenant.params
       ),
     ]);
 
@@ -196,10 +221,13 @@ export async function getPaginatedCustomers(options: {
   offset: number;
   filter?: string;
   search?: string;
+  companyId?: number | null;
 }): Promise<PaginatedCustomersResult> {
   const filter = options.filter || "all";
   const search = buildSearchClause(options.search || "");
-  const whereClause = `${buildInsuranceFilterClause(filter)}${search.clause}`;
+  const tenant = customerCompanyClause("c", options.companyId);
+  const whereClause = `${buildInsuranceFilterClause(filter)}${search.clause}${tenant.clause}`;
+  const params = [...search.params, ...tenant.params];
 
   const totalRow = await queryOne<{ total: number }>(
     `SELECT COUNT(*) as total
@@ -207,7 +235,7 @@ export async function getPaginatedCustomers(options: {
      INNER JOIN Car car ON car.id = i.carId
      INNER JOIN Customer c ON c.id = i.customerId
      WHERE ${whereClause}`,
-    search.params
+    params
   );
 
   const total = Number(totalRow?.total || 0);
@@ -220,10 +248,10 @@ export async function getPaginatedCustomers(options: {
      WHERE ${whereClause}
      ORDER BY i.id DESC
      LIMIT ? OFFSET ?`,
-    [...search.params, options.limit, options.offset]
+    [...params, options.limit, options.offset]
   );
 
-  const stats = await getCustomerStats();
+  const stats = await getCustomerStats(options.companyId);
   const items = await assembleCustomersFromInsuranceIds(insuranceRows.map((row) => Number(row.id)));
 
   return {
@@ -233,7 +261,15 @@ export async function getPaginatedCustomers(options: {
   };
 }
 
-export async function getCustomerGraphById(customerId: number) {
+export async function getCustomerGraphById(customerId: number, companyId?: number | null) {
+  if (companyId) {
+    const owned = await queryOne<{ id: number }>(
+      "SELECT id FROM Customer WHERE id = ? AND companyId = ? LIMIT 1",
+      [customerId, companyId]
+    );
+    if (!owned) return null;
+  }
+
   const insuranceRows = await query<{ id: number }>(
     "SELECT id FROM Insurance WHERE customerId = ? ORDER BY id DESC",
     [customerId]

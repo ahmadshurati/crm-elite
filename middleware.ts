@@ -8,11 +8,14 @@ export async function middleware(req: NextRequest) {
 
   const isPublic =
     path.startsWith("/login") ||
+    path.startsWith("/admin/login") ||
     path.startsWith("/api/login") ||
+    path.startsWith("/api/admin/login") ||
     path.startsWith("/api/logout") ||
     path.startsWith("/api/ping") ||
     path.startsWith("/api/health") ||
     path.startsWith("/api/cron/") ||
+    path.startsWith("/api/webhooks/") ||
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
     path.startsWith("/logo") ||
@@ -25,13 +28,41 @@ export async function middleware(req: NextRequest) {
 
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
+  const isAdminArea = path === "/admin" || path.startsWith("/admin/");
+  const isPlatformOwner = session?.role === "platform_owner";
+
+  if (!session && path.startsWith("/api/v1/")) {
+    const hasApiKey = req.headers.get("x-api-key") || req.headers.get("authorization");
+    if (hasApiKey) {
+      return NextResponse.next();
+    }
+    return NextResponse.json({ error: "Valid API key required" }, { status: 401 });
+  }
 
   if (!session) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    if (isAdminArea) {
+      return NextResponse.redirect(new URL("/admin/login", req.url));
+    }
+
     return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  if (isAdminArea && !isPlatformOwner) {
+    if (path.startsWith("/api/")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  if (!isAdminArea && isPlatformOwner && !path.startsWith("/api/platform/")) {
+    if (path.startsWith("/api/")) {
+      return NextResponse.json({ error: "Use the admin portal" }, { status: 403 });
+    }
+    return NextResponse.redirect(new URL("/admin", req.url));
   }
 
   if (path.startsWith("/api/")) {
@@ -39,6 +70,7 @@ export async function middleware(req: NextRequest) {
       path,
       method: req.method,
       userId: session.userId,
+      role: session.role,
     });
   }
 

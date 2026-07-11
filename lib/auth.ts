@@ -8,6 +8,7 @@ export type CurrentUser = {
   password: string;
   role: string;
   isActive: boolean | number;
+  companyId: number | null;
   viewSubscribers: boolean | number;
   createSubscribers: boolean | number;
   editSubscribers: boolean | number;
@@ -44,6 +45,6 @@ export async function getCurrentUser() {
 
 export function cleanUser(user: any) {
   if (!user) return null;
-  const { password, ...safeUser } = user;
+  const { password, totpSecret, ...safeUser } = user;
   return safeUser;
 }

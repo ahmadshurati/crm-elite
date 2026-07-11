@@ -32,8 +32,8 @@ async function handlePatch(req: Request) {
       return NextResponse.json({ error: "New password must be at least 8 characters" }, { status: 400 });
     }
 
-    const user = await queryOne<{ id: number; username: string; password: string }>(
-      "SELECT id, username, password FROM AppUser WHERE id = ? LIMIT 1",
+    const user = await queryOne<{ id: number; username: string; password: string; role: string }>(
+      "SELECT id, username, password, role FROM AppUser WHERE id = ? LIMIT 1",
       [currentUser.id]
     );
 
@@ -54,7 +54,7 @@ async function handlePatch(req: Request) {
 
     await writeActivityLog(currentUser, "تغيير كلمة المرور", "النظام", "تم تغيير كلمة المرور");
 
-    const token = await createSessionToken(user.id, user.username);
+    const token = await createSessionToken(user.id, user.username, user.role);
     const res = NextResponse.json({ ok: true });
 
     clearLegacyAuthCookies(res);

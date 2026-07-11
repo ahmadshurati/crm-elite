@@ -5,7 +5,15 @@ import { getCustomerGraphById, getPaginatedCustomers } from "@/lib/customers-dat
 import { assertCustomerExists, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requireAnyPermission, requirePermission } from "@/lib/permissions";
+import { requireCompanyId } from "@/lib/tenant";
 import { loggedRoute } from "@/lib/api-observability";
+import {
+  customerProfileInsertColumns,
+  customerProfileInsertPlaceholders,
+  customerProfileSqlValues,
+  customerProfileUpdateClause,
+  readCustomerProfileFromBody,
+} from "@/lib/crm/customer-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,7 +77,8 @@ async function handleGet(req: Request) {
     const filter = String(url.searchParams.get("filter") || "all");
     const search = String(url.searchParams.get("q") || "");
 
-    const result = await getPaginatedCustomers({ page, limit, offset, filter, search });
+    const companyId = requireCompanyId(auth.user);
+    const result = await getPaginatedCustomers({ page, limit, offset, filter, search, companyId });
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("GET /api/customers error:", error);
@@ -90,6 +99,7 @@ async function handlePost(req: Request) {
   const { user: currentUser } = auth;
 
   try {
+    const companyId = requireCompanyId(currentUser);
     const body = await req.json();
 
     const hofaaPrice = numberValue(body.hofaaPrice);
@@ -125,13 +135,25 @@ async function handlePost(req: Request) {
         await assertCustomerExists(resolvedCustomerId);
 
         await tx.execute(
-          "UPDATE Customer SET name = ?, phone = ? WHERE id = ?",
-          [String(body.name || ""), body.phone ? String(body.phone) : null, resolvedCustomerId]
+          `UPDATE Customer SET name = ?, phone = ?, ${customerProfileUpdateClause()} WHERE id = ?`,
+          [
+            String(body.name || ""),
+            body.phone ? String(body.phone) : null,
+            ...customerProfileSqlValues(readCustomerProfileFromBody(body)),
+            resolvedCustomerId,
+          ]
         );
       } else {
+        const profile = readCustomerProfileFromBody(body);
         const customerResult = await tx.execute(
-          "INSERT INTO Customer (name, phone, createdAt) VALUES (?, ?, NOW())",
-          [String(body.name || ""), body.phone ? String(body.phone) : null]
+          `INSERT INTO Customer (companyId, name, phone, ${customerProfileInsertColumns()}, createdAt)
+           VALUES (?, ?, ?, ${customerProfileInsertPlaceholders()}, NOW())`,
+          [
+            companyId,
+            String(body.name || ""),
+            body.phone ? String(body.phone) : null,
+            ...customerProfileSqlValues(profile),
+          ]
         );
 
         resolvedCustomerId = customerResult.insertId;
@@ -215,7 +237,7 @@ async function handlePost(req: Request) {
       return { customerId: resolvedCustomerId, insuranceId: resolvedInsuranceId };
     });
 
-    const fullCustomer = await getCustomerGraphById(customerId);
+    const fullCustomer = await getCustomerGraphById(customerId, companyId);
 
     await writeActivityLog(
       currentUser,

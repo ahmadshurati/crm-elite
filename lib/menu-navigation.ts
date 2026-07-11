@@ -1,4 +1,5 @@
 export const MENU_KEYS = [
+  "dashboard",
   "active-subscribers",
   "active-customers",
   "inactive-subscribers",
@@ -6,6 +7,22 @@ export const MENU_KEYS = [
   "renewals-this-month",
   "add-new-subscriber",
   "accident",
+  "tasks",
+  "calendar",
+  "deals",
+  "quotes",
+  "invoices",
+  "reports",
+  "settings",
+  "role-templates",
+  "import",
+  "automation",
+  "integrations",
+  "products",
+  "contracts",
+  "files",
+  "inbox",
+  "archived-customers",
   "accounting",
   "user-management",
   "activity-log",
@@ -20,7 +37,7 @@ export function isMenuKey(value: string | null | undefined): value is MenuKey {
 
 export function parseMenuFromSearchParams(
   searchParams: URLSearchParams,
-  fallback: MenuKey = "active-subscribers"
+  fallback: MenuKey = "dashboard"
 ): MenuKey {
   const section = searchParams.get("section");
   return isMenuKey(section) ? section : fallback;

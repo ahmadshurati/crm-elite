@@ -1,6 +1,14 @@
 import { SignJWT, jwtVerify } from "jose";
+import { PLATFORM_OWNER_ROLE } from "@/lib/tenant";
 
 export const SESSION_COOKIE = "elite_session";
+export type SessionRole = "platform_owner" | "tenant";
+
+export type SessionPayload = {
+  userId: number;
+  username: string;
+  role: SessionRole;
+};
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 2;
 
 function getSessionSecret() {
@@ -31,8 +39,10 @@ export function sessionCookieOptions() {
   };
 }
 
-export async function createSessionToken(userId: number, username: string) {
-  return new SignJWT({ username })
+export async function createSessionToken(userId: number, username: string, role: string) {
+  const sessionRole: SessionRole = role === PLATFORM_OWNER_ROLE ? "platform_owner" : "tenant";
+
+  return new SignJWT({ username, role: sessionRole })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(String(userId))
     .setIssuedAt()
@@ -40,7 +50,7 @@ export async function createSessionToken(userId: number, username: string) {
     .sign(secretKey());
 }
 
-export async function verifySessionToken(token: string) {
+export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secretKey());
     const userId = Number(payload.sub);
@@ -49,9 +59,12 @@ export async function verifySessionToken(token: string) {
       return null;
     }
 
+    const role = payload.role === "platform_owner" ? "platform_owner" : "tenant";
+
     return {
       userId,
       username: String(payload.username || ""),
+      role,
     };
   } catch {
     return null;

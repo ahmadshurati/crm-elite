@@ -3,6 +3,7 @@ import { execute, queryOne } from "@/lib/db";
 import { cleanUser } from "@/lib/auth";
 import { hashPassword } from "@/lib/password";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { isPlatformOwner, requireCompanyId } from "@/lib/tenant";
 import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
@@ -32,8 +33,15 @@ async function handlePatch(req: Request, context: { params: Promise<{ id: string
     if (isErrorResponse(auth)) return auth;
 
     const { user: currentUser } = auth;
+    const companyId = requireCompanyId(currentUser);
     const { id } = await context.params;
     const userId = Number(id);
+    const existing = await queryOne<any>("SELECT * FROM AppUser WHERE id = ? AND companyId = ? LIMIT 1", [userId, companyId]);
+    if (!existing) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (existing.role === "master" && currentUser.role !== "master" && !isPlatformOwner(currentUser)) {
+      return NextResponse.json({ error: "Cannot edit master user" }, { status: 400 });
+    }
+
     const body = await req.json();
     const username = String(body.username || "").trim().toLowerCase();
     const role = String(body.role || "user") === "master" ? "master" : "user";
@@ -86,12 +94,15 @@ async function handleDelete(req: Request, context: { params: Promise<{ id: strin
     if (isErrorResponse(auth)) return auth;
 
     const { user: currentUser } = auth;
+    const companyId = requireCompanyId(currentUser);
     const { id } = await context.params;
     const userId = Number(id);
-    const user = await queryOne<any>("SELECT * FROM AppUser WHERE id = ? LIMIT 1", [userId]);
+    const user = await queryOne<any>("SELECT * FROM AppUser WHERE id = ? AND companyId = ? LIMIT 1", [userId, companyId]);
 
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    if (user.role === "master") return NextResponse.json({ error: "Cannot delete master user" }, { status: 400 });
+    if (user.role === "master" || user.role === "platform_owner") {
+      return NextResponse.json({ error: "Cannot delete protected user" }, { status: 400 });
+    }
 
     await execute("DELETE FROM ActivityLog WHERE userId = ?", [userId]);
     await execute("DELETE FROM AppUser WHERE id = ?", [userId]);

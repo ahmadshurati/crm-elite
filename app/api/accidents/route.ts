@@ -5,6 +5,7 @@ import { getAccidentById, getPaginatedAccidents } from "@/lib/accidents-data";
 import { assertCarBelongsToCustomer, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requirePermission } from "@/lib/permissions";
+import { requireCompanyId } from "@/lib/tenant";
 import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
@@ -20,7 +21,8 @@ async function handleGet(req: Request) {
     const filter = String(url.searchParams.get("filter") || "all");
     const search = String(url.searchParams.get("q") || "");
 
-    const result = await getPaginatedAccidents({ page, limit, offset, filter, search });
+    const companyId = requireCompanyId(auth.user);
+    const result = await getPaginatedAccidents({ page, limit, offset, filter, search, companyId });
     return NextResponse.json(result);
   } catch (error: any) {
     console.error("GET /api/accidents error:", error);
