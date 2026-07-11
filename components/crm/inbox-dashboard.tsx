@@ -190,9 +190,6 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 className="text-[22px] font-bold text-[#1F2937]">صندوق التواصل</h3>
-            <p className="mt-1 text-sm text-[#707A84]">
-              واتساب، Gmail، SMS — اقرأ الرسائل الواردة ورد مباشرة من هنا
-            </p>
           </div>
           {canSend && (
             <button
@@ -310,9 +307,6 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
             <div className="px-6 py-20 text-center">
               <MessageCircle className="mx-auto h-10 w-10 text-[#CBD5E1]" />
               <p className="mt-3 font-bold text-[#334155]">لا توجد رسائل بعد</p>
-              <p className="mt-1 text-sm text-[#707A84]">
-                عند ربط واتساب أو Gmail ستظهر الرسائل هنا تلقائياً
-              </p>
             </div>
           ) : (
             <div className="max-h-[560px] divide-y divide-[#F1F5F9] overflow-y-auto">

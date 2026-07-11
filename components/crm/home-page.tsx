@@ -4208,6 +4208,7 @@ export function HomePage() {
   const canViewUsers = Boolean(currentUser?.viewUsers);
   const canEditUsers = Boolean(currentUser?.editUsers);
   const canViewActivityLog = Boolean(currentUser?.viewActivityLog);
+  const isMaster = currentUser?.role === "master";
 
   const filteredSubscribers = (data: Subscriber[]) => {
     const normalizedTerm = normalizeSearchText(search);
@@ -4985,6 +4986,7 @@ export function HomePage() {
           canEditUsers={canEditUsers}
           canViewActivityLog={canViewActivityLog}
           renewalsThisMonthCount={renewalsThisMonthCount}
+          isMaster={isMaster}
         />
 
         <main className="min-w-0 flex-1 overflow-hidden">

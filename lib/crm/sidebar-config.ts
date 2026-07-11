@@ -28,6 +28,7 @@ export function buildSidebarSections(input: {
   canViewActivityLog: boolean;
   renewalsThisMonthCount: number;
   isDemo?: boolean;
+  isMaster?: boolean;
 }): SidebarSection[] {
   const vocabulary = getCrmVocabulary(Boolean(input.isDemo));
   const sections: SidebarSection[] = [];
@@ -116,17 +117,19 @@ export function buildSidebarSections(input: {
   }
 
   const adminItems: SidebarNavItem[] = [];
-  if (input.canViewUsers) {
-    adminItems.push({ label: "المستخدمون", key: "user-management" });
-    adminItems.push({ label: "قوالب الأدوار", key: "role-templates" });
-  }
-  if (input.canEditUsers) {
-    adminItems.push({ label: "إعدادات الشركة", key: "settings" });
-    adminItems.push({ label: "الأتمتة", key: "automation" });
-    adminItems.push({ label: "التكاملات و API", key: "integrations" });
-  }
-  if (input.canViewActivityLog) {
-    adminItems.push({ label: "سجل النشاطات", key: "activity-log" });
+  if (input.isMaster) {
+    if (input.canViewUsers) {
+      adminItems.push({ label: "المستخدمون", key: "user-management" });
+      adminItems.push({ label: "قوالب الأدوار", key: "role-templates" });
+    }
+    if (input.canEditUsers) {
+      adminItems.push({ label: "إعدادات الشركة", key: "settings" });
+      adminItems.push({ label: "الأتمتة", key: "automation" });
+      adminItems.push({ label: "التكاملات و API", key: "integrations" });
+    }
+    if (input.canViewActivityLog) {
+      adminItems.push({ label: "سجل النشاطات", key: "activity-log" });
+    }
   }
 
   if (adminItems.length) {

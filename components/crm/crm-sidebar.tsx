@@ -59,6 +59,7 @@ export function CrmSidebar({
   canEditUsers,
   canViewActivityLog,
   renewalsThisMonthCount,
+  isMaster,
 }: {
   activeMenu: MenuKey;
   onNavigate: (key: MenuKey) => void;
@@ -72,6 +73,7 @@ export function CrmSidebar({
   canEditUsers: boolean;
   canViewActivityLog: boolean;
   renewalsThisMonthCount: number;
+  isMaster: boolean;
 }) {
   const vocabulary = getCrmVocabulary(branding.isDemo);
   const demoBrandName =
@@ -91,6 +93,7 @@ export function CrmSidebar({
         canViewActivityLog,
         renewalsThisMonthCount,
         isDemo: branding.isDemo,
+        isMaster,
       }),
     [
       canViewSubscribers,
@@ -100,6 +103,7 @@ export function CrmSidebar({
       canViewAccounting,
       canViewUsers,
       canEditUsers,
+      isMaster,
       canViewActivityLog,
       renewalsThisMonthCount,
       branding.isDemo,
