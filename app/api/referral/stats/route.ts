@@ -17,7 +17,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "shop code required" }, { status: 400 });
     }
 
-    const stats = await getReferralStats(code);
+    const stats = await getReferralStats(code, {
+      from: url.searchParams.get("from"),
+      to: url.searchParams.get("to"),
+    });
     return NextResponse.json(stats);
   } catch (error: unknown) {
     console.error("GET /api/referral/stats error:", error);

@@ -14,12 +14,12 @@ import {
 } from "lucide-react";
 
 const FEATURES = [
-  { icon: Users, title: "إدارة العملاء", desc: "كل بيانات عملائك ومتابعاتهم بمكان واحد منظّم." },
-  { icon: MessagesSquare, title: "تواصل موحّد", desc: "واتساب، إيميل، ورسائل — من داخل النظام." },
-  { icon: BarChart3, title: "صفقات ومبيعات", desc: "تابع صفقاتك من أول تواصل حتى الإغلاق." },
-  { icon: CalendarClock, title: "مهام وتذكيرات", desc: "لا يفوتك موعد أو متابعة مع أي عميل." },
-  { icon: FileText, title: "فواتير وعروض", desc: "أنشئ عروض أسعار وفواتير احترافية بسرعة." },
-  { icon: Sparkles, title: "تقارير ذكية", desc: "اعرف أداء عملك بلمحة عبر لوحة واضحة." },
+  { icon: Users, title: "إدارة العملاء", desc: "جميع بيانات عملائك ومتابعاتهم في مكانٍ واحدٍ منظّم." },
+  { icon: MessagesSquare, title: "تواصل موحّد", desc: "واتساب والبريد الإلكتروني والرسائل من داخل النظام." },
+  { icon: BarChart3, title: "الصفقات والمبيعات", desc: "تابِع صفقاتك من أوّل تواصل حتى الإغلاق." },
+  { icon: CalendarClock, title: "المهام والتذكيرات", desc: "لا يفوتك موعدٌ أو متابعةٌ مع أيّ عميل." },
+  { icon: FileText, title: "الفواتير والعروض", desc: "أنشئ عروض أسعارٍ وفواتير احترافيةً بسرعة." },
+  { icon: Sparkles, title: "تقارير ذكية", desc: "تعرَّف على أداء عملك بلمحةٍ عبر لوحةٍ واضحة." },
 ];
 
 export function LeadForm() {
@@ -86,17 +86,27 @@ export function LeadForm() {
   return (
     <main
       dir="rtl"
-      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#0F8B94] via-[#0C767E] to-[#0A5A60] text-white"
+      className="relative min-h-screen overflow-hidden text-white"
+      style={{
+        backgroundColor: "#0A565C",
+        backgroundImage: [
+          "radial-gradient(circle at 8% 6%, rgba(94,234,212,0.65) 0px, transparent 38%)",
+          "radial-gradient(circle at 95% 4%, rgba(56,189,248,0.45) 0px, transparent 40%)",
+          "radial-gradient(circle at 92% 96%, rgba(4,47,52,0.85) 0px, transparent 46%)",
+          "radial-gradient(circle at 10% 98%, rgba(13,148,136,0.55) 0px, transparent 44%)",
+          "linear-gradient(135deg, #16A6B0 0%, #0B6A71 48%, #06373C 100%)",
+        ].join(", "),
+      }}
     >
       {/* decorative animated glows */}
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="gosol-float absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+        <div className="gosol-float absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#7CE0DA]/25 blur-3xl" />
         <div
-          className="gosol-float absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-[#7CE0DA]/20 blur-3xl"
+          className="gosol-float absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-[#38BDF8]/20 blur-3xl"
           style={{ animationDelay: "1.5s" }}
         />
         <div
-          className="gosol-float absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-[#0A5A60]/40 blur-3xl"
+          className="gosol-float absolute -bottom-10 right-1/3 h-72 w-72 rounded-full bg-[#042F34]/50 blur-3xl"
           style={{ animationDelay: "3s" }}
         />
       </div>
@@ -127,15 +137,16 @@ export function LeadForm() {
               className="gosol-fade-up mt-4 text-3xl font-black leading-tight drop-shadow-sm md:text-[44px] md:leading-[1.12]"
               style={{ animationDelay: "0.12s" }}
             >
-              نظام واحد لإدارة عملائك
+              منظومةٌ واحدةٌ لإدارة عملائك
               <br className="hidden md:block" /> ومبيعاتك وتواصلك
             </h1>
             <p
               className="gosol-fade-up mt-4 max-w-xl text-[15px] leading-8 text-white/90 md:text-base"
               style={{ animationDelay: "0.2s" }}
             >
-              Gosol CRM يساعدك تنظّم عملاءك، تتابع صفقاتك ومهامك، ترسل الفواتير، وتتواصل مع زبائنك عبر
-              واتساب والإيميل — كل هذا من مكان واحد بسيط. اترك بياناتك ونتواصل معك ونعطيك جولة على النظام.
+              يساعدك Gosol CRM على تنظيم عملائك، ومتابعة صفقاتك ومهامك، وإصدار فواتيرك، والتواصل مع
+              زبائنك عبر واتساب والبريد الإلكتروني — كلّ ذلك من مكانٍ واحدٍ وبسهولة. اترك بياناتك وسنتواصل
+              معك لنقدّم لك جولةً تعريفيةً على النظام.
             </p>
 
             <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -166,16 +177,16 @@ export function LeadForm() {
                 <div className="gosol-pop flex h-16 w-16 items-center justify-center rounded-full bg-[#E7F6F5]">
                   <CheckCircle2 className="h-9 w-9 text-[#0F8B94]" />
                 </div>
-                <h2 className="mt-5 text-2xl font-bold text-[#1F2937]">تم استلام بياناتك</h2>
+                <h2 className="mt-5 text-2xl font-bold text-[#1F2937]">تمّ استلام بياناتك</h2>
                 <p className="mt-2 max-w-xs text-sm leading-7 text-[#707A84]">
-                  شكراً لاهتمامك بـ Gosol CRM. فريقنا رح يتواصل معك قريباً جداً.
+                  شكراً لاهتمامك بـ Gosol CRM. سيتواصل معك فريقنا في أقرب وقت.
                 </p>
               </div>
             ) : (
               <>
                 <h2 className="text-2xl font-bold text-[#1F2937]">سجّل اهتمامك</h2>
                 <p className="mt-1 text-sm text-[#707A84]">
-                  اترك بياناتك ونحن نتواصل معك ونعطيك جولة على النظام مجاناً.
+                  اترك بياناتك وسنتواصل معك لنقدّم لك جولةً مجانيةً على النظام.
                 </p>
 
                 <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -226,7 +237,7 @@ export function LeadForm() {
                       value={form.note}
                       onChange={(e) => setForm({ ...form, note: e.target.value })}
                       className={`${inputClass} min-h-[84px] resize-none py-3`}
-                      placeholder="اختياري — شو بتحب تعرف عن النظام؟"
+                      placeholder="اختياري — ما الذي تودّ معرفته عن النظام؟"
                     />
                   </Field>
 

@@ -6,6 +6,7 @@ import {
   BadgeDollarSign,
   Check,
   Copy,
+  Download,
   Loader2,
   QrCode,
   ScanLine,
@@ -13,6 +14,15 @@ import {
   UserCheck,
   Users,
 } from "lucide-react";
+
+type LeadRow = {
+  name: string;
+  businessName: string | null;
+  phone: string;
+  email: string | null;
+  status: string;
+  createdAt: string;
+};
 
 type Stats = {
   shop: { code: string; name: string; ownerName: string | null; commissionAmount: number } | null;
@@ -22,14 +32,53 @@ type Stats = {
   subscribed: number;
   commissionAmount: number;
   estimatedCommission: number;
-  recentLeads: { name: string; createdAt: string; status: string }[];
+  range: { from: string | null; to: string | null };
+  items: LeadRow[];
 };
+
+type ViewKey = "leads" | "subscribed" | "commission";
 
 const STATUS_LABELS: Record<string, string> = {
   new: "جديد",
-  contacted: "تم التواصل",
+  contacted: "تمّت المتابعة",
   subscribed: "مشترك",
 };
+
+const PRESETS = [
+  { id: "all", label: "كل الوقت" },
+  { id: "month", label: "هذا الشهر" },
+  { id: "last-month", label: "الشهر الماضي" },
+  { id: "7", label: "آخر 7 أيام" },
+  { id: "30", label: "آخر 30 يوماً" },
+] as const;
+
+function fmt(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+function presetRange(id: string): { from: string; to: string } {
+  const now = new Date();
+  if (id === "month") {
+    return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), to: fmt(now) };
+  }
+  if (id === "last-month") {
+    return {
+      from: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
+      to: fmt(new Date(now.getFullYear(), now.getMonth(), 0)),
+    };
+  }
+  if (id === "7") {
+    const f = new Date(now);
+    f.setDate(f.getDate() - 6);
+    return { from: fmt(f), to: fmt(now) };
+  }
+  if (id === "30") {
+    const f = new Date(now);
+    f.setDate(f.getDate() - 29);
+    return { from: fmt(f), to: fmt(now) };
+  }
+  return { from: "", to: "" };
+}
 
 export function ClientDashboard() {
   const searchParams = useSearchParams();
@@ -41,22 +90,38 @@ export function ClientDashboard() {
   const [loading, setLoading] = useState(Boolean(shopParam));
   const [copied, setCopied] = useState(false);
 
-  const load = useCallback(async (shopCode: string) => {
-    if (!shopCode) return;
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/referral/stats?shop=${encodeURIComponent(shopCode)}`, {
-        cache: "no-store",
-      });
-      if (res.ok) setStats(await res.json());
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [preset, setPreset] = useState<string>("all");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [view, setView] = useState<ViewKey>("leads");
+
+  const load = useCallback(
+    async (shopCode: string, f: string, t: string) => {
+      if (!shopCode) return;
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ shop: shopCode });
+        if (f) params.set("from", f);
+        if (t) params.set("to", t);
+        const res = await fetch(`/api/referral/stats?${params.toString()}`, { cache: "no-store" });
+        if (res.ok) setStats(await res.json());
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
-    if (code) load(code);
-  }, [code, load]);
+    if (code) load(code, from, to);
+  }, [code, from, to, load]);
+
+  function applyPreset(id: string) {
+    setPreset(id);
+    const r = presetRange(id);
+    setFrom(r.from);
+    setTo(r.to);
+  }
 
   const referralLink = useMemo(() => {
     if (!code) return "";
@@ -64,8 +129,15 @@ export function ClientDashboard() {
     return `${origin}/form?ref=${encodeURIComponent(code)}`;
   }, [code]);
 
-  const conversion =
-    stats && stats.scans > 0 ? Math.round((stats.leads / stats.scans) * 100) : 0;
+  const conversion = stats && stats.scans > 0 ? Math.round((stats.leads / stats.scans) * 100) : 0;
+
+  const tableRows = useMemo(() => {
+    if (!stats) return [];
+    if (view === "subscribed" || view === "commission") {
+      return stats.items.filter((r) => r.status === "subscribed");
+    }
+    return stats.items;
+  }, [stats, view]);
 
   function copyLink() {
     if (!referralLink) return;
@@ -73,6 +145,30 @@ export function ClientDashboard() {
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     });
+  }
+
+  function exportCsv() {
+    const header = ["الاسم", "النشاط", "الهاتف", "البريد", "الحالة", "التاريخ"];
+    const lines = tableRows.map((r) =>
+      [
+        r.name,
+        r.businessName || "",
+        r.phone,
+        r.email || "",
+        STATUS_LABELS[r.status] || r.status,
+        new Date(r.createdAt).toLocaleDateString("en-CA"),
+      ]
+        .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+        .join(",")
+    );
+    const csv = "\uFEFF" + [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gosol-${code}-${view}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (!code) {
@@ -110,37 +206,115 @@ export function ClientDashboard() {
 
   const shopName = stats?.shop?.name || code;
 
+  const KPIS: { key: ViewKey | "scans"; icon: typeof Users; label: string; value: string; helper: string; accent: string; clickable: boolean }[] = [
+    {
+      key: "scans",
+      icon: ScanLine,
+      label: "عدد عمليات المسح",
+      value: String(stats?.scans ?? 0),
+      helper: "زيارات عبر رمز QR",
+      accent: "teal",
+      clickable: false,
+    },
+    {
+      key: "leads",
+      icon: Users,
+      label: "طلبات الاشتراك",
+      value: String(stats?.leads ?? 0),
+      helper: "عملاء تركوا بياناتهم",
+      accent: "blue",
+      clickable: true,
+    },
+    {
+      key: "subscribed",
+      icon: UserCheck,
+      label: "مشتركون مؤكّدون",
+      value: String(stats?.subscribed ?? 0),
+      helper: "اشتركوا فعلياً معنا",
+      accent: "violet",
+      clickable: true,
+    },
+    {
+      key: "commission",
+      icon: BadgeDollarSign,
+      label: "عمولتك المقدّرة",
+      value: `₪ ${(stats?.estimatedCommission ?? 0).toLocaleString()}`,
+      helper: `₪ ${(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك`,
+      accent: "amber",
+      clickable: true,
+    },
+  ];
+
   return (
     <main dir="rtl" className="min-h-screen bg-[#F5F8FB] text-[#1F2937]">
-      <div className="border-b border-[#E7ECF1] bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0F8B94] text-base font-black text-white">
+      <div className="border-b border-[#E7ECF1] bg-gradient-to-l from-[#0F8B94] to-[#0B6E75]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 text-white">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-base font-black">
               G
             </div>
-            <span className="text-lg font-extrabold tracking-tight text-[#0F8B94]">Gosol CRM</span>
+            <span className="text-lg font-extrabold tracking-tight">Gosol CRM</span>
           </div>
-          <span className="rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94]">
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold ring-1 ring-white/25">
             لوحة الشريك
           </span>
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-5 py-8">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="mx-auto max-w-6xl px-5 py-8">
+        <div className="gosol-fade-up flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-[#0F8B94]">مرحباً</p>
             <h1 className="mt-1 text-2xl font-bold text-[#1F2937] md:text-3xl">{shopName}</h1>
-            {stats?.shop?.ownerName && (
-              <p className="mt-1 text-sm text-[#707A84]">{stats.shop.ownerName}</p>
-            )}
+            {stats?.shop?.ownerName && <p className="mt-1 text-sm text-[#707A84]">{stats.shop.ownerName}</p>}
           </div>
           <button
-            onClick={() => load(code)}
+            onClick={() => load(code, from, to)}
             className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-bold text-[#334155] hover:bg-[#F8FAFC]"
           >
             تحديث
           </button>
+        </div>
+
+        {/* Period filter */}
+        <div className="gosol-fade-up mt-6 rounded-[22px] border border-[#EAECEF] bg-white p-4 shadow-sm" style={{ animationDelay: "0.05s" }}>
+          <div className="flex flex-wrap items-center gap-2">
+            {PRESETS.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p.id)}
+                className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
+                  preset === p.id
+                    ? "bg-[#0F8B94] text-white"
+                    : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            <div className="mx-1 hidden h-6 w-px bg-[#E5E7EB] sm:block" />
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => {
+                  setPreset("custom");
+                  setFrom(e.target.value);
+                }}
+                className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#0F8B94]"
+              />
+              <span className="text-xs text-[#94A3B8]">إلى</span>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => {
+                  setPreset("custom");
+                  setTo(e.target.value);
+                }}
+                className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#0F8B94]"
+              />
+            </div>
+          </div>
         </div>
 
         {loading && !stats ? (
@@ -149,50 +323,44 @@ export function ClientDashboard() {
           </div>
         ) : (
           <>
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <StatCard
-                icon={ScanLine}
-                label="عدد السكانات"
-                value={stats?.scans ?? 0}
-                helper="زيارات عبر رمز QR"
-                accent="teal"
-              />
-              <StatCard
-                icon={Users}
-                label="طلبات الاشتراك"
-                value={stats?.leads ?? 0}
-                helper="عملاء تركوا بياناتهم"
-                accent="blue"
-              />
-              <StatCard
-                icon={UserCheck}
-                label="مشتركون مؤكّدون"
-                value={stats?.subscribed ?? 0}
-                helper="اشتركوا فعلياً معنا"
-                accent="violet"
-              />
-              <StatCard
-                icon={BadgeDollarSign}
-                label="عمولتك المقدّرة"
-                value={`₪ ${(stats?.estimatedCommission ?? 0).toLocaleString()}`}
-                helper={`₪ ${(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك`}
-                accent="amber"
-              />
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {KPIS.map((k, i) => {
+                const active = k.clickable && view === k.key;
+                const Comp = k.clickable ? "button" : "div";
+                return (
+                  <Comp
+                    key={k.key}
+                    onClick={k.clickable ? () => setView(k.key as ViewKey) : undefined}
+                    className={`gosol-fade-up rounded-[24px] border bg-white p-5 text-right shadow-sm transition ${
+                      k.clickable ? "cursor-pointer hover:-translate-y-1 hover:shadow-md" : ""
+                    } ${active ? "border-[#0F8B94] ring-2 ring-[#0F8B94]/20" : "border-[#EAECEF]"}`}
+                    style={{ animationDelay: `${0.08 + i * 0.06}s` }}
+                  >
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${ACCENTS[k.accent] || ACCENTS.teal}`}>
+                      <k.icon className="h-5 w-5" />
+                    </div>
+                    <p className="mt-4 text-3xl font-black text-[#1F2937]">{k.value}</p>
+                    <p className="mt-1 text-sm font-bold text-[#334155]">{k.label}</p>
+                    <p className="mt-0.5 text-xs text-[#94A3B8]">{k.helper}</p>
+                    {k.clickable && (
+                      <p className="mt-2 text-[11px] font-bold text-[#0F8B94]">اضغط لعرض التفاصيل ←</p>
+                    )}
+                  </Comp>
+                );
+              })}
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.2fr]">
-              <div className="rounded-[26px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.15fr]">
+              <div className="gosol-fade-up rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.12s" }}>
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-[#0F8B94]" />
                   <h3 className="text-lg font-bold text-[#1F2937]">نسبة التحويل</h3>
                 </div>
                 <p className="mt-4 text-4xl font-black text-[#0F8B94]">{conversion}%</p>
-                <p className="mt-1 text-sm text-[#707A84]">
-                  من زوّار رمز QR تركوا بياناتهم للتواصل.
-                </p>
+                <p className="mt-1 text-sm text-[#707A84]">من زوّار رمز QR تركوا بياناتهم للتواصل.</p>
 
                 <div className="mt-5 rounded-2xl bg-[#F5F8FB] p-4">
-                  <p className="text-xs font-bold text-[#707A84]">رابط QR الخاص بك</p>
+                  <p className="text-xs font-bold text-[#707A84]">رابط رمز QR الخاص بك</p>
                   <div className="mt-2 flex items-center gap-2">
                     <code className="flex-1 truncate rounded-lg bg-white px-3 py-2 text-xs text-[#334155] ring-1 ring-[#E5E7EB]" dir="ltr">
                       {referralLink}
@@ -208,45 +376,98 @@ export function ClientDashboard() {
                 </div>
               </div>
 
-              <div className="rounded-[26px] border border-[#EAECEF] bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-bold text-[#1F2937]">آخر النشاطات</h3>
-                {stats && stats.recentLeads.length > 0 ? (
-                  <div className="mt-4 divide-y divide-[#F1F5F9]">
-                    {stats.recentLeads.map((lead, i) => (
-                      <div key={i} className="flex items-center justify-between py-3">
-                        <div>
-                          <p className="text-sm font-bold text-[#1F2937]">{lead.name}</p>
-                          <p className="text-xs text-[#94A3B8]">
-                            {new Date(lead.createdAt).toLocaleDateString("ar")}
-                          </p>
-                        </div>
-                        <span
-                          className={`rounded-full px-3 py-1 text-[11px] font-bold ${
-                            lead.status === "subscribed"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : lead.status === "contacted"
-                              ? "bg-blue-50 text-blue-700"
-                              : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {STATUS_LABELS[lead.status] || lead.status}
-                        </span>
-                      </div>
-                    ))}
+              <div className="gosol-fade-up rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.16s" }}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    <Tab active={view === "leads"} onClick={() => setView("leads")}>
+                      طلبات الاشتراك
+                    </Tab>
+                    <Tab active={view === "subscribed"} onClick={() => setView("subscribed")}>
+                      مشتركون مؤكّدون
+                    </Tab>
+                    <Tab active={view === "commission"} onClick={() => setView("commission")}>
+                      العمولة
+                    </Tab>
                   </div>
-                ) : (
-                  <div className="mt-8 py-10 text-center text-sm text-[#94A3B8]">
-                    لا يوجد نشاط بعد. عندما يعمل الزبائن سكان لرمزك ستظهر النتائج هنا.
+                  {tableRows.length > 0 && (
+                    <button
+                      onClick={exportCsv}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC]"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      تصدير CSV
+                    </button>
+                  )}
+                </div>
+
+                {view === "commission" && (
+                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#FFF8EC] px-4 py-3">
+                    <span className="text-sm font-bold text-[#92400E]">
+                      {stats?.subscribed ?? 0} مشترك × ₪ {(stats?.commissionAmount ?? 0).toLocaleString()}
+                    </span>
+                    <span className="text-lg font-black text-[#B45309]">
+                      = ₪ {(stats?.estimatedCommission ?? 0).toLocaleString()}
+                    </span>
                   </div>
                 )}
+
+                <div className="mt-4 overflow-x-auto">
+                  {tableRows.length > 0 ? (
+                    <table className="w-full min-w-[520px] text-right text-sm">
+                      <thead>
+                        <tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]">
+                          <th className="px-3 py-2.5 font-semibold">الاسم</th>
+                          <th className="px-3 py-2.5 font-semibold">النشاط</th>
+                          <th className="px-3 py-2.5 font-semibold">الهاتف</th>
+                          <th className="px-3 py-2.5 font-semibold">التاريخ</th>
+                          <th className="px-3 py-2.5 font-semibold">الحالة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tableRows.map((r, i) => (
+                          <tr key={i} className="border-b border-[#F5F7FA] last:border-none">
+                            <td className="px-3 py-3 font-bold text-[#1F2937]">{r.name}</td>
+                            <td className="px-3 py-3 text-[#4B5563]">{r.businessName || "—"}</td>
+                            <td className="px-3 py-3 text-[#4B5563]" dir="ltr">
+                              {r.phone || "—"}
+                            </td>
+                            <td className="px-3 py-3 text-[#94A3B8]">
+                              {new Date(r.createdAt).toLocaleDateString("ar")}
+                            </td>
+                            <td className="px-3 py-3">
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                  r.status === "subscribed"
+                                    ? "bg-emerald-50 text-emerald-700"
+                                    : r.status === "contacted"
+                                    ? "bg-blue-50 text-blue-700"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
+                              >
+                                {STATUS_LABELS[r.status] || r.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="py-12 text-center text-sm text-[#94A3B8]">
+                      {view === "leads"
+                        ? "لا توجد طلبات ضمن هذه الفترة."
+                        : "لا يوجد مشتركون مؤكّدون ضمن هذه الفترة."}
+                    </div>
+                  )}
+                </div>
+                <p className="mt-3 text-[11px] leading-5 text-[#9AA3AF]">
+                  تُعرض بيانات العملاء مقنّعة جزئياً للحفاظ على الخصوصية.
+                </p>
               </div>
             </div>
           </>
         )}
 
-        <footer className="mt-10 text-center text-xs text-[#8B95A1]">
-          © {new Date().getFullYear()} Gosol CRM
-        </footer>
+        <footer className="mt-10 text-center text-xs text-[#8B95A1]">© {new Date().getFullYear()} Gosol CRM</footer>
       </div>
     </main>
   );
@@ -259,27 +480,15 @@ const ACCENTS: Record<string, string> = {
   amber: "bg-amber-50 text-amber-600",
 };
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  helper,
-  accent,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: number | string;
-  helper: string;
-  accent: string;
-}) {
+function Tab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <div className="rounded-[26px] border border-[#EAECEF] bg-white p-5 shadow-sm">
-      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${ACCENTS[accent] || ACCENTS.teal}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <p className="mt-4 text-3xl font-black text-[#1F2937]">{value}</p>
-      <p className="mt-1 text-sm font-bold text-[#334155]">{label}</p>
-      <p className="mt-0.5 text-xs text-[#94A3B8]">{helper}</p>
-    </div>
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
+        active ? "bg-[#0F8B94] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

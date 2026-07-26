@@ -17,6 +17,15 @@ export type ReferralShopRecord = {
   commissionAmount: number;
 };
 
+export type ReferralLeadRow = {
+  name: string;
+  businessName: string | null;
+  phone: string;
+  email: string | null;
+  status: string;
+  createdAt: string;
+};
+
 export type ReferralStats = {
   shop: ReferralShopRecord | null;
   code: string;
@@ -25,13 +34,19 @@ export type ReferralStats = {
   subscribed: number;
   commissionAmount: number;
   estimatedCommission: number;
-  recentLeads: { name: string; createdAt: string; status: string }[];
+  range: { from: string | null; to: string | null };
+  items: ReferralLeadRow[];
 };
 
 function normalizeCode(code?: string | null) {
   const value = String(code || "").trim().toLowerCase();
   if (!value) return null;
   return value.replace(/[^a-z0-9_-]/g, "").slice(0, 60) || null;
+}
+
+function normalizeDate(value?: string | null) {
+  const v = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 }
 
 export async function createLead(input: LeadInput) {
@@ -59,27 +74,58 @@ export async function logScan(input: { shopCode?: string | null; ipAddress?: str
   );
 }
 
-export async function getReferralStats(rawCode: string): Promise<ReferralStats> {
+export async function getReferralStats(
+  rawCode: string,
+  opts?: { from?: string | null; to?: string | null }
+): Promise<ReferralStats> {
   const code = normalizeCode(rawCode) || "";
+  const from = normalizeDate(opts?.from);
+  const to = normalizeDate(opts?.to);
+
+  const dateClause = () => {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (from) {
+      clauses.push("createdAt >= ?");
+      params.push(`${from} 00:00:00`);
+    }
+    if (to) {
+      clauses.push("createdAt <= ?");
+      params.push(`${to} 23:59:59`);
+    }
+    return { clause: clauses.length ? ` AND ${clauses.join(" AND ")}` : "", params };
+  };
+
+  const scanR = dateClause();
+  const leadR = dateClause();
+  const subR = dateClause();
+  const listR = dateClause();
 
   const shop = await queryOne<ReferralShopRecord>(
     "SELECT code, name, ownerName, commissionAmount FROM ReferralShop WHERE code = ? LIMIT 1",
     [code]
   );
 
-  const [scansRow, leadsRow, subscribedRow] = await Promise.all([
-    queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM ScanEvent WHERE shopCode = ?", [code]),
-    queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM `Lead` WHERE shopCode = ?", [code]),
+  const [scansRow, leadsRow, subscribedRow, rows] = await Promise.all([
     queryOne<{ count: number }>(
-      "SELECT COUNT(*) AS count FROM `Lead` WHERE shopCode = ? AND status = 'subscribed'",
-      [code]
+      `SELECT COUNT(*) AS count FROM ScanEvent WHERE shopCode = ?${scanR.clause}`,
+      [code, ...scanR.params]
+    ),
+    queryOne<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM \`Lead\` WHERE shopCode = ?${leadR.clause}`,
+      [code, ...leadR.params]
+    ),
+    queryOne<{ count: number }>(
+      `SELECT COUNT(*) AS count FROM \`Lead\` WHERE shopCode = ? AND status = 'subscribed'${subR.clause}`,
+      [code, ...subR.params]
+    ),
+    query<{ name: string; businessName: string | null; phone: string; email: string | null; status: string; createdAt: string | Date }>(
+      `SELECT name, businessName, phone, email, status, createdAt
+       FROM \`Lead\` WHERE shopCode = ?${listR.clause}
+       ORDER BY createdAt DESC LIMIT 300`,
+      [code, ...listR.params]
     ),
   ]);
-
-  const recent = await query<{ name: string; createdAt: string | Date; status: string }>(
-    "SELECT name, status, createdAt FROM `Lead` WHERE shopCode = ? ORDER BY createdAt DESC LIMIT 8",
-    [code]
-  );
 
   const scans = Number(scansRow?.count || 0);
   const leads = Number(leadsRow?.count || 0);
@@ -88,12 +134,7 @@ export async function getReferralStats(rawCode: string): Promise<ReferralStats> 
 
   return {
     shop: shop
-      ? {
-          code: shop.code,
-          name: shop.name,
-          ownerName: shop.ownerName,
-          commissionAmount,
-        }
+      ? { code: shop.code, name: shop.name, ownerName: shop.ownerName, commissionAmount }
       : null,
     code,
     scans,
@@ -101,8 +142,12 @@ export async function getReferralStats(rawCode: string): Promise<ReferralStats> 
     subscribed,
     commissionAmount,
     estimatedCommission: subscribed * commissionAmount,
-    recentLeads: recent.map((row) => ({
+    range: { from, to },
+    items: rows.map((row) => ({
       name: maskName(String(row.name || "")),
+      businessName: row.businessName ? String(row.businessName) : null,
+      phone: maskPhone(String(row.phone || "")),
+      email: maskEmail(row.email ? String(row.email) : null),
       status: String(row.status || "new"),
       createdAt: new Date(row.createdAt as string | Date).toISOString(),
     })),
@@ -116,4 +161,18 @@ function maskName(name: string) {
   return parts
     .map((part) => (part.length <= 2 ? part : `${part.slice(0, 2)}${"*".repeat(Math.min(part.length - 2, 4))}`))
     .join(" ");
+}
+
+function maskPhone(phone: string) {
+  const digits = phone.replace(/\s+/g, "");
+  if (digits.length <= 4) return digits;
+  return `${digits.slice(0, 3)}${"*".repeat(Math.max(digits.length - 5, 2))}${digits.slice(-2)}`;
+}
+
+function maskEmail(email: string | null) {
+  if (!email) return null;
+  const [user, domain] = email.split("@");
+  if (!domain) return email;
+  const maskedUser = user.length <= 2 ? user : `${user.slice(0, 2)}${"*".repeat(Math.min(user.length - 2, 4))}`;
+  return `${maskedUser}@${domain}`;
 }
