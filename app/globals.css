@@ -35,3 +35,61 @@ button {
 input::placeholder {
   color: #9ca3af;
 }
+
+/* Gosol public pages animations */
+@keyframes gosolFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gosolFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes gosolPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.gosol-fade-up {
+  opacity: 0;
+  animation: gosolFadeUp 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.gosol-float {
+  animation: gosolFloat 9s ease-in-out infinite;
+}
+
+.gosol-pop {
+  animation: gosolPop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gosol-fade-up,
+  .gosol-float,
+  .gosol-pop {
+    animation: none;
+    opacity: 1;
+  }
+}

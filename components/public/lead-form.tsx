@@ -15,11 +15,11 @@ import {
 
 const FEATURES = [
   { icon: Users, title: "إدارة العملاء", desc: "كل بيانات عملائك ومتابعاتهم بمكان واحد منظّم." },
-  { icon: MessagesSquare, title: "تواصل موحّد", desc: "واتساب، إيميل، ورسائل — كلها من داخل النظام." },
+  { icon: MessagesSquare, title: "تواصل موحّد", desc: "واتساب، إيميل، ورسائل — من داخل النظام." },
   { icon: BarChart3, title: "صفقات ومبيعات", desc: "تابع صفقاتك من أول تواصل حتى الإغلاق." },
   { icon: CalendarClock, title: "مهام وتذكيرات", desc: "لا يفوتك موعد أو متابعة مع أي عميل." },
   { icon: FileText, title: "فواتير وعروض", desc: "أنشئ عروض أسعار وفواتير احترافية بسرعة." },
-  { icon: Sparkles, title: "تقارير ذكية", desc: "اعرف أداء عملك بلمحة عبر لوحة تحكم واضحة." },
+  { icon: Sparkles, title: "تقارير ذكية", desc: "اعرف أداء عملك بلمحة عبر لوحة واضحة." },
 ];
 
 export function LeadForm() {
@@ -84,44 +84,72 @@ export function LeadForm() {
   }
 
   return (
-    <main dir="rtl" className="min-h-screen bg-[#F5F8FB] text-[#1F2937]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-[#0F8B94] to-[#0B6E75]" />
+    <main
+      dir="rtl"
+      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-[#0F8B94] via-[#0C767E] to-[#0A5A60] text-white"
+    >
+      {/* decorative animated glows */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="gosol-float absolute -right-24 -top-24 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+        <div
+          className="gosol-float absolute -left-20 top-1/3 h-72 w-72 rounded-full bg-[#7CE0DA]/20 blur-3xl"
+          style={{ animationDelay: "1.5s" }}
+        />
+        <div
+          className="gosol-float absolute bottom-0 right-1/4 h-64 w-64 rounded-full bg-[#0A5A60]/40 blur-3xl"
+          style={{ animationDelay: "3s" }}
+        />
+      </div>
 
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-5 py-10 lg:py-16">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/15 text-lg font-black text-white ring-1 ring-white/25">
+      <div className="relative mx-auto flex max-w-6xl flex-col gap-10 px-5 py-9 lg:py-14">
+        <header className="gosol-fade-up flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-lg font-black text-white shadow-lg ring-1 ring-white/25">
               G
             </div>
-            <span className="text-xl font-extrabold tracking-tight text-white">Gosol CRM</span>
+            <span className="text-xl font-extrabold tracking-tight">Gosol CRM</span>
           </div>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white ring-1 ring-white/25">
+          <span className="rounded-full bg-white/15 px-3.5 py-1.5 text-xs font-bold ring-1 ring-white/25">
             منصة إدارة الأعمال
           </span>
         </header>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-start">
-          <section className="text-white">
-            <h1 className="text-3xl font-black leading-tight md:text-[42px] md:leading-[1.15]">
-              نظام واحد لإدارة عملائك ومبيعاتك وتواصلك
+          <section>
+            <span
+              className="gosol-fade-up inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1 text-xs font-bold ring-1 ring-white/25"
+              style={{ animationDelay: "0.05s" }}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              جرّبه مجاناً
+            </span>
+            <h1
+              className="gosol-fade-up mt-4 text-3xl font-black leading-tight drop-shadow-sm md:text-[44px] md:leading-[1.12]"
+              style={{ animationDelay: "0.12s" }}
+            >
+              نظام واحد لإدارة عملائك
+              <br className="hidden md:block" /> ومبيعاتك وتواصلك
             </h1>
-            <p className="mt-4 max-w-xl text-[15px] leading-8 text-white/90 md:text-base">
+            <p
+              className="gosol-fade-up mt-4 max-w-xl text-[15px] leading-8 text-white/90 md:text-base"
+              style={{ animationDelay: "0.2s" }}
+            >
               Gosol CRM يساعدك تنظّم عملاءك، تتابع صفقاتك ومهامك، ترسل الفواتير، وتتواصل مع زبائنك عبر
-              واتساب والإيميل — كل هذا من مكان واحد بسيط وسهل. سجّل بياناتك ونحن نتواصل معك ونعرّفك على
-              النظام.
+              واتساب والإيميل — كل هذا من مكان واحد بسيط. اترك بياناتك ونتواصل معك ونعطيك جولة على النظام.
             </p>
 
             <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {FEATURES.map((f) => (
+              {FEATURES.map((f, i) => (
                 <div
                   key={f.title}
-                  className="flex items-start gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm"
+                  className="gosol-fade-up group flex items-start gap-3 rounded-2xl bg-white/10 p-4 ring-1 ring-white/15 backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:bg-white/15"
+                  style={{ animationDelay: `${0.28 + i * 0.07}s` }}
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 transition group-hover:scale-110">
                     <f.icon className="h-5 w-5 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">{f.title}</p>
+                    <p className="text-sm font-bold">{f.title}</p>
                     <p className="mt-0.5 text-xs leading-6 text-white/80">{f.desc}</p>
                   </div>
                 </div>
@@ -129,10 +157,13 @@ export function LeadForm() {
             </div>
           </section>
 
-          <section className="rounded-[30px] border border-[#E7ECF1] bg-white p-6 shadow-2xl md:p-8">
+          <section
+            className="gosol-fade-up rounded-[30px] border border-white/40 bg-white p-6 text-[#1F2937] shadow-2xl md:p-8"
+            style={{ animationDelay: "0.18s" }}
+          >
             {done ? (
               <div className="flex flex-col items-center py-10 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#E7F6F5]">
+                <div className="gosol-pop flex h-16 w-16 items-center justify-center rounded-full bg-[#E7F6F5]">
                   <CheckCircle2 className="h-9 w-9 text-[#0F8B94]" />
                 </div>
                 <h2 className="mt-5 text-2xl font-bold text-[#1F2937]">تم استلام بياناتك</h2>
@@ -194,7 +225,7 @@ export function LeadForm() {
                     <textarea
                       value={form.note}
                       onChange={(e) => setForm({ ...form, note: e.target.value })}
-                      className={`${inputClass} min-h-[84px] resize-none`}
+                      className={`${inputClass} min-h-[84px] resize-none py-3`}
                       placeholder="اختياري — شو بتحب تعرف عن النظام؟"
                     />
                   </Field>
@@ -208,7 +239,7 @@ export function LeadForm() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-[#0F8B94]/25 transition hover:bg-[#0B6E75] disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-[#0F8B94]/30 transition duration-200 hover:-translate-y-0.5 hover:bg-[#0B6E75] hover:shadow-xl active:translate-y-0 disabled:opacity-60"
                   >
                     {submitting ? (
                       <>
@@ -229,7 +260,7 @@ export function LeadForm() {
           </section>
         </div>
 
-        <footer className="mt-4 text-center text-xs text-[#8B95A1] lg:text-white/80">
+        <footer className="gosol-fade-up text-center text-xs text-white/70" style={{ animationDelay: "0.6s" }}>
           © {new Date().getFullYear()} Gosol CRM — جميع الحقوق محفوظة
         </footer>
       </div>
