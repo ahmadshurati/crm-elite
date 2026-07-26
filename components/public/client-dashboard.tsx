@@ -10,7 +10,6 @@ import {
   Loader2,
   QrCode,
   ScanLine,
-  TrendingUp,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -128,8 +127,6 @@ export function ClientDashboard() {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://gosol.io";
     return `${origin}/form?ref=${encodeURIComponent(code)}`;
   }, [code]);
-
-  const conversion = stats && stats.scans > 0 ? Math.round((stats.leads / stats.scans) * 100) : 0;
 
   const tableRows = useMemo(() => {
     if (!stats) return [];
@@ -350,45 +347,62 @@ export function ClientDashboard() {
               })}
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[1fr_1.15fr]">
-              <div className="gosol-fade-up rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.12s" }}>
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-[#0F8B94]" />
-                  <h3 className="text-lg font-bold text-[#1F2937]">نسبة التحويل</h3>
-                </div>
-                <p className="mt-4 text-4xl font-black text-[#0F8B94]">{conversion}%</p>
-                <p className="mt-1 text-sm text-[#707A84]">من زوّار رمز QR تركوا بياناتهم للتواصل.</p>
-
-                <div className="mt-5 rounded-2xl bg-[#F5F8FB] p-4">
-                  <p className="text-xs font-bold text-[#707A84]">رابط رمز QR الخاص بك</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <code className="flex-1 truncate rounded-lg bg-white px-3 py-2 text-xs text-[#334155] ring-1 ring-[#E5E7EB]" dir="ltr">
-                      {referralLink}
-                    </code>
-                    <button
-                      onClick={copyLink}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#0F8B94] text-white hover:bg-[#0B6E75]"
-                      title="نسخ الرابط"
-                    >
-                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    </button>
+            {/* Referral code */}
+            <div
+              className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm"
+              style={{ animationDelay: "0.12s" }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E7F6F5] text-[#0F8B94]">
+                    <QrCode className="h-6 w-6" />
                   </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#707A84]">رمز الإحالة الخاص بك</p>
+                    <p className="text-2xl font-black tracking-wider text-[#0F8B94]" dir="ltr">
+                      {code}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex min-w-[260px] flex-1 items-center gap-2">
+                  <code
+                    className="flex-1 truncate rounded-lg bg-[#F5F8FB] px-3 py-2.5 text-xs text-[#334155] ring-1 ring-[#E5E7EB]"
+                    dir="ltr"
+                  >
+                    {referralLink}
+                  </code>
+                  <button
+                    onClick={copyLink}
+                    className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[#0F8B94] px-3.5 text-sm font-bold text-white hover:bg-[#0B6E75]"
+                  >
+                    {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copied ? "تم النسخ" : "نسخ الرابط"}
+                  </button>
                 </div>
               </div>
+            </div>
 
-              <div className="gosol-fade-up rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.16s" }}>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <Tab active={view === "leads"} onClick={() => setView("leads")}>
-                      طلبات الاشتراك
-                    </Tab>
-                    <Tab active={view === "subscribed"} onClick={() => setView("subscribed")}>
-                      مشتركون مؤكّدون
-                    </Tab>
-                    <Tab active={view === "commission"} onClick={() => setView("commission")}>
-                      العمولة
-                    </Tab>
-                  </div>
+            {/* Details table */}
+            <div
+              className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm"
+              style={{ animationDelay: "0.16s" }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-1.5">
+                  <Tab active={view === "leads"} onClick={() => setView("leads")}>
+                    طلبات الاشتراك
+                  </Tab>
+                  <Tab active={view === "subscribed"} onClick={() => setView("subscribed")}>
+                    مشتركون مؤكّدون
+                  </Tab>
+                  <Tab active={view === "commission"} onClick={() => setView("commission")}>
+                    العمولة
+                  </Tab>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-bold text-[#475569]">
+                    {tableRows.length} سجلّ
+                  </span>
                   {tableRows.length > 0 && (
                     <button
                       onClick={exportCsv}
@@ -399,70 +413,76 @@ export function ClientDashboard() {
                     </button>
                   )}
                 </div>
+              </div>
 
-                {view === "commission" && (
-                  <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#FFF8EC] px-4 py-3">
-                    <span className="text-sm font-bold text-[#92400E]">
-                      {stats?.subscribed ?? 0} مشترك × ₪ {(stats?.commissionAmount ?? 0).toLocaleString()}
-                    </span>
-                    <span className="text-lg font-black text-[#B45309]">
-                      = ₪ {(stats?.estimatedCommission ?? 0).toLocaleString()}
-                    </span>
+              {view === "commission" && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#FFF8EC] px-5 py-4">
+                  <span className="text-sm font-bold text-[#92400E]">
+                    {stats?.subscribed ?? 0} مشترك مؤكّد × ₪ {(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك
+                  </span>
+                  <span className="text-2xl font-black text-[#B45309]">
+                    ₪ {(stats?.estimatedCommission ?? 0).toLocaleString()}
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-5 overflow-x-auto">
+                {tableRows.length > 0 ? (
+                  <table className="w-full min-w-[760px] text-right text-sm">
+                    <thead>
+                      <tr className="border-b-2 border-[#EEF1F4] text-xs text-[#8B95A1]">
+                        <th className="px-3 py-3 font-semibold">#</th>
+                        <th className="px-3 py-3 font-semibold">الاسم</th>
+                        <th className="px-3 py-3 font-semibold">النشاط / المحل</th>
+                        <th className="px-3 py-3 font-semibold">الهاتف</th>
+                        <th className="px-3 py-3 font-semibold">البريد الإلكتروني</th>
+                        <th className="px-3 py-3 font-semibold">التاريخ</th>
+                        <th className="px-3 py-3 font-semibold">الحالة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tableRows.map((r, i) => (
+                        <tr key={i} className="border-b border-[#F5F7FA] transition last:border-none hover:bg-[#FAFCFD]">
+                          <td className="px-3 py-4 text-xs font-bold text-[#94A3B8]">{i + 1}</td>
+                          <td className="px-3 py-4 font-bold text-[#1F2937]">{r.name}</td>
+                          <td className="px-3 py-4 text-[#4B5563]">{r.businessName || "—"}</td>
+                          <td className="px-3 py-4 text-[#4B5563]" dir="ltr">
+                            {r.phone || "—"}
+                          </td>
+                          <td className="px-3 py-4 text-[#4B5563]" dir="ltr">
+                            {r.email || "—"}
+                          </td>
+                          <td className="px-3 py-4 text-[#94A3B8]">
+                            {new Date(r.createdAt).toLocaleDateString("ar")}
+                          </td>
+                          <td className="px-3 py-4">
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                r.status === "subscribed"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : r.status === "contacted"
+                                  ? "bg-blue-50 text-blue-700"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
+                            >
+                              {STATUS_LABELS[r.status] || r.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="py-16 text-center text-sm text-[#94A3B8]">
+                    {view === "leads"
+                      ? "لا توجد طلبات ضمن هذه الفترة."
+                      : "لا يوجد مشتركون مؤكّدون ضمن هذه الفترة."}
                   </div>
                 )}
-
-                <div className="mt-4 overflow-x-auto">
-                  {tableRows.length > 0 ? (
-                    <table className="w-full min-w-[520px] text-right text-sm">
-                      <thead>
-                        <tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]">
-                          <th className="px-3 py-2.5 font-semibold">الاسم</th>
-                          <th className="px-3 py-2.5 font-semibold">النشاط</th>
-                          <th className="px-3 py-2.5 font-semibold">الهاتف</th>
-                          <th className="px-3 py-2.5 font-semibold">التاريخ</th>
-                          <th className="px-3 py-2.5 font-semibold">الحالة</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tableRows.map((r, i) => (
-                          <tr key={i} className="border-b border-[#F5F7FA] last:border-none">
-                            <td className="px-3 py-3 font-bold text-[#1F2937]">{r.name}</td>
-                            <td className="px-3 py-3 text-[#4B5563]">{r.businessName || "—"}</td>
-                            <td className="px-3 py-3 text-[#4B5563]" dir="ltr">
-                              {r.phone || "—"}
-                            </td>
-                            <td className="px-3 py-3 text-[#94A3B8]">
-                              {new Date(r.createdAt).toLocaleDateString("ar")}
-                            </td>
-                            <td className="px-3 py-3">
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                                  r.status === "subscribed"
-                                    ? "bg-emerald-50 text-emerald-700"
-                                    : r.status === "contacted"
-                                    ? "bg-blue-50 text-blue-700"
-                                    : "bg-slate-100 text-slate-600"
-                                }`}
-                              >
-                                {STATUS_LABELS[r.status] || r.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="py-12 text-center text-sm text-[#94A3B8]">
-                      {view === "leads"
-                        ? "لا توجد طلبات ضمن هذه الفترة."
-                        : "لا يوجد مشتركون مؤكّدون ضمن هذه الفترة."}
-                    </div>
-                  )}
-                </div>
-                <p className="mt-3 text-[11px] leading-5 text-[#9AA3AF]">
-                  تُعرض بيانات العملاء مقنّعة جزئياً للحفاظ على الخصوصية.
-                </p>
               </div>
+              <p className="mt-3 text-[11px] leading-5 text-[#9AA3AF]">
+                تُعرض بيانات العملاء مقنّعة جزئياً للحفاظ على الخصوصية.
+              </p>
             </div>
           </>
         )}
