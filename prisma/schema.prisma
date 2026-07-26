@@ -567,3 +567,43 @@ model CrmFile {
   @@index([folder])
   @@index([createdAt])
 }
+
+model ReferralShop {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  name             String
+  ownerName        String?
+  contactPhone     String?
+  commissionAmount Float    @default(0)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Lead {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String
+  email        String?
+  businessName String?
+  note         String?  @db.Text
+  shopCode     String?
+  status       String   @default("new")
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+
+  @@index([shopCode])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ScanEvent {
+  id        Int      @id @default(autoincrement())
+  shopCode  String?
+  ipAddress String?
+  userAgent String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([shopCode])
+  @@index([createdAt])
+}

@@ -9,17 +9,22 @@ export async function middleware(req: NextRequest) {
   const isPublic =
     path.startsWith("/login") ||
     path.startsWith("/admin/login") ||
+    path.startsWith("/form") ||
+    path.startsWith("/clientdashboard") ||
     path.startsWith("/api/login") ||
     path.startsWith("/api/admin/login") ||
     path.startsWith("/api/logout") ||
     path.startsWith("/api/ping") ||
     path.startsWith("/api/health") ||
+    path.startsWith("/api/leads") ||
+    path.startsWith("/api/referral/") ||
     path.startsWith("/api/cron/") ||
     path.startsWith("/api/webhooks/") ||
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
     path.startsWith("/logo") ||
     path.startsWith("/loag") ||
+    path.startsWith("/gosol") ||
     path.startsWith("/uploads");
 
   if (isPublic) {
