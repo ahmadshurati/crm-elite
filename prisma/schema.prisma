@@ -574,6 +574,9 @@ model ReferralShop {
   name             String
   ownerName        String?
   contactPhone     String?
+  email            String?
+  username         String?  @unique
+  passwordHash     String?
   commissionAmount Float    @default(0)
   isActive         Boolean  @default(true)
   createdAt        DateTime @default(now())

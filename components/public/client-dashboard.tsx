@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   BadgeDollarSign,
   Check,
   Copy,
   Download,
   Loader2,
+  Lock,
+  LogOut,
   QrCode,
   ScanLine,
   UserCheck,
@@ -57,15 +58,12 @@ function fmt(d: Date) {
 
 function presetRange(id: string): { from: string; to: string } {
   const now = new Date();
-  if (id === "month") {
-    return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), to: fmt(now) };
-  }
-  if (id === "last-month") {
+  if (id === "month") return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), to: fmt(now) };
+  if (id === "last-month")
     return {
       from: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
       to: fmt(new Date(now.getFullYear(), now.getMonth(), 0)),
     };
-  }
   if (id === "7") {
     const f = new Date(now);
     f.setDate(f.getDate() - 6);
@@ -80,40 +78,44 @@ function presetRange(id: string): { from: string; to: string } {
 }
 
 export function ClientDashboard() {
-  const searchParams = useSearchParams();
-  const shopParam = searchParams.get("shop") || "";
-
-  const [code, setCode] = useState(shopParam);
-  const [input, setInput] = useState(shopParam);
+  const [authed, setAuthed] = useState<boolean | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(Boolean(shopParam));
+  const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const [login, setLogin] = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const [preset, setPreset] = useState<string>("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [view, setView] = useState<ViewKey>("leads");
 
-  const load = useCallback(
-    async (shopCode: string, f: string, t: string) => {
-      if (!shopCode) return;
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({ shop: shopCode });
-        if (f) params.set("from", f);
-        if (t) params.set("to", t);
-        const res = await fetch(`/api/referral/stats?${params.toString()}`, { cache: "no-store" });
-        if (res.ok) setStats(await res.json());
-      } finally {
-        setLoading(false);
+  const load = useCallback(async (f: string, t: string) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (f) params.set("from", f);
+      if (t) params.set("to", t);
+      const res = await fetch(`/api/referral/stats?${params.toString()}`, { cache: "no-store" });
+      if (res.status === 401) {
+        setAuthed(false);
+        setStats(null);
+        return;
       }
-    },
-    []
-  );
+      if (res.ok) {
+        setStats(await res.json());
+        setAuthed(true);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (code) load(code, from, to);
-  }, [code, from, to, load]);
+    load(from, to);
+  }, [from, to, load]);
 
   function applyPreset(id: string) {
     setPreset(id);
@@ -122,6 +124,35 @@ export function ClientDashboard() {
     setTo(r.to);
   }
 
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setLoginError("");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/referral/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(login),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setLoginError(String(data.error || "تعذّر تسجيل الدخول"));
+        return;
+      }
+      await load(from, to);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleLogout() {
+    await fetch("/api/referral/logout", { method: "POST" }).catch(() => {});
+    setAuthed(false);
+    setStats(null);
+    setLogin({ username: "", password: "" });
+  }
+
+  const code = stats?.shop?.code || "";
   const referralLink = useMemo(() => {
     if (!code) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "https://gosol.io";
@@ -130,9 +161,7 @@ export function ClientDashboard() {
 
   const tableRows = useMemo(() => {
     if (!stats) return [];
-    if (view === "subscribed" || view === "commission") {
-      return stats.items.filter((r) => r.status === "subscribed");
-    }
+    if (view === "subscribed" || view === "commission") return stats.items.filter((r) => r.status === "subscribed");
     return stats.items;
   }, [stats, view]);
 
@@ -147,14 +176,7 @@ export function ClientDashboard() {
   function exportCsv() {
     const header = ["الاسم", "النشاط", "الهاتف", "البريد", "الحالة", "التاريخ"];
     const lines = tableRows.map((r) =>
-      [
-        r.name,
-        r.businessName || "",
-        r.phone,
-        r.email || "",
-        STATUS_LABELS[r.status] || r.status,
-        new Date(r.createdAt).toLocaleDateString("en-CA"),
-      ]
+      [r.name, r.businessName || "", r.phone, r.email || "", STATUS_LABELS[r.status] || r.status, new Date(r.createdAt).toLocaleDateString("en-CA")]
         .map((c) => `"${String(c).replace(/"/g, '""')}"`)
         .join(",")
     );
@@ -168,33 +190,54 @@ export function ClientDashboard() {
     URL.revokeObjectURL(url);
   }
 
-  if (!code) {
+  if (authed === null) {
+    return (
+      <main dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F5F8FB] text-[#94A3B8]">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </main>
+    );
+  }
+
+  if (!authed) {
     return (
       <main dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F5F8FB] p-6">
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setCode(input.trim());
-          }}
+          onSubmit={handleLogin}
           className="w-full max-w-sm rounded-[28px] border border-[#E7ECF1] bg-white p-8 text-center shadow-xl"
         >
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#E7F6F5]">
             <QrCode className="h-7 w-7 text-[#0F8B94]" />
           </div>
           <h1 className="mt-5 text-xl font-bold text-[#1F2937]">لوحة الشريك</h1>
-          <p className="mt-2 text-sm text-[#707A84]">أدخل رمز المحل الخاص بك لعرض إحصائياتك.</p>
+          <p className="mt-2 text-sm text-[#707A84]">سجّل الدخول لعرض إحصائيات محلك.</p>
+
           <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="رمز المحل"
+            value={login.username}
+            onChange={(e) => setLogin({ ...login, username: e.target.value })}
+            placeholder="اسم المستخدم"
             dir="ltr"
-            className="mt-5 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-center text-sm outline-none focus:border-[#0F8B94]"
+            className="mt-5 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm outline-none focus:border-[#0F8B94]"
+            required
           />
+          <input
+            value={login.password}
+            onChange={(e) => setLogin({ ...login, password: e.target.value })}
+            placeholder="كلمة المرور"
+            type="password"
+            dir="ltr"
+            className="mt-3 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm outline-none focus:border-[#0F8B94]"
+            required
+          />
+          {loginError && (
+            <p className="mt-3 rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">{loginError}</p>
+          )}
           <button
             type="submit"
-            className="mt-4 w-full rounded-2xl bg-[#0F8B94] px-5 py-3 text-sm font-bold text-white hover:bg-[#0B6E75]"
+            disabled={submitting}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-5 py-3 text-sm font-bold text-white hover:bg-[#0B6E75] disabled:opacity-60"
           >
-            عرض اللوحة
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
+            تسجيل الدخول
           </button>
         </form>
       </main>
@@ -204,42 +247,10 @@ export function ClientDashboard() {
   const shopName = stats?.shop?.name || code;
 
   const KPIS: { key: ViewKey | "scans"; icon: typeof Users; label: string; value: string; helper: string; accent: string; clickable: boolean }[] = [
-    {
-      key: "scans",
-      icon: ScanLine,
-      label: "عدد عمليات المسح",
-      value: String(stats?.scans ?? 0),
-      helper: "زيارات عبر رمز QR",
-      accent: "teal",
-      clickable: false,
-    },
-    {
-      key: "leads",
-      icon: Users,
-      label: "طلبات الاشتراك",
-      value: String(stats?.leads ?? 0),
-      helper: "عملاء تركوا بياناتهم",
-      accent: "blue",
-      clickable: true,
-    },
-    {
-      key: "subscribed",
-      icon: UserCheck,
-      label: "مشتركون مؤكّدون",
-      value: String(stats?.subscribed ?? 0),
-      helper: "اشتركوا فعلياً معنا",
-      accent: "violet",
-      clickable: true,
-    },
-    {
-      key: "commission",
-      icon: BadgeDollarSign,
-      label: "عمولتك المقدّرة",
-      value: `₪ ${(stats?.estimatedCommission ?? 0).toLocaleString()}`,
-      helper: `₪ ${(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك`,
-      accent: "amber",
-      clickable: true,
-    },
+    { key: "scans", icon: ScanLine, label: "عدد عمليات المسح", value: String(stats?.scans ?? 0), helper: "زيارات عبر رمز QR", accent: "teal", clickable: false },
+    { key: "leads", icon: Users, label: "طلبات الاشتراك", value: String(stats?.leads ?? 0), helper: "عملاء تركوا بياناتهم", accent: "blue", clickable: true },
+    { key: "subscribed", icon: UserCheck, label: "مشتركون مؤكّدون", value: String(stats?.subscribed ?? 0), helper: "اشتركوا فعلياً معنا", accent: "violet", clickable: true },
+    { key: "commission", icon: BadgeDollarSign, label: "عمولتك المقدّرة", value: `₪ ${(stats?.estimatedCommission ?? 0).toLocaleString()}`, helper: `₪ ${(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك`, accent: "amber", clickable: true },
   ];
 
   return (
@@ -247,14 +258,19 @@ export function ClientDashboard() {
       <div className="border-b border-[#E7ECF1] bg-gradient-to-l from-[#0F8B94] to-[#0B6E75]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 text-white">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-base font-black">
-              G
-            </div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-base font-black">G</div>
             <span className="text-lg font-extrabold tracking-tight">Gosol CRM</span>
           </div>
-          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold ring-1 ring-white/25">
-            لوحة الشريك
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold ring-1 ring-white/25">لوحة الشريك</span>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold ring-1 ring-white/25 hover:bg-white/25"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              خروج
+            </button>
+          </div>
         </div>
       </div>
 
@@ -266,14 +282,13 @@ export function ClientDashboard() {
             {stats?.shop?.ownerName && <p className="mt-1 text-sm text-[#707A84]">{stats.shop.ownerName}</p>}
           </div>
           <button
-            onClick={() => load(code, from, to)}
+            onClick={() => load(from, to)}
             className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-sm font-bold text-[#334155] hover:bg-[#F8FAFC]"
           >
             تحديث
           </button>
         </div>
 
-        {/* Period filter */}
         <div className="gosol-fade-up mt-6 rounded-[22px] border border-[#EAECEF] bg-white p-4 shadow-sm" style={{ animationDelay: "0.05s" }}>
           <div className="flex flex-wrap items-center gap-2">
             {PRESETS.map((p) => (
@@ -281,9 +296,7 @@ export function ClientDashboard() {
                 key={p.id}
                 onClick={() => applyPreset(p.id)}
                 className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
-                  preset === p.id
-                    ? "bg-[#0F8B94] text-white"
-                    : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"
+                  preset === p.id ? "bg-[#0F8B94] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"
                 }`}
               >
                 {p.label}
@@ -291,25 +304,9 @@ export function ClientDashboard() {
             ))}
             <div className="mx-1 hidden h-6 w-px bg-[#E5E7EB] sm:block" />
             <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => {
-                  setPreset("custom");
-                  setFrom(e.target.value);
-                }}
-                className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#0F8B94]"
-              />
+              <input type="date" value={from} onChange={(e) => { setPreset("custom"); setFrom(e.target.value); }} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#0F8B94]" />
               <span className="text-xs text-[#94A3B8]">إلى</span>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => {
-                  setPreset("custom");
-                  setTo(e.target.value);
-                }}
-                className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#0F8B94]"
-              />
+              <input type="date" value={to} onChange={(e) => { setPreset("custom"); setTo(e.target.value); }} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#0F8B94]" />
             </div>
           </div>
         </div>
@@ -339,19 +336,13 @@ export function ClientDashboard() {
                     <p className="mt-4 text-3xl font-black text-[#1F2937]">{k.value}</p>
                     <p className="mt-1 text-sm font-bold text-[#334155]">{k.label}</p>
                     <p className="mt-0.5 text-xs text-[#94A3B8]">{k.helper}</p>
-                    {k.clickable && (
-                      <p className="mt-2 text-[11px] font-bold text-[#0F8B94]">اضغط لعرض التفاصيل ←</p>
-                    )}
+                    {k.clickable && <p className="mt-2 text-[11px] font-bold text-[#0F8B94]">اضغط لعرض التفاصيل ←</p>}
                   </Comp>
                 );
               })}
             </div>
 
-            {/* Referral code */}
-            <div
-              className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm"
-              style={{ animationDelay: "0.12s" }}
-            >
+            <div className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.12s" }}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E7F6F5] text-[#0F8B94]">
@@ -359,22 +350,12 @@ export function ClientDashboard() {
                   </div>
                   <div>
                     <p className="text-xs font-bold text-[#707A84]">رمز الإحالة الخاص بك</p>
-                    <p className="text-2xl font-black tracking-wider text-[#0F8B94]" dir="ltr">
-                      {code}
-                    </p>
+                    <p className="text-2xl font-black tracking-wider text-[#0F8B94]" dir="ltr">{code}</p>
                   </div>
                 </div>
                 <div className="flex min-w-[260px] flex-1 items-center gap-2">
-                  <code
-                    className="flex-1 truncate rounded-lg bg-[#F5F8FB] px-3 py-2.5 text-xs text-[#334155] ring-1 ring-[#E5E7EB]"
-                    dir="ltr"
-                  >
-                    {referralLink}
-                  </code>
-                  <button
-                    onClick={copyLink}
-                    className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[#0F8B94] px-3.5 text-sm font-bold text-white hover:bg-[#0B6E75]"
-                  >
+                  <code className="flex-1 truncate rounded-lg bg-[#F5F8FB] px-3 py-2.5 text-xs text-[#334155] ring-1 ring-[#E5E7EB]" dir="ltr">{referralLink}</code>
+                  <button onClick={copyLink} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[#0F8B94] px-3.5 text-sm font-bold text-white hover:bg-[#0B6E75]">
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     {copied ? "تم النسخ" : "نسخ الرابط"}
                   </button>
@@ -382,32 +363,17 @@ export function ClientDashboard() {
               </div>
             </div>
 
-            {/* Details table */}
-            <div
-              className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm"
-              style={{ animationDelay: "0.16s" }}
-            >
+            <div className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.16s" }}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap gap-1.5">
-                  <Tab active={view === "leads"} onClick={() => setView("leads")}>
-                    طلبات الاشتراك
-                  </Tab>
-                  <Tab active={view === "subscribed"} onClick={() => setView("subscribed")}>
-                    مشتركون مؤكّدون
-                  </Tab>
-                  <Tab active={view === "commission"} onClick={() => setView("commission")}>
-                    العمولة
-                  </Tab>
+                  <Tab active={view === "leads"} onClick={() => setView("leads")}>طلبات الاشتراك</Tab>
+                  <Tab active={view === "subscribed"} onClick={() => setView("subscribed")}>مشتركون مؤكّدون</Tab>
+                  <Tab active={view === "commission"} onClick={() => setView("commission")}>العمولة</Tab>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-bold text-[#475569]">
-                    {tableRows.length} سجلّ
-                  </span>
+                  <span className="rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-bold text-[#475569]">{tableRows.length} سجلّ</span>
                   {tableRows.length > 0 && (
-                    <button
-                      onClick={exportCsv}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC]"
-                    >
+                    <button onClick={exportCsv} className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#334155] hover:bg-[#F8FAFC]">
                       <Download className="h-3.5 w-3.5" />
                       تصدير CSV
                     </button>
@@ -417,12 +383,8 @@ export function ClientDashboard() {
 
               {view === "commission" && (
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-[#FFF8EC] px-5 py-4">
-                  <span className="text-sm font-bold text-[#92400E]">
-                    {stats?.subscribed ?? 0} مشترك مؤكّد × ₪ {(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك
-                  </span>
-                  <span className="text-2xl font-black text-[#B45309]">
-                    ₪ {(stats?.estimatedCommission ?? 0).toLocaleString()}
-                  </span>
+                  <span className="text-sm font-bold text-[#92400E]">{stats?.subscribed ?? 0} مشترك مؤكّد × ₪ {(stats?.commissionAmount ?? 0).toLocaleString()} لكل مشترك</span>
+                  <span className="text-2xl font-black text-[#B45309]">₪ {(stats?.estimatedCommission ?? 0).toLocaleString()}</span>
                 </div>
               )}
 
@@ -446,25 +408,11 @@ export function ClientDashboard() {
                           <td className="px-3 py-4 text-xs font-bold text-[#94A3B8]">{i + 1}</td>
                           <td className="px-3 py-4 font-bold text-[#1F2937]">{r.name}</td>
                           <td className="px-3 py-4 text-[#4B5563]">{r.businessName || "—"}</td>
-                          <td className="px-3 py-4 text-[#4B5563]" dir="ltr">
-                            {r.phone || "—"}
-                          </td>
-                          <td className="px-3 py-4 text-[#4B5563]" dir="ltr">
-                            {r.email || "—"}
-                          </td>
-                          <td className="px-3 py-4 text-[#94A3B8]">
-                            {new Date(r.createdAt).toLocaleDateString("ar")}
-                          </td>
+                          <td className="px-3 py-4 text-[#4B5563]" dir="ltr">{r.phone || "—"}</td>
+                          <td className="px-3 py-4 text-[#4B5563]" dir="ltr">{r.email || "—"}</td>
+                          <td className="px-3 py-4 text-[#94A3B8]">{new Date(r.createdAt).toLocaleDateString("ar")}</td>
                           <td className="px-3 py-4">
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                                r.status === "subscribed"
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : r.status === "contacted"
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "bg-slate-100 text-slate-600"
-                              }`}
-                            >
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${r.status === "subscribed" ? "bg-emerald-50 text-emerald-700" : r.status === "contacted" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
                               {STATUS_LABELS[r.status] || r.status}
                             </span>
                           </td>
@@ -474,15 +422,11 @@ export function ClientDashboard() {
                   </table>
                 ) : (
                   <div className="py-16 text-center text-sm text-[#94A3B8]">
-                    {view === "leads"
-                      ? "لا توجد طلبات ضمن هذه الفترة."
-                      : "لا يوجد مشتركون مؤكّدون ضمن هذه الفترة."}
+                    {view === "leads" ? "لا توجد طلبات ضمن هذه الفترة." : "لا يوجد مشتركون مؤكّدون ضمن هذه الفترة."}
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-[11px] leading-5 text-[#9AA3AF]">
-                تُعرض بيانات العملاء مقنّعة جزئياً للحفاظ على الخصوصية.
-              </p>
+              <p className="mt-3 text-[11px] leading-5 text-[#9AA3AF]">تُعرض بيانات العملاء مقنّعة جزئياً للحفاظ على الخصوصية.</p>
             </div>
           </>
         )}
@@ -504,9 +448,7 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${
-        active ? "bg-[#0F8B94] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"
-      }`}
+      className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${active ? "bg-[#0F8B94] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"}`}
     >
       {children}
     </button>

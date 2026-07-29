@@ -34,6 +34,8 @@ export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   const session = token ? await verifySessionToken(token) : null;
   const isAdminArea = path === "/admin" || path.startsWith("/admin/");
+  const isQrArea = path === "/qrdashboard" || path.startsWith("/qrdashboard") || path.startsWith("/api/qr/");
+  const isOwnerArea = isAdminArea || isQrArea;
   const isPlatformOwner = session?.role === "platform_owner";
 
   if (!session && path.startsWith("/api/v1/")) {
@@ -49,21 +51,21 @@ export async function middleware(req: NextRequest) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    if (isAdminArea) {
+    if (isOwnerArea) {
       return NextResponse.redirect(new URL("/admin/login", req.url));
     }
 
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  if (isAdminArea && !isPlatformOwner) {
+  if (isOwnerArea && !isPlatformOwner) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  if (!isAdminArea && isPlatformOwner && !path.startsWith("/api/platform/")) {
+  if (!isOwnerArea && isPlatformOwner && !path.startsWith("/api/platform/")) {
     if (path.startsWith("/api/")) {
       return NextResponse.json({ error: "Use the admin portal" }, { status: 403 });
     }

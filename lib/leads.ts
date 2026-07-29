@@ -14,6 +14,9 @@ export type ReferralShopRecord = {
   code: string;
   name: string;
   ownerName: string | null;
+  contactPhone: string | null;
+  email: string | null;
+  username: string | null;
   commissionAmount: number;
 };
 
@@ -102,7 +105,7 @@ export async function getReferralStats(
   const listR = dateClause();
 
   const shop = await queryOne<ReferralShopRecord>(
-    "SELECT code, name, ownerName, commissionAmount FROM ReferralShop WHERE code = ? LIMIT 1",
+    "SELECT code, name, ownerName, contactPhone, email, username, commissionAmount FROM ReferralShop WHERE code = ? LIMIT 1",
     [code]
   );
 
@@ -134,7 +137,15 @@ export async function getReferralStats(
 
   return {
     shop: shop
-      ? { code: shop.code, name: shop.name, ownerName: shop.ownerName, commissionAmount }
+      ? {
+          code: shop.code,
+          name: shop.name,
+          ownerName: shop.ownerName,
+          contactPhone: shop.contactPhone,
+          email: shop.email,
+          username: shop.username,
+          commissionAmount,
+        }
       : null,
     code,
     scans,
