@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePlatformOwner, isPlatformErrorResponse } from "@/lib/platform-auth";
-import { getReferralStats } from "@/lib/leads";
+import { getOwnerShopLeads, getReferralStats } from "@/lib/leads";
 import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
@@ -13,11 +13,13 @@ async function handleGet(req: Request, context: { params: Promise<{ code: string
   try {
     const { code } = await context.params;
     const url = new URL(req.url);
-    const stats = await getReferralStats(code, {
-      from: url.searchParams.get("from"),
-      to: url.searchParams.get("to"),
-    });
-    return NextResponse.json(stats);
+    const range = { from: url.searchParams.get("from"), to: url.searchParams.get("to") };
+    const [stats, leads] = await Promise.all([
+      getReferralStats(code, range),
+      getOwnerShopLeads(code, range),
+    ]);
+    // owner sees full (unmasked) lead details with ids for status management
+    return NextResponse.json({ ...stats, items: leads });
   } catch (error: unknown) {
     console.error("GET /api/qr/shops/[code] error:", error);
     const message = error instanceof Error ? error.message : String(error);

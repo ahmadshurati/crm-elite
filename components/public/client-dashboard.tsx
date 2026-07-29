@@ -42,6 +42,7 @@ const STATUS_LABELS: Record<string, string> = {
   new: "جديد",
   contacted: "تمّت المتابعة",
   subscribed: "مشترك",
+  rejected: "غير مهتم",
 };
 
 const PRESETS = [

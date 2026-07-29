@@ -165,6 +165,65 @@ export async function getReferralStats(
   };
 }
 
+export const LEAD_STATUSES = ["new", "contacted", "subscribed", "rejected"] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+export type OwnerLeadRow = {
+  id: number;
+  name: string;
+  businessName: string | null;
+  phone: string;
+  email: string | null;
+  note: string | null;
+  status: string;
+  createdAt: string;
+};
+
+export async function getOwnerShopLeads(
+  code: string,
+  opts?: { from?: string | null; to?: string | null }
+): Promise<OwnerLeadRow[]> {
+  const shopCode = normalizeCode(code) || "";
+  const from = normalizeDate(opts?.from);
+  const to = normalizeDate(opts?.to);
+
+  const clauses: string[] = ["shopCode = ?"];
+  const params: (string | number)[] = [shopCode];
+  if (from) {
+    clauses.push("createdAt >= ?");
+    params.push(`${from} 00:00:00`);
+  }
+  if (to) {
+    clauses.push("createdAt <= ?");
+    params.push(`${to} 23:59:59`);
+  }
+
+  const rows = await query<Record<string, unknown>>(
+    `SELECT id, name, businessName, phone, email, note, status, createdAt
+     FROM \`Lead\` WHERE ${clauses.join(" AND ")}
+     ORDER BY createdAt DESC LIMIT 500`,
+    params
+  );
+
+  return rows.map((row) => ({
+    id: Number(row.id),
+    name: String(row.name || ""),
+    businessName: row.businessName ? String(row.businessName) : null,
+    phone: String(row.phone || ""),
+    email: row.email ? String(row.email) : null,
+    note: row.note ? String(row.note) : null,
+    status: String(row.status || "new"),
+    createdAt: new Date(row.createdAt as string | Date).toISOString(),
+  }));
+}
+
+export async function updateLeadStatus(id: number, status: string) {
+  if (!LEAD_STATUSES.includes(status as LeadStatus)) {
+    throw new Error("Invalid status");
+  }
+  await execute("UPDATE `Lead` SET status = ? WHERE id = ?", [status, id]);
+}
+
 function maskName(name: string) {
   const trimmed = name.trim();
   if (trimmed.length <= 2) return trimmed;
