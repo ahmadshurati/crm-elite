@@ -100,15 +100,17 @@ export function ClientDashboard() {
       if (f) params.set("from", f);
       if (t) params.set("to", t);
       const res = await fetch(`/api/referral/stats?${params.toString()}`, { cache: "no-store" });
-      if (res.status === 401) {
-        setAuthed(false);
-        setStats(null);
-        return;
-      }
       if (res.ok) {
         setStats(await res.json());
         setAuthed(true);
+        return;
       }
+      // 401 (not logged in) or any other error -> show the login form instead of hanging
+      setAuthed(false);
+      setStats(null);
+    } catch {
+      setAuthed(false);
+      setStats(null);
     } finally {
       setLoading(false);
     }

@@ -14,21 +14,19 @@ export async function GET(req: Request) {
 
   try {
     const url = new URL(req.url);
+    const shopParam = String(url.searchParams.get("shop") || "").trim();
     let code = "";
 
     const owner = await getCurrentUser().catch(() => null);
-    if (owner && isPlatformOwner(owner)) {
-      code = String(url.searchParams.get("shop") || "").trim();
+    if (owner && isPlatformOwner(owner) && shopParam) {
+      // platform owner explicitly inspecting a specific shop
+      code = shopParam;
     } else {
       const shop = await getShopSession();
       if (!shop) {
         return NextResponse.json({ error: "يجب تسجيل الدخول" }, { status: 401 });
       }
       code = shop.code;
-    }
-
-    if (!code) {
-      return NextResponse.json({ error: "shop code required" }, { status: 400 });
     }
 
     const stats = await getReferralStats(code, {
