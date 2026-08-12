@@ -869,6 +869,66 @@ model DentalPayment {
   @@index([patientId])
 }
 
+model DentalLabOrder {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  doctorName      String?
+  toothNumber     Int?
+  labName         String
+  workType        String    @default("crown")
+  shade           String?
+  sentDate        DateTime? @db.Date
+  expectedDate    DateTime? @db.Date
+  costCents       Int       @default(0)
+  status          String    @default("ordered")
+  notes           String?
+  createdByUserId Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([companyId, status])
+  @@index([patientId])
+}
+
+model DentalInventoryItem {
+  id                 Int       @id @default(autoincrement())
+  companyId          Int
+  name               String
+  sku                String?
+  brand              String?
+  quantity           Int       @default(0)
+  minQuantity        Int       @default(0)
+  purchasePriceCents Int       @default(0)
+  supplier           String?
+  batchNumber        String?
+  expiryDate         DateTime? @db.Date
+  createdByUserId    Int?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @default(now())
+
+  @@index([companyId])
+}
+
+model DentalRecall {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  type            String    @default("checkup")
+  dueDate         DateTime  @db.Date
+  status          String    @default("upcoming")
+  assignedTo      String?
+  lastContact     DateTime? @db.Date
+  nextAction      String?
+  note            String?
+  createdByUserId Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@index([companyId, dueDate])
+  @@index([patientId])
+}
+
 model DentalFile {
   id               Int       @id @default(autoincrement())
   companyId        Int

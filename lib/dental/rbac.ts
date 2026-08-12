@@ -14,6 +14,7 @@ export type DentalPermission =
   | "payments.void"
   | "prescriptions.create"
   | "reports.view"
+  | "inventory.manage"
   | "audit.view"
   | "users.manage"
   | "settings.manage";
@@ -24,7 +25,7 @@ const ALL: DentalPermission[] = [
   "appointments.manage", "visits.manage",
   "treatments.create", "treatments.complete", "chart.edit",
   "billing.view", "payments.create", "payments.void",
-  "prescriptions.create", "reports.view", "audit.view",
+  "prescriptions.create", "reports.view", "inventory.manage", "audit.view",
   "users.manage", "settings.manage",
 ];
 
@@ -43,7 +44,7 @@ const ROLE_PERMISSIONS: Record<DentalRole, DentalPermission[]> = {
   ],
   assistant: [
     "patients.view", "medical.view",
-    "appointments.manage", "visits.manage", "chart.edit",
+    "appointments.manage", "visits.manage", "chart.edit", "inventory.manage",
   ],
   reception: [
     "patients.view", "patients.create", "patients.edit",

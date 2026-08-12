@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { PatientProfile } from "@/components/dental/patient-profile";
 import { DentalCalendar } from "@/components/dental/dental-calendar";
+import { InventoryDashboard, LabsDashboard, RecallDashboard } from "@/components/dental/clinic-ops";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
 type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
@@ -30,9 +31,9 @@ const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "patients", label: "المرضى", icon: Users, ready: true },
   { id: "treatments", label: "العلاجات", icon: Stethoscope, ready: true },
   { id: "finance", label: "المالية", icon: BadgeDollarSign, ready: false },
-  { id: "labs", label: "المختبرات", icon: FlaskConical, ready: false },
-  { id: "inventory", label: "المخزون", icon: Package, ready: false },
-  { id: "recall", label: "التذكير والمتابعة", icon: Bell, ready: false },
+  { id: "labs", label: "المختبرات", icon: FlaskConical, ready: true },
+  { id: "inventory", label: "المخزون", icon: Package, ready: true },
+  { id: "recall", label: "التذكير والمتابعة", icon: Bell, ready: true },
   { id: "reports", label: "التقارير", icon: Activity, ready: false },
   { id: "staff", label: "الأطباء والموظفون", icon: ClipboardList, ready: false },
   { id: "settings", label: "الإعدادات", icon: ClipboardList, ready: false },
@@ -143,6 +144,12 @@ export function DentalApp() {
             <Patients onOpen={(id) => openPatient(id)} />
           ) : view === "treatments" ? (
             <TreatmentsCatalog />
+          ) : view === "labs" ? (
+            <LabsDashboard />
+          ) : view === "inventory" ? (
+            <InventoryDashboard />
+          ) : view === "recall" ? (
+            <RecallDashboard onOpenPatient={openPatient} />
           ) : (
             <ComingSoon label={NAV.find((n) => n.id === view)?.label || ""} />
           )}

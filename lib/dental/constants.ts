@@ -83,6 +83,46 @@ export const PLAN_ITEM_STATUS_MAP: Record<string, string> = Object.fromEntries(
 // Statuses that count toward what the patient owes
 export const CHARGEABLE_STATUSES = ["accepted", "in_progress", "completed"] as const;
 
+export const LAB_WORK_TYPES: Record<string, string> = {
+  crown: "تاج",
+  bridge: "جسر",
+  denture: "طقم",
+  veneer: "فينير",
+  aligner: "تقويم شفاف",
+  inlay: "حشوة مخبرية",
+  other: "أخرى",
+};
+
+export const LAB_STATUSES: { id: string; label: string; color: string }[] = [
+  { id: "ordered", label: "تم الطلب", color: "bg-slate-100 text-slate-600" },
+  { id: "sent", label: "أُرسل", color: "bg-blue-50 text-blue-700" },
+  { id: "in_production", label: "قيد التصنيع", color: "bg-amber-50 text-amber-700" },
+  { id: "ready", label: "جاهز", color: "bg-violet-50 text-violet-700" },
+  { id: "received", label: "تم الاستلام", color: "bg-teal-50 text-teal-700" },
+  { id: "fitted", label: "تم التركيب", color: "bg-emerald-50 text-emerald-700" },
+];
+export const LAB_STATUS_MAP: Record<string, { label: string; color: string }> = Object.fromEntries(LAB_STATUSES.map((s) => [s.id, { label: s.label, color: s.color }]));
+
+export const RECALL_TYPES: Record<string, string> = {
+  cleaning: "تنظيف",
+  checkup: "فحص دوري",
+  implant_followup: "متابعة زرعة",
+  ortho_followup: "متابعة تقويم",
+  perio_followup: "متابعة لثة",
+  custom: "مخصص",
+};
+
+export const RECALL_STATUSES: { id: string; label: string; color: string }[] = [
+  { id: "upcoming", label: "قادم", color: "bg-slate-100 text-slate-600" },
+  { id: "due", label: "مستحق", color: "bg-amber-50 text-amber-700" },
+  { id: "overdue", label: "متأخر", color: "bg-rose-50 text-rose-700" },
+  { id: "contacted", label: "تم التواصل", color: "bg-blue-50 text-blue-700" },
+  { id: "scheduled", label: "تم الحجز", color: "bg-violet-50 text-violet-700" },
+  { id: "completed", label: "مكتمل", color: "bg-emerald-50 text-emerald-700" },
+  { id: "dismissed", label: "مُلغى", color: "bg-gray-100 text-gray-400" },
+];
+export const RECALL_STATUS_MAP: Record<string, { label: string; color: string }> = Object.fromEntries(RECALL_STATUSES.map((s) => [s.id, { label: s.label, color: s.color }]));
+
 export const FILE_CATEGORIES: { id: string; label: string; kind: "imaging" | "document" }[] = [
   { id: "bitewing", label: "أشعة عضّة (Bitewing)", kind: "imaging" },
   { id: "periapical", label: "أشعة ذروية (Periapical)", kind: "imaging" },
