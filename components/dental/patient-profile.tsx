@@ -65,7 +65,7 @@ type Profile = {
   prescriptions: { id: number; items: string[]; notes: string | null; createdAt: string }[];
   appointments: { id: number; startAt: string; treatmentType: string | null; status: string }[];
   timeline: { id: number; type: string; title: string; actorName: string | null; createdAt: string }[];
-  finance: { subtotal: number; chargeable: number; discount: number; insurance: number; responsibility: number; due: number; paid: number; balance: number };
+  finance: { subtotal: number; chargeable: number; discount: number; insurance: number; responsibility: number; due: number; adjustments: number; paid: number; balance: number };
 };
 
 type CatalogItem = {
@@ -1019,8 +1019,225 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
           ))}
         </div>
       </Card>
+
+      <div className="lg:col-span-2">
+        <LedgerPanel patientId={patientId} onChange={onChange} />
+      </div>
+      <Installments patientId={patientId} />
+      <Invoices patientId={patientId} />
     </div>
   );
+}
+
+function LedgerPanel({ patientId, onChange }: { patientId: number; onChange: () => void }) {
+  const [ledger, setLedger] = useState<{ entries: { date: string; type: string; label: string; amount: number; balance: number }[]; summary: Record<string, number> } | null>(null);
+  const [adj, setAdj] = useState({ type: "credit", amount: "", reason: "" });
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/dental/patients/${patientId}/ledger`, { cache: "no-store" });
+    if (res.ok) setLedger(await res.json());
+  }, [patientId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function addAdjustment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!Number(adj.amount)) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/dental/patients/${patientId}/adjustments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adj) });
+      if (res.ok) { setAdj({ type: "credit", amount: "", reason: "" }); await load(); onChange(); }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h3 className="mb-4 text-lg font-bold text-[#1F2937]">دفتر الحساب (Ledger)</h3>
+      <form onSubmit={addAdjustment} className="mb-4 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[150px_120px_1fr_auto]">
+        <select value={adj.type} onChange={(e) => setAdj({ ...adj, type: e.target.value })} className={INP}>
+          <option value="credit">رصيد دائن (خصم)</option>
+          <option value="charge">رسوم إضافية</option>
+          <option value="refund">استرجاع مبلغ</option>
+        </select>
+        <input value={adj.amount} onChange={(e) => setAdj({ ...adj, amount: e.target.value })} placeholder="المبلغ ₪" className={INP} inputMode="numeric" />
+        <input value={adj.reason} onChange={(e) => setAdj({ ...adj, reason: e.target.value })} placeholder="السبب" className={INP} />
+        <button disabled={busy} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">إضافة قيد</button>
+      </form>
+      {!ledger ? (
+        <p className="py-4 text-center text-sm text-[#94A3B8]">جارِ التحميل…</p>
+      ) : ledger.entries.length === 0 ? (
+        <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد حركات مالية.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-right text-sm">
+            <thead>
+              <tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]">
+                <th className="px-3 py-2 font-semibold">التاريخ</th>
+                <th className="px-3 py-2 font-semibold">الوصف</th>
+                <th className="px-3 py-2 font-semibold">المبلغ</th>
+                <th className="px-3 py-2 font-semibold">الرصيد</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ledger.entries.map((e, i) => (
+                <tr key={i} className="border-b border-[#F5F7FA] last:border-none">
+                  <td className="px-3 py-2 text-xs text-[#94A3B8]">{new Date(e.date).toLocaleDateString("ar")}</td>
+                  <td className="px-3 py-2 text-[#475569]">{e.label}</td>
+                  <td className={`px-3 py-2 font-bold ${e.amount < 0 ? "text-emerald-600" : "text-[#334155]"}`}>{e.amount < 0 ? "" : "+"}₪ {e.amount.toLocaleString()}</td>
+                  <td className="px-3 py-2 font-bold text-[#0F8B94]">₪ {e.balance.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function Installments({ patientId }: { patientId: number }) {
+  const [list, setList] = useState<{ id: number; dueDate: string; amount: number; status: string; note: string | null }[]>([]);
+  const [form, setForm] = useState({ count: "3", amountEach: "", startDate: new Date().toISOString().slice(0, 10), note: "" });
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/dental/patients/${patientId}/installments`, { cache: "no-store" });
+    if (res.ok) setList((await res.json()).installments || []);
+  }, [patientId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!Number(form.amountEach) || !Number(form.count)) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/dental/patients/${patientId}/installments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      if (res.ok) { setForm({ count: "3", amountEach: "", startDate: new Date().toISOString().slice(0, 10), note: "" }); load(); }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function pay(id: number) {
+    const res = await fetch(`/api/dental/installments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "cash" }) });
+    if (res.ok) load();
+  }
+
+  const badge: Record<string, string> = { upcoming: "bg-slate-100 text-slate-600", overdue: "bg-rose-50 text-rose-700", paid: "bg-emerald-50 text-emerald-700" };
+  const badgeLabel: Record<string, string> = { upcoming: "قادم", overdue: "متأخر", paid: "مدفوع" };
+
+  return (
+    <Card>
+      <h3 className="mb-4 text-lg font-bold text-[#1F2937]">خطة الأقساط</h3>
+      <form onSubmit={create} className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-[#F8FAFC] p-3">
+        <input value={form.count} onChange={(e) => setForm({ ...form, count: e.target.value })} placeholder="عدد الأقساط" className={INP} inputMode="numeric" />
+        <input value={form.amountEach} onChange={(e) => setForm({ ...form, amountEach: e.target.value })} placeholder="قيمة القسط ₪" className={INP} inputMode="numeric" />
+        <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={INP} />
+        <button disabled={busy} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">إنشاء الأقساط</button>
+      </form>
+      <div className="space-y-2">
+        {list.length === 0 && <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد أقساط.</p>}
+        {list.map((i) => (
+          <div key={i.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+            <div className="flex items-center gap-2">
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badge[i.status]}`}>{badgeLabel[i.status]}</span>
+              <span className="text-[#475569]">{new Date(i.dueDate).toLocaleDateString("ar")}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[#334155]">₪ {i.amount.toLocaleString()}</span>
+              {i.status !== "paid" && <button onClick={() => pay(i.id)} className="rounded-lg bg-[#0F8B94] px-2.5 py-1 text-[11px] font-bold text-white">سداد</button>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function Invoices({ patientId }: { patientId: number }) {
+  const [list, setList] = useState<{ id: number; number: string; type: string; total: number; status: string; createdAt: string }[]>([]);
+  const [type, setType] = useState("invoice");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/dental/patients/${patientId}/invoices`, { cache: "no-store" });
+    if (res.ok) setList((await res.json()).invoices || []);
+  }, [patientId]);
+  useEffect(() => { load(); }, [load]);
+
+  async function issue() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/dental/patients/${patientId}/invoices`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type }) });
+      if (res.ok) { const d = await res.json(); await load(); printInvoice(d.id); }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const typeLabel: Record<string, string> = { invoice: "فاتورة", estimate: "عرض سعر", receipt: "إيصال", credit_note: "إشعار دائن" };
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-[#1F2937]">الفواتير والإيصالات</h3>
+        <div className="flex items-center gap-2">
+          <select value={type} onChange={(e) => setType(e.target.value)} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm">
+            <option value="invoice">فاتورة</option>
+            <option value="estimate">عرض سعر</option>
+            <option value="receipt">إيصال</option>
+          </select>
+          <button onClick={issue} disabled={busy} className="rounded-xl bg-[#0F8B94] px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">إصدار</button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        {list.length === 0 && <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد مستندات.</p>}
+        {list.map((v) => (
+          <div key={v.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+            <div>
+              <p className="font-bold text-[#1F2937]" dir="ltr">{v.number}</p>
+              <p className="text-xs text-[#94A3B8]">{typeLabel[v.type] || v.type} · {new Date(v.createdAt).toLocaleDateString("ar")}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-[#334155]">₪ {v.total.toLocaleString()}</span>
+              <button onClick={() => printInvoice(v.id)} className="rounded-lg border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-bold text-[#0F8B94]">طباعة</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+async function printInvoice(id: number) {
+  const res = await fetch(`/api/dental/invoices/${id}`, { cache: "no-store" });
+  if (!res.ok) return;
+  const inv = await res.json();
+  const typeLabel: Record<string, string> = { invoice: "فاتورة", estimate: "عرض سعر", receipt: "إيصال", credit_note: "إشعار دائن" };
+  const rows = (inv.items || []).map((it: { label: string; amount: number }) => `<tr><td>${it.label}</td><td style="text-align:left">₪ ${Number(it.amount).toLocaleString()}</td></tr>`).join("");
+  const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>${inv.number}</title>
+    <style>body{font-family:system-ui,Arial;padding:32px;color:#1F2937}h1{color:#0F8B94;margin:0}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{padding:8px;border-bottom:1px solid #eee;text-align:right}.tot{margin-top:16px;text-align:left}.tot p{margin:4px 0}.muted{color:#94a3b8;font-size:12px}</style>
+    </head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div><h1>${inv.clinicName || "عيادة الأسنان"}</h1><p class="muted">${typeLabel[inv.type] || inv.type} · ${inv.number}</p></div>
+      <div style="text-align:left"><p class="muted">التاريخ: ${new Date(inv.createdAt).toLocaleDateString("ar")}</p>
+      <p><b>${inv.patient?.fullName || ""}</b><br><span class="muted">${inv.patient?.patientNumber || ""} ${inv.patient?.phone || ""}</span></p></div>
+    </div>
+    <table><thead><tr><th>البند</th><th style="text-align:left">المبلغ</th></tr></thead><tbody>${rows || '<tr><td colspan="2" class="muted">لا توجد بنود</td></tr>'}</tbody></table>
+    <div class="tot">
+      <p>المجموع الفرعي: ₪ ${Number(inv.subtotal).toLocaleString()}</p>
+      ${inv.discount ? `<p>الخصم: ₪ ${Number(inv.discount).toLocaleString()}</p>` : ""}
+      ${inv.insurance ? `<p>تغطية التأمين: ₪ ${Number(inv.insurance).toLocaleString()}</p>` : ""}
+      ${inv.tax ? `<p>الضريبة: ₪ ${Number(inv.tax).toLocaleString()}</p>` : ""}
+      <p style="font-size:18px"><b>الإجمالي: ₪ ${Number(inv.total).toLocaleString()}</b></p>
+    </div>
+    ${inv.notes ? `<p class="muted">${inv.notes}</p>` : ""}
+    <script>window.onload=function(){window.print()}</script>
+    </body></html>`;
+  const w = window.open("", "_blank", "width=800,height=900");
+  if (w) { w.document.write(html); w.document.close(); }
 }
 
 function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {

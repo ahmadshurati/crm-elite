@@ -857,6 +857,8 @@ model DentalPayment {
   amount          Float     @default(0)
   amountCents     Int       @default(0)
   method          String    @default("cash")
+  reference       String?
+  invoiceId       Int?
   notes           String?
   createdByUserId Int?
   voidedAt        DateTime?
@@ -864,6 +866,58 @@ model DentalPayment {
   createdAt       DateTime  @default(now())
 
   @@index([companyId, createdAt])
+  @@index([patientId])
+}
+
+model DentalLedgerEntry {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  type            String
+  amountCents     Int
+  reason          String?
+  createdByUserId Int?
+  voidedAt        DateTime?
+  voidReason      String?
+  createdAt       DateTime  @default(now())
+
+  @@index([patientId])
+  @@index([companyId])
+}
+
+model DentalInstallment {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  dueDate         DateTime  @db.Date
+  amountCents     Int
+  status          String    @default("upcoming")
+  paidAt          DateTime?
+  note            String?
+  createdByUserId Int?
+  createdAt       DateTime  @default(now())
+
+  @@index([patientId])
+  @@index([companyId, dueDate])
+}
+
+model DentalInvoice {
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  number          String
+  type            String   @default("invoice")
+  items           String?  @db.Text
+  subtotalCents   Int      @default(0)
+  discountCents   Int      @default(0)
+  taxCents        Int      @default(0)
+  totalCents      Int      @default(0)
+  status          String   @default("issued")
+  notes           String?
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+
+  @@unique([companyId, number])
   @@index([patientId])
 }
 

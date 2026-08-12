@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { addPayment, ensure, patientBelongs, requireDental } from "@/lib/dental/data";
+import { ensure, patientBelongs, requireDental } from "@/lib/dental/data";
+import { addAdjustment } from "@/lib/dental/services/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +16,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: "المريض غير موجود" }, { status: 404 });
   }
   const body = await req.json().catch(() => ({}));
-  const amount = Number(body.amount);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return NextResponse.json({ error: "المبلغ غير صحيح" }, { status: 400 });
+  try {
+    const entryId = await addAdjustment(ctx, patientId, { type: String(body.type || "charge"), amount: Number(body.amount), reason: body.reason ? String(body.reason) : null });
+    return NextResponse.json({ ok: true, id: entryId });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "تعذّرت العملية" }, { status: 400 });
   }
-  await addPayment(ctx, patientId, amount, String(body.method || "cash"), body.notes ? String(body.notes) : null, body.reference ? String(body.reference) : null);
-  return NextResponse.json({ ok: true });
 }

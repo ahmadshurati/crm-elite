@@ -150,13 +150,14 @@ export async function getPatientProfile(companyId: number, patientId: number) {
     query<Record<string, unknown>>("SELECT * FROM DentalAppointment WHERE patientId = ? ORDER BY startAt DESC LIMIT 20", [patientId]),
     getTimeline(companyId, patientId),
   ]);
-  const plan = await queryOne<Record<string, unknown>>(
-    "SELECT * FROM DentalTreatmentPlan WHERE patientId = ? ORDER BY createdAt DESC LIMIT 1",
-    [patientId]
-  );
+  const [plan, adjustRow] = await Promise.all([
+    queryOne<Record<string, unknown>>("SELECT * FROM DentalTreatmentPlan WHERE patientId = ? ORDER BY createdAt DESC LIMIT 1", [patientId]),
+    queryOne<{ total: number }>("SELECT COALESCE(SUM(amountCents),0) AS total FROM DentalLedgerEntry WHERE patientId = ? AND voidedAt IS NULL", [patientId]),
+  ]);
 
   const discountCents = Number(plan?.discountCents || 0);
   const insuranceCents = Number(plan?.insuranceCents || 0);
+  const adjustmentsCents = Number(adjustRow?.total || 0);
   const subtotalCents = planItems
     .filter((i) => CHARGEABLE.includes(String(i.status)))
     .reduce((sum, i) => sum + Number(i.priceCents || 0), 0);
@@ -164,7 +165,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
     .filter((p) => !p.voidedAt)
     .reduce((sum, p) => sum + Number(p.amountCents || 0), 0);
   const responsibilityCents = Math.max(subtotalCents - discountCents - insuranceCents, 0);
-  const balanceCents = responsibilityCents - paidCents;
+  const balanceCents = responsibilityCents - paidCents + adjustmentsCents;
 
   const allergies = parseJsonArray(patient.allergies);
   const medical = {
@@ -278,6 +279,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       insurance: toMoney(insuranceCents),
       responsibility: toMoney(responsibilityCents),
       due: toMoney(responsibilityCents),
+      adjustments: toMoney(adjustmentsCents),
       paid: toMoney(paidCents),
       balance: toMoney(balanceCents),
     },
@@ -432,12 +434,12 @@ export async function addVisit(ctx: DentalContext, patientId: number, input: Rec
   await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "create", entityType: "visit", entityId: id });
 }
 
-export async function addPayment(ctx: DentalContext, patientId: number, amount: number, method: string, notes?: string | null) {
+export async function addPayment(ctx: DentalContext, patientId: number, amount: number, method: string, notes?: string | null, reference?: string | null) {
   const cents = toCents(amount);
   await withTransaction(async (tx) => {
     const result = await tx.execute(
-      "INSERT INTO DentalPayment (companyId, patientId, amount, amountCents, method, notes, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())",
-      [ctx.companyId, patientId, amount, cents, method, notes || null, ctx.userId]
+      "INSERT INTO DentalPayment (companyId, patientId, amount, amountCents, method, reference, notes, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+      [ctx.companyId, patientId, amount, cents, method, reference || null, notes || null, ctx.userId]
     );
     const id = Number(result.insertId);
     await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "payment", title: `دفعة ₪ ${amount.toLocaleString()}`, refType: "payment", refId: id, actorName: ctx.username }, tx);
