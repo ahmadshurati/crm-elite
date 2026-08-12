@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ensure, patientBelongs, requireDental, upsertToothCondition } from "@/lib/dental/data";
+import { ensure, patientBelongs, requireDental, setToothCondition, setToothSurface } from "@/lib/dental/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,6 +19,11 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
   if (!Number.isFinite(toothNumber)) {
     return NextResponse.json({ error: "رقم السن غير صحيح" }, { status: 400 });
   }
-  await upsertToothCondition(ctx, patientId, toothNumber, String(body.condition || "healthy"), body.notes ? String(body.notes) : null);
+  const condition = String(body.condition || "healthy");
+  if (body.surface) {
+    await setToothSurface(ctx, patientId, toothNumber, String(body.surface), condition);
+  } else {
+    await setToothCondition(ctx, patientId, toothNumber, condition, body.notes ? String(body.notes) : null);
+  }
   return NextResponse.json({ ok: true });
 }

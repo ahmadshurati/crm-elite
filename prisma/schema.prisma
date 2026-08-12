@@ -731,6 +731,38 @@ model DentalToothCondition {
   @@index([companyId])
 }
 
+model DentalToothSurface {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  patientId   Int
+  toothNumber Int
+  surface     String
+  condition   String   @default("healthy")
+  updatedAt   DateTime @updatedAt
+
+  @@unique([patientId, toothNumber, surface])
+  @@index([companyId])
+}
+
+model DentalToothHistory {
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  toothNumber     Int
+  surface         String?
+  action          String
+  condition       String?
+  treatment       String?
+  visitId         Int?
+  doctorName      String?
+  notes           String?  @db.Text
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+
+  @@index([patientId, toothNumber, createdAt])
+  @@index([companyId])
+}
+
 model DentalTreatmentPlan {
   id              Int      @id @default(autoincrement())
   companyId       Int

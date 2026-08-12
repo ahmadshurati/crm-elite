@@ -133,8 +133,9 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   );
   if (!patient) return null;
 
-  const [teeth, visits, planItems, payments, prescriptions, appts, timeline] = await Promise.all([
+  const [teeth, surfaces, visits, planItems, payments, prescriptions, appts, timeline] = await Promise.all([
     query<Record<string, unknown>>("SELECT toothNumber, condition, notes FROM DentalToothCondition WHERE patientId = ?", [patientId]),
+    query<Record<string, unknown>>("SELECT toothNumber, surface, condition FROM DentalToothSurface WHERE patientId = ?", [patientId]),
     query<Record<string, unknown>>("SELECT * FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC", [patientId]),
     query<Record<string, unknown>>("SELECT * FROM DentalTreatmentItem WHERE patientId = ? ORDER BY createdAt ASC", [patientId]),
     query<Record<string, unknown>>("SELECT * FROM DentalPayment WHERE patientId = ? ORDER BY createdAt DESC", [patientId]),
@@ -225,6 +226,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       : null,
     lastVisit: lastVisitRow ? new Date(lastVisitRow.visitDate as string | Date).toISOString() : null,
     teeth: teeth.map((t) => ({ toothNumber: Number(t.toothNumber), condition: String(t.condition), notes: t.notes ? String(t.notes) : null })),
+    toothSurfaces: surfaces.map((s) => ({ toothNumber: Number(s.toothNumber), surface: String(s.surface), condition: String(s.condition) })),
     visits: visits.map((v) => ({
       id: Number(v.id),
       visitDate: new Date(v.visitDate as string | Date).toISOString(),
@@ -323,15 +325,70 @@ export async function patientBelongs(companyId: number, patientId: number) {
   return Boolean(row);
 }
 
-export async function upsertToothCondition(ctx: DentalContext, patientId: number, toothNumber: number, condition: string, notes?: string | null) {
+export async function setToothCondition(ctx: DentalContext, patientId: number, toothNumber: number, condition: string, notes?: string | null) {
   await execute(
     `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, condition, notes, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE condition = VALUES(condition), notes = VALUES(notes), updatedAt = NOW()`,
     [ctx.companyId, patientId, toothNumber, condition, notes || null]
   );
+  await execute(
+    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, notes, createdByUserId, createdAt)
+     VALUES (?, ?, ?, NULL, 'condition', ?, ?, ?, NOW())`,
+    [ctx.companyId, patientId, toothNumber, condition, notes || null, ctx.userId]
+  );
   await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `تحديث حالة السن ${toothNumber}`, actorName: ctx.username });
   await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "tooth", entityId: `${patientId}:${toothNumber}`, newValues: { condition } });
+}
+
+export async function setToothSurface(ctx: DentalContext, patientId: number, toothNumber: number, surface: string, condition: string) {
+  await execute(
+    `INSERT INTO DentalToothSurface (companyId, patientId, toothNumber, surface, condition, updatedAt)
+     VALUES (?, ?, ?, ?, ?, NOW())
+     ON DUPLICATE KEY UPDATE condition = VALUES(condition), updatedAt = NOW()`,
+    [ctx.companyId, patientId, toothNumber, surface, condition]
+  );
+  await execute(
+    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, createdByUserId, createdAt)
+     VALUES (?, ?, ?, ?, 'surface', ?, ?, NOW())`,
+    [ctx.companyId, patientId, toothNumber, surface, condition, ctx.userId]
+  );
+  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `سطح ${surface} للسن ${toothNumber}: ${condition}`, actorName: ctx.username });
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "toothSurface", entityId: `${patientId}:${toothNumber}:${surface}`, newValues: { condition } });
+}
+
+export async function getToothPanel(companyId: number, patientId: number, toothNumber: number) {
+  const [condRow, surfaces, history, treatments] = await Promise.all([
+    queryOne<{ condition: string; notes: string | null }>(
+      "SELECT condition, notes FROM DentalToothCondition WHERE patientId = ? AND toothNumber = ? LIMIT 1",
+      [patientId, toothNumber]
+    ),
+    query<Record<string, unknown>>("SELECT surface, condition FROM DentalToothSurface WHERE patientId = ? AND toothNumber = ?", [patientId, toothNumber]),
+    query<Record<string, unknown>>(
+      "SELECT action, surface, `condition`, treatment, doctorName, notes, createdAt FROM DentalToothHistory WHERE patientId = ? AND toothNumber = ? ORDER BY createdAt DESC LIMIT 100",
+      [patientId, toothNumber]
+    ),
+    query<Record<string, unknown>>(
+      "SELECT treatment, status, priceCents FROM DentalTreatmentItem WHERE patientId = ? AND toothNumber = ? ORDER BY createdAt DESC",
+      [patientId, toothNumber]
+    ),
+  ]);
+  return {
+    toothNumber,
+    condition: condRow ? String(condRow.condition) : "healthy",
+    notes: condRow?.notes ? String(condRow.notes) : null,
+    surfaces: surfaces.map((s) => ({ surface: String(s.surface), condition: String(s.condition) })),
+    history: history.map((h) => ({
+      action: String(h.action),
+      surface: h.surface ? String(h.surface) : null,
+      condition: h.condition ? String(h.condition) : null,
+      treatment: h.treatment ? String(h.treatment) : null,
+      doctorName: h.doctorName ? String(h.doctorName) : null,
+      notes: h.notes ? String(h.notes) : null,
+      createdAt: new Date(h.createdAt as string | Date).toISOString(),
+    })),
+    treatments: treatments.map((t) => ({ treatment: String(t.treatment), status: String(t.status), price: Number(t.priceCents || 0) / 100 })),
+  };
 }
 
 export async function addVisit(ctx: DentalContext, patientId: number, input: Record<string, unknown>) {

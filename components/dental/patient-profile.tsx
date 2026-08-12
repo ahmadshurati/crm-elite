@@ -46,6 +46,7 @@ type Profile = {
   nextAppointment: { id: number; startAt: string; treatmentType: string | null; doctorName: string | null } | null;
   lastVisit: string | null;
   teeth: { toothNumber: number; condition: string }[];
+  toothSurfaces: { toothNumber: number; surface: string; condition: string }[];
   visits: { id: number; visitDate: string; doctorName: string | null; chiefComplaint: string | null; diagnosis: string | null; teeth: string | null; procedures: string | null; notes: string | null }[];
   plan: { id: number; title: string; discount: number; status: string } | null;
   planItems: { id: number; toothNumber: number | null; treatment: string; price: number; status: string }[];
@@ -141,7 +142,7 @@ export function PatientProfile({ patientId, onBack }: { patientId: number; onBac
 
       {tab === "overview" && <Overview data={data} onGo={setTab} />}
       {tab === "medical" && <MedicalHistory patientId={patientId} p={p} onChange={load} />}
-      {tab === "chart" && <DentalChart patientId={patientId} teeth={data.teeth} onChange={load} />}
+      {tab === "chart" && <DentalChart patientId={patientId} teeth={data.teeth} surfaces={data.toothSurfaces} onChange={load} />}
       {tab === "visits" && <Visits patientId={patientId} visits={data.visits} onChange={load} />}
       {tab === "plan" && <TreatmentPlan patientId={patientId} data={data} onChange={load} />}
       {tab === "billing" && <Billing patientId={patientId} data={data} onChange={load} />}
