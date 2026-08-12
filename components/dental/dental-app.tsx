@@ -19,7 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { PatientProfile } from "@/components/dental/patient-profile";
-import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS } from "@/lib/dental/constants";
+import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
 type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
 
@@ -27,7 +27,7 @@ const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "dashboard", label: "لوحة اليوم", icon: LayoutGrid, ready: true },
   { id: "reception", label: "الاستقبال والمواعيد", icon: CalendarDays, ready: true },
   { id: "patients", label: "المرضى", icon: Users, ready: true },
-  { id: "treatments", label: "العلاجات", icon: Stethoscope, ready: false },
+  { id: "treatments", label: "العلاجات", icon: Stethoscope, ready: true },
   { id: "finance", label: "المالية", icon: BadgeDollarSign, ready: false },
   { id: "labs", label: "المختبرات", icon: FlaskConical, ready: false },
   { id: "inventory", label: "المخزون", icon: Package, ready: false },
@@ -133,6 +133,8 @@ export function DentalApp() {
             <Reception />
           ) : view === "patients" ? (
             <Patients onOpen={(id) => setPatientId(id)} />
+          ) : view === "treatments" ? (
+            <TreatmentsCatalog />
           ) : (
             <ComingSoon label={NAV.find((n) => n.id === view)?.label || ""} />
           )}
@@ -147,6 +149,148 @@ function ComingSoon({ label }: { label: string }) {
     <div className="rounded-[24px] border border-dashed border-[#CBD5E1] bg-white p-16 text-center">
       <p className="text-lg font-bold text-[#334155]">{label}</p>
       <p className="mt-2 text-sm text-[#94A3B8]">هذه الوحدة قيد التطوير ضمن المراحل القادمة من النظام.</p>
+    </div>
+  );
+}
+
+/* ---------------- Treatments Catalog ---------------- */
+type Catalog = {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  defaultPrice: number;
+  estimatedDurationMin: number;
+  requiresTooth: boolean;
+  requiresSurface: boolean;
+  requiresLab: boolean;
+  expectedSessions: number;
+  active: boolean;
+};
+
+function TreatmentsCatalog() {
+  const [items, setItems] = useState<Catalog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ code: "", name: "", category: "restorative", defaultPrice: "", expectedSessions: "1", requiresTooth: false, requiresSurface: false, requiresLab: false });
+
+  const load = useCallback(async () => {
+    const res = await fetch("/api/dental/treatments/catalog?all=1", { cache: "no-store" });
+    if (res.ok) setItems((await res.json()).items || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    if (!form.code.trim() || !form.name.trim()) { setErr("الرمز والاسم مطلوبان"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/dental/treatments/catalog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: form.code, name: form.name, category: form.category,
+          defaultPrice: Number(form.defaultPrice) || 0, expectedSessions: Number(form.expectedSessions) || 1,
+          requiresTooth: form.requiresTooth, requiresSurface: form.requiresSurface, requiresLab: form.requiresLab,
+        }),
+      });
+      if (!res.ok) { setErr((await res.json().catch(() => ({}))).error || "تعذّرت الإضافة (صلاحية المدير مطلوبة)"); return; }
+      setForm({ code: "", name: "", category: "restorative", defaultPrice: "", expectedSessions: "1", requiresTooth: false, requiresSurface: false, requiresLab: false });
+      load();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function patch(id: number, body: Record<string, unknown>) {
+    const res = await fetch(`/api/dental/treatments/catalog/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) load();
+    else setErr((await res.json().catch(() => ({}))).error || "تعذّر التحديث (صلاحية المدير مطلوبة)");
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+        <h3 className="mb-1 text-lg font-bold text-[#1F2937]">كتالوج العلاجات</h3>
+        <p className="mb-4 text-sm text-[#94A3B8]">الأسعار الافتراضية وعدد الجلسات المتوقعة لكل علاج. تُستخدم عند بناء خطط العلاج.</p>
+        <form onSubmit={add} className="grid grid-cols-1 gap-2 md:grid-cols-[110px_1fr_150px_110px_90px_auto]">
+          <input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} placeholder="الرمز" className={INP} dir="ltr" />
+          <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="اسم العلاج" className={INP} />
+          <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={INP}>
+            {Object.entries(TREATMENT_CATEGORIES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+          <input value={form.defaultPrice} onChange={(e) => setForm({ ...form, defaultPrice: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
+          <input value={form.expectedSessions} onChange={(e) => setForm({ ...form, expectedSessions: e.target.value })} placeholder="جلسات" className={INP} inputMode="numeric" />
+          <button disabled={saving} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
+        </form>
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-[#64748B]">
+          <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={form.requiresTooth} onChange={(e) => setForm({ ...form, requiresTooth: e.target.checked })} /> يتطلب سِنّاً</label>
+          <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={form.requiresSurface} onChange={(e) => setForm({ ...form, requiresSurface: e.target.checked })} /> يتطلب سطحاً</label>
+          <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={form.requiresLab} onChange={(e) => setForm({ ...form, requiresLab: e.target.checked })} /> يتطلب مختبراً</label>
+        </div>
+        {err && <p className="mt-2 text-xs font-semibold text-rose-600">{err}</p>}
+      </div>
+
+      <div className="rounded-[24px] border border-[#EAECEF] bg-white p-4 shadow-sm">
+        {loading ? (
+          <div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        ) : items.length === 0 ? (
+          <p className="py-12 text-center text-sm text-[#94A3B8]">لا توجد علاجات في الكتالوج بعد.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-right text-sm">
+              <thead>
+                <tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]">
+                  <th className="px-3 py-2 font-semibold">الرمز</th>
+                  <th className="px-3 py-2 font-semibold">العلاج</th>
+                  <th className="px-3 py-2 font-semibold">التصنيف</th>
+                  <th className="px-3 py-2 font-semibold">السعر ₪</th>
+                  <th className="px-3 py-2 font-semibold">جلسات</th>
+                  <th className="px-3 py-2 font-semibold">متطلبات</th>
+                  <th className="px-3 py-2 font-semibold">مفعّل</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((c) => (
+                  <tr key={c.id} className={`border-b border-[#F5F7FA] last:border-none ${c.active ? "" : "opacity-50"}`}>
+                    <td className="px-3 py-3 font-mono text-xs text-[#64748B]" dir="ltr">{c.code}</td>
+                    <td className="px-3 py-3 font-bold text-[#1F2937]">{c.name}</td>
+                    <td className="px-3 py-3 text-[#64748B]">{TREATMENT_CATEGORIES[c.category] || c.category}</td>
+                    <td className="px-3 py-3">
+                      <input
+                        defaultValue={c.defaultPrice}
+                        onBlur={(e) => { const v = Number(e.target.value) || 0; if (v !== c.defaultPrice) patch(c.id, { defaultPrice: v }); }}
+                        className="w-24 rounded-lg border border-[#E5E7EB] px-2 py-1 text-sm font-bold text-[#334155]"
+                        inputMode="numeric"
+                      />
+                    </td>
+                    <td className="px-3 py-3">
+                      <input
+                        defaultValue={c.expectedSessions}
+                        onBlur={(e) => { const v = Number(e.target.value) || 1; if (v !== c.expectedSessions) patch(c.id, { expectedSessions: v }); }}
+                        className="w-14 rounded-lg border border-[#E5E7EB] px-2 py-1 text-sm text-[#334155]"
+                        inputMode="numeric"
+                      />
+                    </td>
+                    <td className="px-3 py-3 text-xs text-[#94A3B8]">
+                      {[c.requiresTooth && "سِن", c.requiresSurface && "سطح", c.requiresLab && "مختبر"].filter(Boolean).join("، ") || "—"}
+                    </td>
+                    <td className="px-3 py-3">
+                      <button onClick={() => patch(c.id, { active: !c.active })} className={`rounded-full px-2.5 py-1 text-xs font-bold ${c.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>
+                        {c.active ? "مفعّل" : "متوقف"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

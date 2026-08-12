@@ -6,7 +6,7 @@ import { addTimelineEvent, getTimeline } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { resolveDentalRole, roleCan, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
 
-const CHARGEABLE = ["approved", "in_progress", "completed"];
+const CHARGEABLE = ["accepted", "in_progress", "completed"];
 
 export type DentalContext = {
   userId: number;
@@ -137,7 +137,14 @@ export async function getPatientProfile(companyId: number, patientId: number) {
     query<Record<string, unknown>>("SELECT toothNumber, condition, notes FROM DentalToothCondition WHERE patientId = ?", [patientId]),
     query<Record<string, unknown>>("SELECT toothNumber, surface, condition FROM DentalToothSurface WHERE patientId = ?", [patientId]),
     query<Record<string, unknown>>("SELECT * FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC", [patientId]),
-    query<Record<string, unknown>>("SELECT * FROM DentalTreatmentItem WHERE patientId = ? ORDER BY createdAt ASC", [patientId]),
+    query<Record<string, unknown>>(
+      `SELECT i.*, c.code AS catalogCode, c.expectedSessions AS expectedSessions,
+        (SELECT COUNT(*) FROM DentalTreatmentSession s WHERE s.itemId = i.id) AS sessionsDone
+       FROM DentalTreatmentItem i
+       LEFT JOIN DentalTreatmentCatalog c ON c.id = i.catalogId
+       WHERE i.patientId = ? ORDER BY i.createdAt ASC`,
+      [patientId]
+    ),
     query<Record<string, unknown>>("SELECT * FROM DentalPayment WHERE patientId = ? ORDER BY createdAt DESC", [patientId]),
     query<Record<string, unknown>>("SELECT * FROM DentalPrescription WHERE patientId = ? ORDER BY createdAt DESC", [patientId]),
     query<Record<string, unknown>>("SELECT * FROM DentalAppointment WHERE patientId = ? ORDER BY startAt DESC LIMIT 20", [patientId]),
@@ -149,14 +156,15 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   );
 
   const discountCents = Number(plan?.discountCents || 0);
-  const chargeableCents = planItems
+  const insuranceCents = Number(plan?.insuranceCents || 0);
+  const subtotalCents = planItems
     .filter((i) => CHARGEABLE.includes(String(i.status)))
     .reduce((sum, i) => sum + Number(i.priceCents || 0), 0);
   const paidCents = payments
     .filter((p) => !p.voidedAt)
     .reduce((sum, p) => sum + Number(p.amountCents || 0), 0);
-  const dueCents = Math.max(chargeableCents - discountCents, 0);
-  const balanceCents = dueCents - paidCents;
+  const responsibilityCents = Math.max(subtotalCents - discountCents - insuranceCents, 0);
+  const balanceCents = responsibilityCents - paidCents;
 
   const allergies = parseJsonArray(patient.allergies);
   const medical = {
@@ -177,7 +185,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   const birth = patient.birthDate ? new Date(patient.birthDate as string | Date) : null;
   const age = birth ? Math.max(0, Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000))) : null;
 
-  const planCounts = { proposed: 0, approved: 0, in_progress: 0, completed: 0, cancelled: 0 } as Record<string, number>;
+  const planCounts = { proposed: 0, accepted: 0, declined: 0, in_progress: 0, completed: 0, cancelled: 0 } as Record<string, number>;
   for (const i of planItems) planCounts[String(i.status)] = (planCounts[String(i.status)] || 0) + 1;
 
   const nextAppointment = await queryOne<Record<string, unknown>>(
@@ -237,13 +245,18 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       procedures: v.procedures ? String(v.procedures) : null,
       notes: v.notes ? String(v.notes) : null,
     })),
-    plan: plan ? { id: Number(plan.id), title: String(plan.title), discount: toMoney(discountCents), status: String(plan.status) } : null,
+    plan: plan ? { id: Number(plan.id), title: String(plan.title), discount: toMoney(discountCents), insurance: toMoney(insuranceCents), status: String(plan.status) } : null,
     planItems: planItems.map((i) => ({
       id: Number(i.id),
+      catalogId: i.catalogId != null ? Number(i.catalogId) : null,
       toothNumber: i.toothNumber != null ? Number(i.toothNumber) : null,
       treatment: String(i.treatment),
       price: toMoney(i.priceCents),
       status: String(i.status),
+      expectedSessions: i.expectedSessions != null ? Number(i.expectedSessions) : null,
+      sessionsDone: Number(i.sessionsDone || 0),
+      acceptedAt: i.acceptedAt ? new Date(i.acceptedAt as string | Date).toISOString() : null,
+      completedAt: i.completedAt ? new Date(i.completedAt as string | Date).toISOString() : null,
     })),
     payments: payments.map((p) => ({
       id: Number(p.id),
@@ -257,9 +270,12 @@ export async function getPatientProfile(companyId: number, patientId: number) {
     appointments: appts.map((a) => ({ id: Number(a.id), startAt: new Date(a.startAt as string | Date).toISOString(), treatmentType: a.treatmentType ? String(a.treatmentType) : null, doctorName: a.doctorName ? String(a.doctorName) : null, status: String(a.status) })),
     timeline,
     finance: {
-      chargeable: toMoney(chargeableCents),
+      subtotal: toMoney(subtotalCents),
+      chargeable: toMoney(subtotalCents),
       discount: toMoney(discountCents),
-      due: toMoney(dueCents),
+      insurance: toMoney(insuranceCents),
+      responsibility: toMoney(responsibilityCents),
+      due: toMoney(responsibilityCents),
       paid: toMoney(paidCents),
       balance: toMoney(balanceCents),
     },
@@ -465,33 +481,37 @@ export async function ensurePlan(companyId: number, patientId: number, userId: n
 
 export async function addPlanItem(ctx: DentalContext, patientId: number, input: Record<string, unknown>) {
   const planId = await ensurePlan(ctx.companyId, patientId, ctx.userId);
-  const price = Number(input.price) || 0;
+  let catalogId: number | null = null;
+  let treatment = String(input.treatment || "").slice(0, 180);
+  let price = Number(input.price) || 0;
+
+  if (input.catalogId != null && input.catalogId !== "") {
+    const cat = await queryOne<{ id: number; name: string; defaultPriceCents: number }>(
+      "SELECT id, name, defaultPriceCents FROM DentalTreatmentCatalog WHERE id = ? AND companyId = ? AND active = 1 LIMIT 1",
+      [Number(input.catalogId), ctx.companyId]
+    );
+    if (cat) {
+      catalogId = Number(cat.id);
+      if (!treatment) treatment = String(cat.name);
+      if (input.price === undefined || input.price === "") price = Number(cat.defaultPriceCents || 0) / 100;
+    }
+  }
+  if (!treatment) throw new Error("اسم العلاج مطلوب");
+
   const result = await execute(
-    "INSERT INTO DentalTreatmentItem (planId, companyId, patientId, toothNumber, treatment, price, priceCents, status, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, 'proposed', ?, NOW())",
+    "INSERT INTO DentalTreatmentItem (planId, companyId, patientId, catalogId, toothNumber, treatment, price, priceCents, status, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, NOW())",
     [
-      planId, ctx.companyId, patientId,
+      planId, ctx.companyId, patientId, catalogId,
       input.toothNumber != null && input.toothNumber !== "" ? Number(input.toothNumber) : null,
-      String(input.treatment || "").slice(0, 180),
+      treatment,
       price,
       toCents(price),
       ctx.userId,
     ]
   );
   const id = Number(result.insertId);
-  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "treatment", title: `إضافة علاج للخطة: ${String(input.treatment || "")}`, refType: "treatmentItem", refId: id, actorName: ctx.username });
-  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "create", entityType: "treatmentItem", entityId: id, newValues: { treatment: input.treatment, priceCents: toCents(price) } });
-}
-
-export async function updatePlanItemStatus(ctx: DentalContext, itemId: number, status: string) {
-  const item = await queryOne<{ patientId: number; treatment: string; status: string }>(
-    "SELECT patientId, treatment, status FROM DentalTreatmentItem WHERE id = ? AND companyId = ? LIMIT 1",
-    [itemId, ctx.companyId]
-  );
-  if (!item) throw new Error("البند غير موجود");
-  await execute("UPDATE DentalTreatmentItem SET status = ? WHERE id = ? AND companyId = ?", [status, itemId, ctx.companyId]);
-  const label = status === "completed" ? "اكتمل علاج" : "تحديث حالة علاج";
-  await addTimelineEvent({ companyId: ctx.companyId, patientId: Number(item.patientId), type: "treatment", title: `${label}: ${item.treatment}`, refType: "treatmentItem", refId: itemId, actorName: ctx.username });
-  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "treatmentItem", entityId: itemId, oldValues: { status: item.status }, newValues: { status } });
+  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "treatment", title: `إضافة علاج للخطة: ${treatment}`, refType: "treatmentItem", refId: id, actorName: ctx.username });
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "create", entityType: "treatmentItem", entityId: id, newValues: { treatment, priceCents: toCents(price), catalogId } });
 }
 
 export async function listAppointments(companyId: number, date: string) {
@@ -561,12 +581,13 @@ export async function getDashboard(companyId: number) {
     queryOne<{ count: number }>("SELECT COUNT(*) AS count FROM DentalPatient WHERE companyId = ? AND deletedAt IS NULL AND DATE(createdAt) = ?", [companyId, today]),
     queryOne<{ total: number }>("SELECT COALESCE(SUM(amountCents),0) AS total FROM DentalPayment WHERE companyId = ? AND voidedAt IS NULL AND DATE(createdAt) = ?", [companyId, today]),
     queryOne<{ total: number }>("SELECT COALESCE(SUM(amountCents),0) AS total FROM DentalPayment WHERE companyId = ? AND voidedAt IS NULL AND YEAR(createdAt)=YEAR(CURDATE()) AND MONTH(createdAt)=MONTH(CURDATE())", [companyId]),
-    queryOne<{ chargeable: number; discounts: number; paid: number }>(
+    queryOne<{ chargeable: number; discounts: number; insurance: number; paid: number }>(
       `SELECT
-        (SELECT COALESCE(SUM(priceCents),0) FROM DentalTreatmentItem WHERE companyId = ? AND status IN ('approved','in_progress','completed')) AS chargeable,
+        (SELECT COALESCE(SUM(priceCents),0) FROM DentalTreatmentItem WHERE companyId = ? AND status IN ('accepted','in_progress','completed')) AS chargeable,
         (SELECT COALESCE(SUM(discountCents),0) FROM DentalTreatmentPlan WHERE companyId = ?) AS discounts,
+        (SELECT COALESCE(SUM(insuranceCents),0) FROM DentalTreatmentPlan WHERE companyId = ?) AS insurance,
         (SELECT COALESCE(SUM(amountCents),0) FROM DentalPayment WHERE companyId = ? AND voidedAt IS NULL) AS paid`,
-      [companyId, companyId, companyId]
+      [companyId, companyId, companyId, companyId]
     ),
     query<{ method: string; total: number }>(
       "SELECT method, COALESCE(SUM(amountCents),0) AS total FROM DentalPayment WHERE companyId = ? AND voidedAt IS NULL GROUP BY method",
@@ -586,8 +607,9 @@ export async function getDashboard(companyId: number) {
 
   const chargeableCents = Number(totals?.chargeable || 0);
   const discountCents = Number(totals?.discounts || 0);
+  const insuranceCents = Number(totals?.insurance || 0);
   const paidCents = Number(totals?.paid || 0);
-  const remainingCents = Math.max(chargeableCents - discountCents - paidCents, 0);
+  const remainingCents = Math.max(chargeableCents - discountCents - insuranceCents - paidCents, 0);
 
   const alerts: { type: string; text: string }[] = [];
   const upcoming = await query<Record<string, unknown>>(

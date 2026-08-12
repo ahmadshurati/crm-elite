@@ -1,8 +1,19 @@
 import { NextResponse } from "next/server";
-import { addPlanItem, ensure, patientBelongs, requireDental } from "@/lib/dental/data";
+import { ensure, requireDental } from "@/lib/dental/data";
+import { addSession, listSessions } from "@/lib/dental/services/treatments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const ctx = await requireDental();
+  if (ctx instanceof NextResponse) return ctx;
+  const denied = ensure(ctx, "patients.view");
+  if (denied) return denied;
+  const { id } = await context.params;
+  const sessions = await listSessions(ctx.companyId, Number(id));
+  return NextResponse.json({ sessions });
+}
 
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await requireDental();
@@ -10,17 +21,10 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   const denied = ensure(ctx, "treatments.create");
   if (denied) return denied;
   const { id } = await context.params;
-  const patientId = Number(id);
-  if (!(await patientBelongs(ctx.companyId, patientId))) {
-    return NextResponse.json({ error: "المريض غير موجود" }, { status: 404 });
-  }
   const body = await req.json().catch(() => ({}));
-  if (!String(body.treatment || "").trim() && !body.catalogId) {
-    return NextResponse.json({ error: "اختر علاجاً من الكتالوج أو أدخل اسم العلاج" }, { status: 400 });
-  }
   try {
-    await addPlanItem(ctx, patientId, body);
-    return NextResponse.json({ ok: true });
+    const sessionNumber = await addSession(ctx, Number(id), body);
+    return NextResponse.json({ ok: true, sessionNumber });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "تعذّرت الإضافة";
     return NextResponse.json({ error: message }, { status: 400 });

@@ -69,7 +69,8 @@ export const APPOINTMENT_STATUS_MAP: Record<string, { label: string; color: stri
 
 export const PLAN_ITEM_STATUSES: { id: string; label: string }[] = [
   { id: "proposed", label: "مقترح" },
-  { id: "approved", label: "وافق المريض" },
+  { id: "accepted", label: "وافق المريض" },
+  { id: "declined", label: "رفض المريض" },
   { id: "in_progress", label: "قيد التنفيذ" },
   { id: "completed", label: "مكتمل" },
   { id: "cancelled", label: "ملغي" },
@@ -78,6 +79,21 @@ export const PLAN_ITEM_STATUSES: { id: string; label: string }[] = [
 export const PLAN_ITEM_STATUS_MAP: Record<string, string> = Object.fromEntries(
   PLAN_ITEM_STATUSES.map((s) => [s.id, s.label])
 );
+
+// Statuses that count toward what the patient owes
+export const CHARGEABLE_STATUSES = ["accepted", "in_progress", "completed"] as const;
+
+export const TREATMENT_CATEGORIES: Record<string, string> = {
+  general: "عام",
+  preventive: "وقائي",
+  restorative: "ترميمي",
+  endodontics: "علاج جذور",
+  surgery: "جراحة",
+  prosthetics: "تعويضات",
+  periodontics: "لثة",
+  orthodontics: "تقويم",
+  cosmetic: "تجميلي",
+};
 
 export const PAYMENT_METHODS: { id: string; label: string }[] = [
   { id: "cash", label: "نقدي" },

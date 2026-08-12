@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, CalendarClock, ClipboardList, Loader2, Plus, Wallet } from "lucide-react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Loader2, Plus, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
 import { PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP } from "@/lib/dental/constants";
 
@@ -48,13 +48,36 @@ type Profile = {
   teeth: { toothNumber: number; condition: string }[];
   toothSurfaces: { toothNumber: number; surface: string; condition: string }[];
   visits: { id: number; visitDate: string; doctorName: string | null; chiefComplaint: string | null; diagnosis: string | null; teeth: string | null; procedures: string | null; notes: string | null }[];
-  plan: { id: number; title: string; discount: number; status: string } | null;
-  planItems: { id: number; toothNumber: number | null; treatment: string; price: number; status: string }[];
+  plan: { id: number; title: string; discount: number; insurance: number; status: string } | null;
+  planItems: {
+    id: number;
+    catalogId: number | null;
+    toothNumber: number | null;
+    treatment: string;
+    price: number;
+    status: string;
+    expectedSessions: number | null;
+    sessionsDone: number;
+    acceptedAt: string | null;
+    completedAt: string | null;
+  }[];
   payments: { id: number; amount: number; method: string; notes: string | null; voided: boolean; createdAt: string }[];
   prescriptions: { id: number; items: string[]; notes: string | null; createdAt: string }[];
   appointments: { id: number; startAt: string; treatmentType: string | null; status: string }[];
   timeline: { id: number; type: string; title: string; actorName: string | null; createdAt: string }[];
-  finance: { chargeable: number; discount: number; due: number; paid: number; balance: number };
+  finance: { subtotal: number; chargeable: number; discount: number; insurance: number; responsibility: number; due: number; paid: number; balance: number };
+};
+
+type CatalogItem = {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  defaultPrice: number;
+  requiresTooth: boolean;
+  requiresSurface: boolean;
+  requiresLab: boolean;
+  expectedSessions: number;
 };
 
 export function PatientProfile({ patientId, onBack }: { patientId: number; onBack: () => void }) {
@@ -471,18 +494,52 @@ function Visits({ patientId, visits, onChange }: { patientId: number; visits: Pr
   );
 }
 
+const ITEM_STATUS_STYLE: Record<string, string> = {
+  proposed: "bg-slate-100 text-slate-600 border-slate-200",
+  accepted: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  declined: "bg-rose-50 text-rose-700 border-rose-200",
+  in_progress: "bg-amber-50 text-amber-700 border-amber-200",
+  completed: "bg-teal-50 text-teal-700 border-teal-200",
+  cancelled: "bg-gray-100 text-gray-400 border-gray-200",
+};
+
 function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data: Profile; onChange: () => void }) {
-  const [form, setForm] = useState({ toothNumber: "", treatment: "", price: "" });
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [form, setForm] = useState({ catalogId: "", toothNumber: "", treatment: "", price: "" });
   const [saving, setSaving] = useState(false);
-  const total = useMemo(() => data.planItems.reduce((s, i) => s + i.price, 0), [data.planItems]);
+  const [err, setErr] = useState("");
+  const [expanded, setExpanded] = useState<number | null>(null);
+  const [editFin, setEditFin] = useState(false);
+  const [fin, setFin] = useState({ discount: String(data.finance.discount || ""), insurance: String(data.finance.insurance || "") });
+
+  useEffect(() => {
+    fetch("/api/dental/treatments/catalog", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d) => setCatalog(d.items || []))
+      .catch(() => setCatalog([]));
+  }, []);
+
+  const selected = catalog.find((c) => String(c.id) === form.catalogId) || null;
+
+  function pickCatalog(id: string) {
+    const cat = catalog.find((c) => String(c.id) === id) || null;
+    setForm({ catalogId: id, toothNumber: form.toothNumber, treatment: "", price: cat ? String(cat.defaultPrice) : form.price });
+    setErr("");
+  }
 
   async function addItem(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.treatment.trim()) return;
+    setErr("");
+    if (!form.catalogId && !form.treatment.trim()) { setErr("اختر علاجاً من الكتالوج أو أدخل اسماً"); return; }
+    if (selected?.requiresTooth && !form.toothNumber.trim()) { setErr(`علاج «${selected.name}» يتطلب تحديد رقم السن`); return; }
     setSaving(true);
     try {
-      await fetch(`/api/dental/patients/${patientId}/plan-items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      setForm({ toothNumber: "", treatment: "", price: "" });
+      const body: Record<string, unknown> = { toothNumber: form.toothNumber, price: form.price };
+      if (form.catalogId) body.catalogId = Number(form.catalogId);
+      else body.treatment = form.treatment;
+      const res = await fetch(`/api/dental/patients/${patientId}/plan-items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!res.ok) { setErr((await res.json().catch(() => ({}))).error || "تعذّرت الإضافة"); return; }
+      setForm({ catalogId: "", toothNumber: "", treatment: "", price: "" });
       onChange();
     } finally {
       setSaving(false);
@@ -494,51 +551,169 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
     onChange();
   }
 
+  async function saveFinance() {
+    await fetch(`/api/dental/patients/${patientId}/plan`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ discount: Number(fin.discount) || 0, insurance: Number(fin.insurance) || 0 }),
+    });
+    setEditFin(false);
+    onChange();
+  }
+
   return (
     <Card>
       <h3 className="mb-4 text-lg font-bold text-[#1F2937]">خطة العلاج</h3>
-      <form onSubmit={addItem} className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-[90px_1fr_120px_auto]">
-        <input value={form.toothNumber} onChange={(e) => setForm({ ...form, toothNumber: e.target.value })} placeholder="السن" className={INP} inputMode="numeric" />
-        <input value={form.treatment} onChange={(e) => setForm({ ...form, treatment: e.target.value })} placeholder="العلاج" className={INP} />
+
+      <form onSubmit={addItem} className="mb-1 grid grid-cols-1 gap-2 md:grid-cols-[1.3fr_90px_120px_auto]">
+        {form.catalogId ? (
+          <div className="flex items-center gap-2">
+            <span className="flex-1 truncate rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] px-3 py-2 text-sm font-semibold text-[#1F2937]">{selected?.name}</span>
+            <button type="button" onClick={() => pickCatalog("")} className="text-xs font-bold text-[#0F8B94]">تغيير</button>
+          </div>
+        ) : (
+          <select value={form.catalogId} onChange={(e) => pickCatalog(e.target.value)} className={INP}>
+            <option value="">— اختر علاجاً من الكتالوج —</option>
+            {catalog.map((c) => (
+              <option key={c.id} value={c.id}>{c.name} · ₪{c.defaultPrice.toLocaleString()}</option>
+            ))}
+          </select>
+        )}
+        <input value={form.toothNumber} onChange={(e) => setForm({ ...form, toothNumber: e.target.value })} placeholder={selected?.requiresTooth ? "السن *" : "السن"} className={INP} inputMode="numeric" />
         <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
-        <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">إضافة</button>
+        <button disabled={saving} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
       </form>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-right text-sm">
+      {!form.catalogId && (
+        <input value={form.treatment} onChange={(e) => setForm({ ...form, treatment: e.target.value })} placeholder="أو اكتب اسم علاج مخصص" className={`${INP} mb-1`} />
+      )}
+      {err && <p className="mb-2 text-xs font-semibold text-rose-600">{err}</p>}
+
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[620px] text-right text-sm">
           <thead>
             <tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]">
               <th className="px-3 py-2 font-semibold">السن</th>
               <th className="px-3 py-2 font-semibold">العلاج</th>
+              <th className="px-3 py-2 font-semibold">الجلسات</th>
               <th className="px-3 py-2 font-semibold">السعر</th>
               <th className="px-3 py-2 font-semibold">الحالة</th>
+              <th className="px-3 py-2 font-semibold"></th>
             </tr>
           </thead>
           <tbody>
             {data.planItems.length === 0 && (
-              <tr><td colSpan={4} className="py-6 text-center text-[#94A3B8]">لا توجد بنود بعد.</td></tr>
+              <tr><td colSpan={6} className="py-6 text-center text-[#94A3B8]">لا توجد بنود بعد.</td></tr>
             )}
             {data.planItems.map((i) => (
-              <tr key={i.id} className="border-b border-[#F5F7FA] last:border-none">
-                <td className="px-3 py-3 font-bold text-[#1F2937]">{i.toothNumber ?? "—"}</td>
-                <td className="px-3 py-3 text-[#4B5563]">{i.treatment}</td>
-                <td className="px-3 py-3 font-bold text-[#334155]">₪ {i.price.toLocaleString()}</td>
-                <td className="px-3 py-3">
-                  <select value={i.status} onChange={(e) => setStatus(i.id, e.target.value)} className="rounded-lg border border-[#E5E7EB] bg-white px-2 py-1 text-xs font-bold text-[#334155]">
-                    {PLAN_ITEM_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                  </select>
-                </td>
-              </tr>
+              <Fragment key={i.id}>
+                <tr className="border-b border-[#F5F7FA] last:border-none">
+                  <td className="px-3 py-3 font-bold text-[#1F2937]">{i.toothNumber ?? "—"}</td>
+                  <td className="px-3 py-3 text-[#4B5563]">{i.treatment}</td>
+                  <td className="px-3 py-3 text-xs text-[#64748B]">
+                    {i.expectedSessions ? `${i.sessionsDone}/${i.expectedSessions}` : i.sessionsDone || "—"}
+                  </td>
+                  <td className="px-3 py-3 font-bold text-[#334155]">₪ {i.price.toLocaleString()}</td>
+                  <td className="px-3 py-3">
+                    <select value={i.status} onChange={(e) => setStatus(i.id, e.target.value)} className={`rounded-lg border px-2 py-1 text-xs font-bold ${ITEM_STATUS_STYLE[i.status] || "border-gray-200 text-gray-600"}`}>
+                      {PLAN_ITEM_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    </select>
+                  </td>
+                  <td className="px-3 py-3">
+                    <button onClick={() => setExpanded(expanded === i.id ? null : i.id)} className="inline-flex items-center gap-1 rounded-lg border border-[#E5E7EB] px-2 py-1 text-xs font-bold text-[#0F8B94]">
+                      <Layers className="h-3.5 w-3.5" /> الجلسات
+                      <ChevronDown className={`h-3.5 w-3.5 transition ${expanded === i.id ? "rotate-180" : ""}`} />
+                    </button>
+                  </td>
+                </tr>
+                {expanded === i.id && (
+                  <tr>
+                    <td colSpan={6} className="bg-[#F9FBFC] px-3 py-3">
+                      <SessionsPanel itemId={i.id} onChange={onChange} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
       </div>
-      <div className="mt-4 flex flex-wrap justify-end gap-6 border-t border-[#F1F5F9] pt-4 text-sm">
-        <span className="text-[#707A84]">الإجمالي: <b className="text-[#1F2937]">₪ {total.toLocaleString()}</b></span>
-        <span className="text-[#707A84]">الخصم: <b className="text-[#1F2937]">₪ {data.finance.discount.toLocaleString()}</b></span>
-        <span className="text-[#707A84]">المطلوب: <b className="text-[#0F8B94]">₪ {data.finance.due.toLocaleString()}</b></span>
-        <span className="text-[#707A84]">المتبقي: <b className="text-rose-600">₪ {data.finance.balance.toLocaleString()}</b></span>
+
+      <div className="mt-4 border-t border-[#F1F5F9] pt-4">
+        {editFin ? (
+          <div className="flex flex-wrap items-end justify-end gap-3">
+            <label className="text-xs font-semibold text-[#64748B]">الخصم ₪<input value={fin.discount} onChange={(e) => setFin({ ...fin, discount: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
+            <label className="text-xs font-semibold text-[#64748B]">تغطية التأمين ₪<input value={fin.insurance} onChange={(e) => setFin({ ...fin, insurance: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
+            <button onClick={saveFinance} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">حفظ</button>
+            <button onClick={() => setEditFin(false)} className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#64748B]">إلغاء</button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm">
+            <span className="text-[#707A84]">الإجمالي: <b className="text-[#1F2937]">₪ {data.finance.subtotal.toLocaleString()}</b></span>
+            <span className="text-[#707A84]">الخصم: <b className="text-[#1F2937]">₪ {data.finance.discount.toLocaleString()}</b></span>
+            <span className="text-[#707A84]">تأمين: <b className="text-[#1F2937]">₪ {data.finance.insurance.toLocaleString()}</b></span>
+            <span className="text-[#707A84]">مسؤولية المريض: <b className="text-[#0F8B94]">₪ {data.finance.responsibility.toLocaleString()}</b></span>
+            <span className="text-[#707A84]">المتبقي: <b className="text-rose-600">₪ {data.finance.balance.toLocaleString()}</b></span>
+            <button onClick={() => { setFin({ discount: String(data.finance.discount || ""), insurance: String(data.finance.insurance || "") }); setEditFin(true); }} className="rounded-lg border border-[#E5E7EB] px-3 py-1 text-xs font-bold text-[#0F8B94]">تعديل الخصم/التأمين</button>
+          </div>
+        )}
       </div>
     </Card>
+  );
+}
+
+function SessionsPanel({ itemId, onChange }: { itemId: number; onChange: () => void }) {
+  const [sessions, setSessions] = useState<{ id: number; sessionNumber: number; date: string; doctorName: string | null; procedures: string | null; notes: string | null }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ doctorName: "", procedures: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/dental/plan-items/${itemId}/sessions`, { cache: "no-store" });
+    if (res.ok) setSessions((await res.json()).sessions || []);
+    setLoading(false);
+  }, [itemId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function addSession(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/dental/plan-items/${itemId}/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+      if (res.ok) { setForm({ doctorName: "", procedures: "", notes: "" }); await load(); onChange(); }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {loading ? (
+        <p className="text-xs text-[#94A3B8]">جارِ التحميل…</p>
+      ) : sessions.length === 0 ? (
+        <p className="text-xs text-[#94A3B8]">لا توجد جلسات مسجّلة لهذا العلاج.</p>
+      ) : (
+        <ol className="space-y-2">
+          {sessions.map((s) => (
+            <li key={s.id} className="rounded-xl border border-[#EAECEF] bg-white px-3 py-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-[#1F2937]">جلسة {s.sessionNumber}</span>
+                <span className="text-[#94A3B8]">{new Date(s.date).toLocaleDateString("ar")}</span>
+              </div>
+              {s.doctorName && <p className="mt-0.5 text-[#64748B]">د. {s.doctorName}</p>}
+              {s.procedures && <p className="mt-0.5 text-[#4B5563]">{s.procedures}</p>}
+              {s.notes && <p className="mt-0.5 text-[#94A3B8]">{s.notes}</p>}
+            </li>
+          ))}
+        </ol>
+      )}
+      <form onSubmit={addSession} className="grid grid-cols-1 gap-2 md:grid-cols-[150px_1fr_1fr_auto]">
+        <input value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} placeholder="الطبيب" className={INP} />
+        <input value={form.procedures} onChange={(e) => setForm({ ...form, procedures: e.target.value })} placeholder="ما تم في الجلسة" className={INP} />
+        <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="ملاحظات" className={INP} />
+        <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">+ جلسة</button>
+      </form>
+    </div>
   );
 }
 
@@ -564,9 +739,10 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
       <Card>
         <h3 className="mb-4 text-lg font-bold text-[#1F2937]">الملخص المالي</h3>
         <div className="space-y-2 text-sm">
-          <Row k="إجمالي العلاجات" v={`₪ ${data.finance.chargeable.toLocaleString()}`} />
+          <Row k="إجمالي العلاجات" v={`₪ ${data.finance.subtotal.toLocaleString()}`} />
           <Row k="الخصم" v={`₪ ${data.finance.discount.toLocaleString()}`} />
-          <Row k="المطلوب بعد الخصم" v={`₪ ${data.finance.due.toLocaleString()}`} />
+          <Row k="تغطية التأمين" v={`₪ ${data.finance.insurance.toLocaleString()}`} />
+          <Row k="مسؤولية المريض" v={`₪ ${data.finance.responsibility.toLocaleString()}`} />
           <Row k="المدفوع" v={`₪ ${data.finance.paid.toLocaleString()}`} />
           <div className="border-t border-[#F1F5F9] pt-2">
             <Row k="المتبقي" v={`₪ ${data.finance.balance.toLocaleString()}`} strong />

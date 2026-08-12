@@ -20,9 +20,9 @@ model Company {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  users      AppUser[]
-  customers  Customer[]
-  settings   SystemSetting[]
+  users     AppUser[]
+  customers Customer[]
+  settings  SystemSetting[]
 }
 
 model Customer {
@@ -46,16 +46,16 @@ model Customer {
   archivedAt     DateTime?
   createdAt      DateTime  @default(now())
 
-  cars            Car[]
-  contracts       Contract[]
-  insurances      Insurance[]
-  accidents       AccidentCase[]
-  communications  CustomerCommunication[]
-  tasks           CrmTask[]
-  deals           Deal[]
-  quotes          Quote[]
-  invoices        Invoice[]
-  files           CrmFile[]
+  cars           Car[]
+  contracts      Contract[]
+  insurances     Insurance[]
+  accidents      AccidentCase[]
+  communications CustomerCommunication[]
+  tasks          CrmTask[]
+  deals          Deal[]
+  quotes         Quote[]
+  invoices       Invoice[]
+  files          CrmFile[]
 
   company Company @relation(fields: [companyId], references: [id])
 
@@ -69,7 +69,7 @@ model Car {
   carNumber  String
   carYear    String?
 
-  customer   Customer @relation(fields: [customerId], references: [id])
+  customer   Customer       @relation(fields: [customerId], references: [id])
   insurances Insurance[]
   accidents  AccidentCase[]
 
@@ -102,8 +102,8 @@ model Insurance {
   remainingAmount Float  @default(0)
   paymentStatus   String @default("غير مدفوع")
 
-  customer  Customer @relation(fields: [customerId], references: [id])
-  car       Car      @relation(fields: [carId], references: [id])
+  customer  Customer       @relation(fields: [customerId], references: [id])
+  car       Car            @relation(fields: [carId], references: [id])
   documents Document[]
   checks    PaymentCheck[]
 
@@ -134,17 +134,17 @@ model Document {
 }
 
 model AccidentCase {
-  id         Int      @id @default(autoincrement())
+  id         Int       @id @default(autoincrement())
   customerId Int
   carId      Int
   caseNumber String
   details    String
   status     String
-  openedAt   DateTime @default(now())
+  openedAt   DateTime  @default(now())
   closedAt   DateTime?
 
-  customer Customer @relation(fields: [customerId], references: [id])
-  car      Car      @relation(fields: [carId], references: [id])
+  customer Customer         @relation(fields: [customerId], references: [id])
+  car      Car              @relation(fields: [carId], references: [id])
   updates  AccidentUpdate[]
 
   @@unique([caseNumber])
@@ -161,7 +161,7 @@ model AccidentUpdate {
 }
 
 model AppUser {
-  id        Int     @id @default(autoincrement())
+  id         Int     @id @default(autoincrement())
   username   String  @unique
   password   String
   role       String  @default("user")
@@ -198,17 +198,17 @@ model AppUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  logs            ActivityLog[]
-  apiKeys         ApiKey[]
-  communications  CustomerCommunication[]
-  assignedTasks   CrmTask[]               @relation("TaskAssignee")
-  createdTasks    CrmTask[]               @relation("TaskCreator")
-  assignedDeals   Deal[]                  @relation("DealAssignee")
-  createdQuotes   Quote[]                 @relation("QuoteCreator")
-  createdInvoices Invoice[]               @relation("InvoiceCreator")
-  createdContracts Contract[]             @relation("ContractCreator")
-  uploadedFiles    CrmFile[]              @relation("FileUploader")
-  notifications   CrmNotification[]
+  logs             ActivityLog[]
+  apiKeys          ApiKey[]
+  communications   CustomerCommunication[]
+  assignedTasks    CrmTask[]               @relation("TaskAssignee")
+  createdTasks     CrmTask[]               @relation("TaskCreator")
+  assignedDeals    Deal[]                  @relation("DealAssignee")
+  createdQuotes    Quote[]                 @relation("QuoteCreator")
+  createdInvoices  Invoice[]               @relation("InvoiceCreator")
+  createdContracts Contract[]              @relation("ContractCreator")
+  uploadedFiles    CrmFile[]               @relation("FileUploader")
+  notifications    CrmNotification[]
 
   @@index([companyId])
 }
@@ -231,10 +231,10 @@ model ActivityLog {
 }
 
 model RoleTemplate {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
   description String?
-  isSystem    Boolean  @default(false)
+  isSystem    Boolean @default(false)
 
   viewSubscribers   Boolean @default(true)
   createSubscribers Boolean @default(false)
@@ -390,20 +390,20 @@ model EmailTemplate {
 }
 
 model OutboundMessage {
-  id           Int      @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   channel      String
   recipient    String
   subject      String?
-  body         String   @db.Text
-  status       String   @default("queued")
+  body         String    @db.Text
+  status       String    @default("queued")
   provider     String?
   providerId   String?
-  errorMessage String?  @db.Text
+  errorMessage String?   @db.Text
   customerId   Int?
   userId       Int?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   sentAt       DateTime?
-  isRead       Boolean  @default(true)
+  isRead       Boolean   @default(true)
 
   @@index([channel, status])
   @@index([customerId])
@@ -494,9 +494,9 @@ model Invoice {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  quote     Quote?    @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  createdBy AppUser?  @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quote     Quote?   @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdBy AppUser? @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
 
   @@index([status])
   @@index([customerId])
@@ -614,34 +614,34 @@ model ScanEvent {
 }
 
 model DentalPatient {
-  id               Int       @id @default(autoincrement())
-  companyId        Int
-  patientNumber    String
-  fullName         String
-  nationalId       String?
-  birthDate        DateTime? @db.Date
-  gender           String?
-  phone            String?
-  whatsapp         String?
-  email            String?
-  address          String?
-  emergencyContact String?
-  notes            String?   @db.Text
-  medicalHistory   String?   @db.Text
-  allergies        String?   @db.Text
-  medications      String?   @db.Text
-  medDiabetes      Boolean   @default(false)
-  medHypertension  Boolean   @default(false)
-  medHeartDisease  Boolean   @default(false)
-  medBloodThinners Boolean   @default(false)
-  medPregnancy     String    @default("na")
-  otherConditions  String?   @db.Text
+  id                Int       @id @default(autoincrement())
+  companyId         Int
+  patientNumber     String
+  fullName          String
+  nationalId        String?
+  birthDate         DateTime? @db.Date
+  gender            String?
+  phone             String?
+  whatsapp          String?
+  email             String?
+  address           String?
+  emergencyContact  String?
+  notes             String?   @db.Text
+  medicalHistory    String?   @db.Text
+  allergies         String?   @db.Text
+  medications       String?   @db.Text
+  medDiabetes       Boolean   @default(false)
+  medHypertension   Boolean   @default(false)
+  medHeartDisease   Boolean   @default(false)
+  medBloodThinners  Boolean   @default(false)
+  medPregnancy      String    @default("na")
+  otherConditions   String?   @db.Text
   medicalReviewedAt DateTime?
   medicalReviewedBy String?
-  createdByUserId  Int?
-  deletedAt        DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  createdByUserId   Int?
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([companyId])
   @@index([phone])
@@ -770,6 +770,7 @@ model DentalTreatmentPlan {
   title           String   @default("خطة علاج")
   discount        Float    @default(0)
   discountCents   Int      @default(0)
+  insuranceCents  Int      @default(0)
   status          String   @default("active")
   createdByUserId Int?
   createdAt       DateTime @default(now())
@@ -780,19 +781,64 @@ model DentalTreatmentPlan {
 }
 
 model DentalTreatmentItem {
-  id              Int      @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   planId          Int
   companyId       Int
   patientId       Int
+  catalogId       Int?
   toothNumber     Int?
   treatment       String
-  price           Float    @default(0)
-  priceCents      Int      @default(0)
-  status          String   @default("proposed")
+  price           Float     @default(0)
+  priceCents      Int       @default(0)
+  status          String    @default("proposed")
+  acceptedAt      DateTime?
+  completedAt     DateTime?
+  itemNotes       String?   @db.Text
   createdByUserId Int?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
 
   @@index([planId])
+  @@index([patientId])
+}
+
+model DentalTreatmentCatalog {
+  id                   Int      @id @default(autoincrement())
+  companyId            Int
+  code                 String
+  name                 String
+  category             String   @default("general")
+  defaultPriceCents    Int      @default(0)
+  estimatedDurationMin Int      @default(30)
+  requiresTooth        Boolean  @default(false)
+  requiresSurface      Boolean  @default(false)
+  requiresLab          Boolean  @default(false)
+  expectedSessions     Int      @default(1)
+  chartCondition       String?
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@unique([companyId, code])
+  @@index([companyId])
+}
+
+model DentalTreatmentSession {
+  id                        Int      @id @default(autoincrement())
+  companyId                 Int
+  patientId                 Int
+  itemId                    Int
+  sessionNumber             Int      @default(1)
+  date                      DateTime @default(now())
+  doctorName                String?
+  visitId                   Int?
+  procedures                String?  @db.Text
+  notes                     String?  @db.Text
+  nextSessionRecommendation String?
+  status                    String   @default("completed")
+  createdByUserId           Int?
+  createdAt                 DateTime @default(now())
+
+  @@index([itemId])
   @@index([patientId])
 }
 
