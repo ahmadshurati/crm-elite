@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { PatientProfile } from "@/components/dental/patient-profile";
+import { DentalCalendar } from "@/components/dental/dental-calendar";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
 type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
@@ -137,7 +138,7 @@ export function DentalApp() {
           ) : view === "dashboard" ? (
             <Dashboard onGo={go} />
           ) : view === "reception" ? (
-            <Reception onOpenPatient={openPatient} />
+            <ReceptionHub onOpenPatient={openPatient} />
           ) : view === "patients" ? (
             <Patients onOpen={(id) => openPatient(id)} />
           ) : view === "treatments" ? (
@@ -483,6 +484,21 @@ function Patients({ onOpen }: { onOpen: (id: number) => void }) {
 
 /* ---------------- Reception ---------------- */
 type Appt = { id: number; patientId: number; patientName: string; phone: string | null; doctorName: string | null; treatmentType: string | null; startAt: string; durationMin: number; room: string | null; status: string };
+
+function ReceptionHub({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string) => void }) {
+  const [mode, setMode] = useState<"calendar" | "list">("calendar");
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <div className="flex rounded-xl border border-[#E5E7EB] bg-white p-0.5">
+          <button onClick={() => setMode("calendar")} className={`rounded-lg px-3 py-1.5 text-sm font-bold ${mode === "calendar" ? "bg-[#0F8B94] text-white" : "text-[#475569]"}`}>التقويم</button>
+          <button onClick={() => setMode("list")} className={`rounded-lg px-3 py-1.5 text-sm font-bold ${mode === "list" ? "bg-[#0F8B94] text-white" : "text-[#475569]"}`}>قائمة اليوم</button>
+        </div>
+      </div>
+      {mode === "calendar" ? <DentalCalendar onOpenPatient={onOpenPatient} /> : <Reception onOpenPatient={onOpenPatient} />}
+    </div>
+  );
+}
 
 function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string) => void }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));

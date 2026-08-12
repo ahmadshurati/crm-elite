@@ -548,6 +548,29 @@ export async function listAppointments(companyId: number, date: string) {
   }));
 }
 
+export async function listAppointmentsRange(companyId: number, from: string, to: string) {
+  const rows = await query<Record<string, unknown>>(
+    `SELECT a.*, p.fullName, p.phone, p.patientNumber
+     FROM DentalAppointment a
+     INNER JOIN DentalPatient p ON p.id = a.patientId
+     WHERE a.companyId = ? AND DATE(a.startAt) >= ? AND DATE(a.startAt) <= ?
+     ORDER BY a.startAt ASC`,
+    [companyId, from, to]
+  );
+  return rows.map((a) => ({
+    id: Number(a.id),
+    patientId: Number(a.patientId),
+    patientName: String(a.fullName || ""),
+    phone: a.phone ? String(a.phone) : null,
+    doctorName: a.doctorName ? String(a.doctorName) : null,
+    treatmentType: a.treatmentType ? String(a.treatmentType) : null,
+    startAt: new Date(a.startAt as string | Date).toISOString(),
+    durationMin: Number(a.durationMin || 30),
+    room: a.room ? String(a.room) : null,
+    status: String(a.status),
+  }));
+}
+
 export async function createAppointment(ctx: DentalContext, input: Record<string, unknown>) {
   const patientId = Number(input.patientId);
   const result = await execute(
