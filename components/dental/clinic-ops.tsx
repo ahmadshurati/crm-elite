@@ -299,3 +299,100 @@ export function RecallDashboard({ onOpenPatient }: { onOpenPatient: (id: number,
 
 function Center() { return <div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div>; }
 function Empty({ text }: { text: string }) { return <p className="py-16 text-center text-sm text-[#94A3B8]">{text}</p>; }
+
+/* ---------------- Reports ---------------- */
+type Report = {
+  from: string; to: string;
+  financial: { revenue: number; paymentsCount: number; byMethod: Record<string, number>; daily: { date: string; total: number }[]; outstanding: number };
+  clinic: { newPatients: number; visits: number; appointments: number; cancellationRate: number; noShowRate: number; treatmentDistribution: { treatment: string; count: number; revenue: number }[] };
+  doctors: { doctorName: string; visits: number }[];
+};
+
+export function ReportsDashboard() {
+  const [range, setRange] = useState({ from: new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10), to: new Date().toISOString().slice(0, 10) });
+  const [data, setData] = useState<Report | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await fetch(`/api/dental/reports?from=${range.from}&to=${range.to}`, { cache: "no-store" });
+    if (res.ok) setData(await res.json());
+    setLoading(false);
+  }, [range.from, range.to]);
+  useEffect(() => { load(); }, [load]);
+
+  const maxDaily = data ? Math.max(1, ...data.financial.daily.map((d) => d.total)) : 1;
+
+  return (
+    <Shell title="التقارير" subtitle="تحليلات مالية وتشغيلية ضمن نطاق زمني">
+      <div className="flex flex-wrap items-end gap-2 rounded-[24px] border border-[#EAECEF] bg-white p-4 shadow-sm">
+        <label className="text-xs font-semibold text-[#64748B]">من<input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} className={`${INP} mt-1`} /></label>
+        <label className="text-xs font-semibold text-[#64748B]">إلى<input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} className={`${INP} mt-1`} /></label>
+      </div>
+      {loading || !data ? <Center /> : (
+        <>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat label="الإيراد" value={`₪ ${data.financial.revenue.toLocaleString()}`} />
+            <Stat label="عدد الدفعات" value={String(data.financial.paymentsCount)} />
+            <Stat label="مستحقات غير محصّلة" value={`₪ ${data.financial.outstanding.toLocaleString()}`} tone="rose" />
+            <Stat label="مرضى جدد" value={String(data.clinic.newPatients)} />
+          </div>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-bold text-[#1F2937]">الإيراد اليومي</h3>
+              {data.financial.daily.length === 0 ? <Empty text="لا توجد بيانات." /> : (
+                <div className="space-y-1.5">
+                  {data.financial.daily.map((d) => (
+                    <div key={d.date} className="flex items-center gap-2 text-xs">
+                      <span className="w-16 shrink-0 text-[#94A3B8]">{new Date(d.date).toLocaleDateString("ar", { day: "numeric", month: "short" })}</span>
+                      <div className="h-4 flex-1 rounded bg-[#F1F5F9]"><div className="h-4 rounded bg-[#0F8B94]" style={{ width: `${(d.total / maxDaily) * 100}%` }} /></div>
+                      <span className="w-20 shrink-0 text-left font-bold text-[#334155]">₪ {d.total.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap gap-2 border-t border-[#F1F5F9] pt-3">
+                {Object.entries(data.financial.byMethod).map(([m, v]) => <span key={m} className="rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-bold text-[#475569]">{m}: ₪ {v.toLocaleString()}</span>)}
+              </div>
+            </div>
+            <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-bold text-[#1F2937]">مؤشرات العيادة</h3>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <Stat label="الزيارات" value={String(data.clinic.visits)} />
+                <Stat label="المواعيد" value={String(data.clinic.appointments)} />
+                <Stat label="نسبة الإلغاء" value={`${data.clinic.cancellationRate}%`} />
+                <Stat label="نسبة عدم الحضور" value={`${data.clinic.noShowRate}%`} />
+              </div>
+              <p className="mb-2 mt-4 text-xs font-bold text-[#94A3B8]">زيارات حسب الطبيب</p>
+              <div className="space-y-1">
+                {data.doctors.map((d, i) => <div key={i} className="flex justify-between text-sm"><span className="text-[#475569]">{d.doctorName}</span><span className="font-bold text-[#334155]">{d.visits}</span></div>)}
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+            <h3 className="mb-4 text-lg font-bold text-[#1F2937]">توزيع العلاجات</h3>
+            {data.clinic.treatmentDistribution.length === 0 ? <Empty text="لا توجد بيانات." /> : (
+              <div className="space-y-2">
+                {data.clinic.treatmentDistribution.map((t, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+                    <span className="text-[#475569]">{t.treatment}</span>
+                    <span className="text-xs text-[#94A3B8]">{t.count} علاج · ₪ {t.revenue.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </Shell>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-[20px] border border-[#EAECEF] bg-white p-4 shadow-sm">
+      <p className="text-xs text-[#94A3B8]">{label}</p>
+      <p className={`mt-1 text-xl font-black ${tone === "rose" ? "text-rose-600" : "text-[#0F8B94]"}`}>{value}</p>
+    </div>
+  );
+}

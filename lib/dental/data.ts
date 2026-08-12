@@ -703,16 +703,33 @@ export async function getDashboard(companyId: number) {
   const remainingCents = Math.max(chargeableCents - discountCents - insuranceCents - paidCents, 0);
 
   const alerts: { type: string; text: string }[] = [];
-  const upcoming = await query<Record<string, unknown>>(
-    `SELECT a.startAt, p.fullName FROM DentalAppointment a INNER JOIN DentalPatient p ON p.id=a.patientId
-     WHERE a.companyId = ? AND a.startAt >= NOW() AND a.startAt <= DATE_ADD(NOW(), INTERVAL 2 HOUR) AND a.status NOT IN ('cancelled','no_show','completed')
-     ORDER BY a.startAt ASC LIMIT 5`,
-    [companyId]
-  );
-  for (const u of upcoming) {
+  const [upcoming, ops, recent] = await Promise.all([
+    query<Record<string, unknown>>(
+      `SELECT a.startAt, a.doctorName, a.status, p.fullName FROM DentalAppointment a INNER JOIN DentalPatient p ON p.id=a.patientId
+       WHERE a.companyId = ? AND a.startAt >= NOW() AND a.status NOT IN ('cancelled','no_show','completed')
+       ORDER BY a.startAt ASC LIMIT 6`,
+      [companyId]
+    ),
+    queryOne<{ labsDue: number; lowStock: number; recallsDue: number; installmentsDue: number }>(
+      `SELECT
+        (SELECT COUNT(*) FROM DentalLabOrder WHERE companyId = ? AND expectedDate < CURDATE() AND status NOT IN ('received','fitted')) AS labsDue,
+        (SELECT COUNT(*) FROM DentalInventoryItem WHERE companyId = ? AND quantity <= minQuantity) AS lowStock,
+        (SELECT COUNT(*) FROM DentalRecall WHERE companyId = ? AND dueDate <= CURDATE() AND status = 'upcoming') AS recallsDue,
+        (SELECT COUNT(*) FROM DentalInstallment WHERE companyId = ? AND dueDate <= CURDATE() AND status = 'upcoming') AS installmentsDue`,
+      [companyId, companyId, companyId, companyId]
+    ),
+    query<Record<string, unknown>>(
+      "SELECT type, title, actorName, createdAt FROM DentalTimelineEvent WHERE companyId = ? ORDER BY createdAt DESC LIMIT 10",
+      [companyId]
+    ),
+  ]);
+  for (const u of upcoming.slice(0, 3)) {
     const t = new Date(u.startAt as string | Date);
-    alerts.push({ type: "appointment", text: `موعد قريب: ${String(u.fullName)} الساعة ${t.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}` });
+    if (t.getTime() <= Date.now() + 2 * 3600 * 1000) alerts.push({ type: "appointment", text: `موعد قريب: ${String(u.fullName)} الساعة ${t.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}` });
   }
+  if (Number(ops?.labsDue || 0) > 0) alerts.push({ type: "lab", text: `${Number(ops?.labsDue)} طلب مختبر متأخر` });
+  if (Number(ops?.lowStock || 0) > 0) alerts.push({ type: "inventory", text: `${Number(ops?.lowStock)} صنف تحت الحد الأدنى` });
+  if (Number(ops?.recallsDue || 0) > 0) alerts.push({ type: "recall", text: `${Number(ops?.recallsDue)} تذكير مستحق` });
   if (remainingCents > 0) alerts.push({ type: "balance", text: `مبالغ متبقية على المرضى: ₪ ${toMoney(remainingCents).toLocaleString()}` });
 
   return {
@@ -731,6 +748,14 @@ export async function getDashboard(companyId: number) {
       remaining: toMoney(remainingCents),
       byMethod: methodMap,
     },
+    ops: {
+      labsDue: Number(ops?.labsDue || 0),
+      lowStock: Number(ops?.lowStock || 0),
+      recallsDue: Number(ops?.recallsDue || 0),
+      installmentsDue: Number(ops?.installmentsDue || 0),
+    },
+    upcoming: upcoming.map((u) => ({ startAt: new Date(u.startAt as string | Date).toISOString(), fullName: String(u.fullName || ""), doctorName: u.doctorName ? String(u.doctorName) : null, status: String(u.status) })),
+    recent: recent.map((r) => ({ type: String(r.type), title: String(r.title), actorName: r.actorName ? String(r.actorName) : null, createdAt: new Date(r.createdAt as string | Date).toISOString() })),
     alerts,
   };
 }

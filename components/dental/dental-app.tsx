@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { PatientProfile } from "@/components/dental/patient-profile";
 import { DentalCalendar } from "@/components/dental/dental-calendar";
-import { InventoryDashboard, LabsDashboard, RecallDashboard } from "@/components/dental/clinic-ops";
+import { InventoryDashboard, LabsDashboard, RecallDashboard, ReportsDashboard } from "@/components/dental/clinic-ops";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
 type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
@@ -34,7 +34,7 @@ const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "labs", label: "المختبرات", icon: FlaskConical, ready: true },
   { id: "inventory", label: "المخزون", icon: Package, ready: true },
   { id: "recall", label: "التذكير والمتابعة", icon: Bell, ready: true },
-  { id: "reports", label: "التقارير", icon: Activity, ready: false },
+  { id: "reports", label: "التقارير", icon: Activity, ready: true },
   { id: "staff", label: "الأطباء والموظفون", icon: ClipboardList, ready: false },
   { id: "settings", label: "الإعدادات", icon: ClipboardList, ready: false },
 ];
@@ -128,9 +128,10 @@ export function DentalApp() {
       </aside>
 
       <main className="min-w-0 flex-1">
-        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#EAECEF] bg-white px-6 py-4">
-          <h1 className="text-lg font-bold text-[#1F2937]">{clinic}</h1>
-          <span className="rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94]">عيادة أسنان</span>
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-[#EAECEF] bg-white px-6 py-4">
+          <h1 className="shrink-0 text-lg font-bold text-[#1F2937]">{clinic}</h1>
+          <GlobalSearch onOpenPatient={openPatient} />
+          <span className="shrink-0 rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94]">عيادة أسنان</span>
         </div>
 
         <div className="p-6">
@@ -150,11 +151,67 @@ export function DentalApp() {
             <InventoryDashboard />
           ) : view === "recall" ? (
             <RecallDashboard onOpenPatient={openPatient} />
+          ) : view === "reports" ? (
+            <ReportsDashboard />
           ) : (
             <ComingSoon label={NAV.find((n) => n.id === view)?.label || ""} />
           )}
         </div>
       </main>
+    </div>
+  );
+}
+
+function GlobalSearch({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string) => void }) {
+  const [q, setQ] = useState("");
+  const [res, setRes] = useState<{ patients: { id: number; fullName: string; patientNumber: string; phone: string | null }[]; invoices: { id: number; number: string; type: string; total: number }[]; appointments: { id: number; patientId: number; fullName: string; startAt: string }[] } | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (q.trim().length < 2) { setRes(null); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/dental/search?q=${encodeURIComponent(q)}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { setRes(d); setOpen(true); }).catch(() => {});
+    }, 250);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  return (
+    <div className="relative mx-auto w-full max-w-md">
+      <Search className="absolute right-3 top-2.5 h-4 w-4 text-[#94A3B8]" />
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onFocus={() => res && setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 200)}
+        placeholder="بحث عن مريض، هاتف، رقم فاتورة..."
+        className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] pr-10 pl-3 text-sm outline-none focus:border-[#0F8B94]"
+      />
+      {open && res && (
+        <div className="absolute inset-x-0 top-12 z-40 max-h-96 overflow-y-auto rounded-2xl border border-[#EAECEF] bg-white p-2 shadow-xl">
+          {res.patients.length === 0 && res.invoices.length === 0 && res.appointments.length === 0 && <p className="p-3 text-center text-sm text-[#94A3B8]">لا نتائج.</p>}
+          {res.patients.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">المرضى</p>}
+          {res.patients.map((p) => (
+            <button key={p.id} onMouseDown={() => { onOpenPatient(p.id); setOpen(false); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-right text-sm hover:bg-[#F8FAFC]">
+              <span className="font-bold text-[#1F2937]">{p.fullName}</span>
+              <span className="text-xs text-[#94A3B8]" dir="ltr">{p.phone || p.patientNumber}</span>
+            </button>
+          ))}
+          {res.appointments.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">المواعيد</p>}
+          {res.appointments.map((a) => (
+            <button key={a.id} onMouseDown={() => { onOpenPatient(a.patientId); setOpen(false); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-right text-sm hover:bg-[#F8FAFC]">
+              <span className="text-[#475569]">{a.fullName}</span>
+              <span className="text-xs text-[#94A3B8]">{new Date(a.startAt).toLocaleDateString("ar")}</span>
+            </button>
+          ))}
+          {res.invoices.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">الفواتير</p>}
+          {res.invoices.map((v) => (
+            <div key={v.id} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm">
+              <span className="font-bold text-[#1F2937]" dir="ltr">{v.number}</span>
+              <span className="text-xs text-[#94A3B8]">₪ {v.total.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -314,6 +371,9 @@ function TreatmentsCatalog() {
 type DashData = {
   today: { total: number; arrived: number; upcoming: number; cancelled: number; noShow: number; newPatients: number };
   finance: { todayIncome: number; monthIncome: number; paid: number; remaining: number; byMethod: Record<string, number> };
+  ops: { labsDue: number; lowStock: number; recallsDue: number; installmentsDue: number };
+  upcoming: { startAt: string; fullName: string; doctorName: string | null; status: string }[];
+  recent: { type: string; title: string; actorName: string | null; createdAt: string }[];
   alerts: { type: string; text: string }[];
 };
 
@@ -335,12 +395,19 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="مواعيد اليوم" value={data.today.total} tone="teal" />
+        <button onClick={() => onGo("reception")} className="text-right"><Kpi label="مواعيد اليوم" value={data.today.total} tone="teal" /></button>
         <Kpi label="وصلوا" value={data.today.arrived} tone="emerald" />
         <Kpi label="قادمة" value={data.today.upcoming} tone="blue" />
         <Kpi label="ملغاة" value={data.today.cancelled} tone="rose" />
         <Kpi label="لم يحضروا" value={data.today.noShow} tone="gray" />
-        <Kpi label="مرضى جدد" value={data.today.newPatients} tone="violet" />
+        <button onClick={() => onGo("patients")} className="text-right"><Kpi label="مرضى جدد" value={data.today.newPatients} tone="violet" /></button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <button onClick={() => onGo("labs")} className="text-right"><Kpi label="طلبات مختبر متأخرة" value={data.ops.labsDue} tone="rose" /></button>
+        <button onClick={() => onGo("inventory")} className="text-right"><Kpi label="أصناف منخفضة" value={data.ops.lowStock} tone="rose" /></button>
+        <button onClick={() => onGo("recall")} className="text-right"><Kpi label="تذكيرات مستحقة" value={data.ops.recallsDue} tone="teal" /></button>
+        <Kpi label="أقساط مستحقة" value={data.ops.installmentsDue} tone="violet" />
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -378,6 +445,33 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
           <button onClick={() => onGo("reception")} className="mt-4 w-full rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]">
             فتح الاستقبال
           </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-bold text-[#1F2937]">المواعيد القادمة</h3>
+          <div className="space-y-2">
+            {data.upcoming.length === 0 && <p className="text-sm text-[#94A3B8]">لا توجد مواعيد قادمة.</p>}
+            {data.upcoming.map((u, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+                <div><p className="font-bold text-[#1F2937]">{u.fullName}</p><p className="text-xs text-[#94A3B8]">{u.doctorName || ""}</p></div>
+                <span className="text-xs font-bold text-[#0F8B94]">{new Date(u.startAt).toLocaleString("ar", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+          <h3 className="mb-4 text-lg font-bold text-[#1F2937]">آخر النشاطات</h3>
+          <div className="space-y-2">
+            {data.recent.length === 0 && <p className="text-sm text-[#94A3B8]">لا يوجد نشاط.</p>}
+            {data.recent.map((r, i) => (
+              <div key={i} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+                <span className="text-[#475569]">{r.title}</span>
+                <span className="text-xs text-[#94A3B8]">{new Date(r.createdAt).toLocaleDateString("ar")}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
