@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Loader2, Plus, Stethoscope, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
-import { PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
+import { FILE_CATEGORIES, FILE_CATEGORY_MAP, PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
 
 const TABS = [
   { id: "overview", label: "نظرة عامة" },
@@ -11,8 +11,10 @@ const TABS = [
   { id: "chart", label: "مخطط الأسنان" },
   { id: "visits", label: "الزيارات" },
   { id: "plan", label: "خطة العلاج" },
+  { id: "images", label: "الصور والأشعة" },
   { id: "billing", label: "الحساب المالي" },
   { id: "rx", label: "الوصفات" },
+  { id: "documents", label: "المستندات" },
   { id: "timeline", label: "السجل الزمني" },
 ] as const;
 
@@ -62,7 +64,7 @@ type Profile = {
     completedAt: string | null;
   }[];
   payments: { id: number; amount: number; method: string; notes: string | null; voided: boolean; createdAt: string }[];
-  prescriptions: { id: number; items: string[]; notes: string | null; createdAt: string }[];
+  prescriptions: { id: number; items: string[]; notes: string | null; doctorName: string | null; diagnosis: string | null; createdAt: string }[];
   appointments: { id: number; startAt: string; treatmentType: string | null; status: string }[];
   timeline: { id: number; type: string; title: string; actorName: string | null; createdAt: string }[];
   finance: { subtotal: number; chargeable: number; discount: number; insurance: number; responsibility: number; due: number; adjustments: number; paid: number; balance: number };
@@ -171,7 +173,9 @@ export function PatientProfile({ patientId, onBack, initialTab }: { patientId: n
       {tab === "visits" && <Visits patientId={patientId} visits={data.visits} onChange={load} />}
       {tab === "plan" && <TreatmentPlan patientId={patientId} data={data} onChange={load} />}
       {tab === "billing" && <Billing patientId={patientId} data={data} onChange={load} />}
-      {tab === "rx" && <Prescriptions patientId={patientId} list={data.prescriptions} onChange={load} />}
+      {tab === "images" && <FilesTab patientId={patientId} kind="imaging" />}
+      {tab === "documents" && <FilesTab patientId={patientId} kind="document" />}
+      {tab === "rx" && <Prescriptions patientId={patientId} list={data.prescriptions} patientName={data.patient.fullName} onChange={load} />}
       {tab === "timeline" && <Timeline events={data.timeline} />}
     </div>
   );
@@ -639,13 +643,32 @@ function VField({ label, defaultValue, onSave, readOnly, area, placeholder }: { 
 }
 
 function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: number; patientId: number; doctorName: string | null; onDone: () => void }) {
-  const [tab, setTab] = useState<"tooth" | "treatment" | "rx" | "followup" | null>(null);
+  const [tab, setTab] = useState<"tooth" | "treatment" | "rx" | "followup" | "xray" | null>(null);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [tooth, setTooth] = useState({ toothNumber: "", condition: "caries" });
   const [tx, setTx] = useState({ catalogId: "", toothNumber: "", treatment: "", price: "" });
   const [rx, setRx] = useState({ diagnosis: "", meds: "" });
   const [fu, setFu] = useState({ startAt: "", treatmentType: "" });
+  const [xray, setXray] = useState({ category: "periapical", toothNumber: "" });
+
+  async function uploadXray(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("category", xray.category);
+      fd.append("visitId", String(visitId));
+      if (xray.toothNumber) fd.append("toothNumber", xray.toothNumber);
+      const res = await fetch(`/api/dental/patients/${patientId}/files`, { method: "POST", body: fd });
+      if (res.ok) { setTab(null); onDone(); }
+    } finally {
+      setBusy(false);
+      e.target.value = "";
+    }
+  }
 
   useEffect(() => {
     fetch("/api/dental/treatments/catalog", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => setCatalog(d.items || [])).catch(() => {});
@@ -671,6 +694,7 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
       <div className="flex flex-wrap gap-2">
         {btn("tooth", "تحديث سِن")}
         {btn("treatment", "إضافة علاج")}
+        {btn("xray", "أشعة / صورة")}
         {btn("rx", "وصفة طبية")}
         {btn("followup", "موعد متابعة")}
       </div>
@@ -710,6 +734,19 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
           <input type="datetime-local" value={fu.startAt} onChange={(e) => setFu({ ...fu, startAt: e.target.value })} className={INP} />
           <input value={fu.treatmentType} onChange={(e) => setFu({ ...fu, treatmentType: e.target.value })} placeholder="نوع العلاج" className={INP} />
           <button disabled={busy || !fu.startAt} onClick={() => post(`/api/dental/appointments`, { patientId, startAt: new Date(fu.startAt).toISOString(), treatmentType: fu.treatmentType, doctorName })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حجز المتابعة</button>
+        </div>
+      )}
+
+      {tab === "xray" && (
+        <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[1fr_110px_auto]">
+          <select value={xray.category} onChange={(e) => setXray({ ...xray, category: e.target.value })} className={INP}>
+            {FILE_CATEGORIES.filter((c) => c.kind === "imaging").map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <input value={xray.toothNumber} onChange={(e) => setXray({ ...xray, toothNumber: e.target.value })} placeholder="السن" className={INP} inputMode="numeric" />
+          <label className={`inline-flex cursor-pointer items-center justify-center rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white ${busy ? "opacity-60" : ""}`}>
+            {busy ? "…" : "رفع"}
+            <input type="file" accept="image/*,application/pdf" onChange={uploadXray} disabled={busy} className="hidden" />
+          </label>
         </div>
       )}
     </Card>
@@ -1249,18 +1286,18 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
   );
 }
 
-function Prescriptions({ patientId, list, onChange }: { patientId: number; list: Profile["prescriptions"]; onChange: () => void }) {
-  const [text, setText] = useState("");
+function Prescriptions({ patientId, list, patientName, onChange }: { patientId: number; list: Profile["prescriptions"]; patientName: string; onChange: () => void }) {
+  const [form, setForm] = useState({ diagnosis: "", doctorName: "", text: "" });
   const [saving, setSaving] = useState(false);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const items = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    const items = form.text.split("\n").map((l) => l.trim()).filter(Boolean);
     if (!items.length) return;
     setSaving(true);
     try {
-      await fetch(`/api/dental/patients/${patientId}/prescriptions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
-      setText("");
+      await fetch(`/api/dental/patients/${patientId}/prescriptions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, diagnosis: form.diagnosis, doctorName: form.doctorName }) });
+      setForm({ diagnosis: "", doctorName: "", text: "" });
       onChange();
     } finally {
       setSaving(false);
@@ -1270,21 +1307,137 @@ function Prescriptions({ patientId, list, onChange }: { patientId: number; list:
   return (
     <Card>
       <h3 className="mb-4 text-lg font-bold text-[#1F2937]">الوصفات الطبية</h3>
-      <form onSubmit={save} className="mb-5">
-        <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder={"كل دواء بسطر مثال:\nAugmentin 875mg — قرص مرتين يومياً 7 أيام"} className={`${INP} min-h-[90px]`} />
-        <button disabled={saving} className="mt-2 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">إصدار وصفة</button>
+      <form onSubmit={save} className="mb-5 space-y-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          <input value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} placeholder="الطبيب" className={INP} />
+          <input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="التشخيص / السبب" className={INP} />
+        </div>
+        <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder={"كل دواء بسطر مثال:\nAugmentin 875mg — قرص مرتين يومياً 7 أيام"} className={`${INP} min-h-[90px]`} />
+        <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">إصدار وصفة</button>
       </form>
       <div className="space-y-3">
         {list.length === 0 && <p className="py-6 text-center text-sm text-[#94A3B8]">لا توجد وصفات.</p>}
         {list.map((rx) => (
           <div key={rx.id} className="rounded-2xl border border-[#EEF1F4] p-4">
-            <p className="mb-2 text-xs text-[#94A3B8]">{new Date(rx.createdAt).toLocaleDateString("ar")}</p>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs text-[#94A3B8]">{new Date(rx.createdAt).toLocaleDateString("ar")}{rx.doctorName ? ` · د. ${rx.doctorName}` : ""}{rx.diagnosis ? ` · ${rx.diagnosis}` : ""}</p>
+              <button onClick={() => printPrescription(rx, patientName)} className="rounded-lg border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-bold text-[#0F8B94]">طباعة</button>
+            </div>
             <ul className="list-disc space-y-1 pr-5 text-sm text-[#334155]">
               {rx.items.map((it, i) => <li key={i}>{it}</li>)}
             </ul>
           </div>
         ))}
       </div>
+    </Card>
+  );
+}
+
+async function printPrescription(rx: Profile["prescriptions"][number], patientName: string) {
+  let clinicName = "عيادة الأسنان";
+  try { const me = await fetch("/api/dental/me", { cache: "no-store" }); if (me.ok) clinicName = (await me.json()).clinicName || clinicName; } catch { /* ignore */ }
+  const rows = rx.items.map((it) => `<li>${it}</li>`).join("");
+  const html = `<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"><title>وصفة طبية</title>
+    <style>body{font-family:system-ui,Arial;padding:32px;color:#1F2937}h1{color:#0F8B94;margin:0}hr{border:none;border-top:1px solid #eee;margin:16px 0}.muted{color:#94a3b8;font-size:12px}ul{font-size:16px;line-height:2}.rx{font-size:40px;color:#0F8B94;font-weight:bold}</style>
+    </head><body>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start"><div><h1>${clinicName}</h1><p class="muted">وصفة طبية</p></div>
+    <div style="text-align:left" class="muted">التاريخ: ${new Date(rx.createdAt).toLocaleDateString("ar")}</div></div>
+    <hr><p><b>المريض:</b> ${patientName}</p>${rx.doctorName ? `<p><b>الطبيب:</b> ${rx.doctorName}</p>` : ""}${rx.diagnosis ? `<p><b>التشخيص:</b> ${rx.diagnosis}</p>` : ""}
+    <p class="rx">℞</p><ul>${rows}</ul>${rx.notes ? `<p class="muted">${rx.notes}</p>` : ""}
+    <hr><p class="muted">التوقيع: ______________________</p>
+    <script>window.onload=function(){window.print()}</script></body></html>`;
+  const w = window.open("", "_blank", "width=800,height=900");
+  if (w) { w.document.write(html); w.document.close(); }
+}
+
+function FilesTab({ patientId, kind }: { patientId: number; kind: "imaging" | "document" }) {
+  const [files, setFiles] = useState<{ id: number; category: string; fileUrl: string; fileName: string; mimeType: string | null; toothNumber: number | null; description: string | null; createdAt: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState("");
+  const cats = FILE_CATEGORIES.filter((c) => c.kind === kind);
+  const [category, setCategory] = useState(cats[0]?.id || "other");
+  const [tooth, setTooth] = useState("");
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/dental/patients/${patientId}/files?kind=${kind}`, { cache: "no-store" });
+    if (res.ok) setFiles((await res.json()).files || []);
+    setLoading(false);
+  }, [patientId, kind]);
+  useEffect(() => { load(); }, [load]);
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("category", category);
+      if (tooth) fd.append("toothNumber", tooth);
+      const res = await fetch(`/api/dental/patients/${patientId}/files`, { method: "POST", body: fd });
+      if (res.ok) { setTooth(""); load(); }
+      else setErr((await res.json().catch(() => ({}))).error || "تعذّر الرفع");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function remove(id: number) {
+    if (!confirm("حذف هذا الملف؟")) return;
+    const res = await fetch(`/api/dental/files/${id}`, { method: "DELETE" });
+    if (res.ok) load();
+  }
+
+  return (
+    <Card>
+      <h3 className="mb-4 text-lg font-bold text-[#1F2937]">{kind === "imaging" ? "الصور والأشعة" : "المستندات"}</h3>
+      <div className="mb-5 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-4 md:grid-cols-[1fr_110px_auto]">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className={INP}>
+          {cats.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+        </select>
+        {kind === "imaging" && <input value={tooth} onChange={(e) => setTooth(e.target.value)} placeholder="السن (اختياري)" className={INP} inputMode="numeric" />}
+        <label className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white ${uploading ? "opacity-60" : ""} ${kind === "document" ? "md:col-span-1" : ""}`}>
+          {uploading ? "جارِ الرفع…" : "رفع ملف"}
+          <input type="file" accept="image/*,application/pdf" onChange={upload} disabled={uploading} className="hidden" />
+        </label>
+      </div>
+      {err && <p className="mb-3 text-xs font-semibold text-rose-600">{err}</p>}
+      {loading ? (
+        <div className="flex justify-center py-12 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div>
+      ) : files.length === 0 ? (
+        <p className="py-10 text-center text-sm text-[#94A3B8]">لا توجد ملفات بعد.</p>
+      ) : kind === "imaging" ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {files.map((f) => (
+            <div key={f.id} className="group relative overflow-hidden rounded-xl border border-[#EAECEF]">
+              {f.mimeType?.startsWith("image/") ? (
+                <a href={f.fileUrl} target="_blank" rel="noreferrer"><img src={f.fileUrl} alt={f.fileName} className="h-32 w-full object-cover" /></a>
+              ) : (
+                <a href={f.fileUrl} target="_blank" rel="noreferrer" className="flex h-32 w-full items-center justify-center bg-[#F1F5F9] text-xs font-bold text-[#64748B]">PDF</a>
+              )}
+              <div className="p-2">
+                <p className="truncate text-[11px] font-bold text-[#334155]">{FILE_CATEGORY_MAP[f.category] || f.category}</p>
+                <p className="text-[10px] text-[#94A3B8]">{f.toothNumber ? `سن ${f.toothNumber} · ` : ""}{new Date(f.createdAt).toLocaleDateString("ar")}</p>
+              </div>
+              <button onClick={() => remove(f.id)} className="absolute left-1 top-1 rounded-lg bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 opacity-0 transition group-hover:opacity-100">حذف</button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {files.map((f) => (
+            <div key={f.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+              <a href={f.fileUrl} target="_blank" rel="noreferrer" className="font-bold text-[#0F8B94] hover:underline">{f.fileName}</a>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#94A3B8]">{FILE_CATEGORY_MAP[f.category] || f.category} · {new Date(f.createdAt).toLocaleDateString("ar")}</span>
+                <button onClick={() => remove(f.id)} className="rounded-lg border border-[#E5E7EB] px-2 py-0.5 text-[10px] font-bold text-rose-600">حذف</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }

@@ -21,6 +21,7 @@ type Panel = {
   surfaces: { surface: string; condition: string }[];
   history: { action: string; surface: string | null; condition: string | null; treatment: string | null; doctorName: string | null; notes: string | null; createdAt: string }[];
   treatments: { treatment: string; status: string; price: number }[];
+  files?: { id: number; category: string; fileUrl: string; fileName: string }[];
 };
 
 export function DentalChart({
@@ -213,6 +214,19 @@ export function DentalChart({
                         <span className="font-bold text-[#1F2937]">{t.treatment}</span>
                         <span className="text-[#94A3B8]">₪ {t.price.toLocaleString()}</span>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {panel && panel.files && panel.files.length > 0 && (
+                <div className="mb-4">
+                  <p className="mb-2 text-sm font-bold text-[#334155]">صور وأشعة السن</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {panel.files.map((f) => (
+                      <a key={f.id} href={f.fileUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-[#EAECEF]">
+                        <img src={f.fileUrl} alt={f.fileName} className="h-16 w-full object-cover" />
+                      </a>
                     ))}
                   </div>
                 </div>

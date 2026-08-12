@@ -83,6 +83,21 @@ export const PLAN_ITEM_STATUS_MAP: Record<string, string> = Object.fromEntries(
 // Statuses that count toward what the patient owes
 export const CHARGEABLE_STATUSES = ["accepted", "in_progress", "completed"] as const;
 
+export const FILE_CATEGORIES: { id: string; label: string; kind: "imaging" | "document" }[] = [
+  { id: "bitewing", label: "أشعة عضّة (Bitewing)", kind: "imaging" },
+  { id: "periapical", label: "أشعة ذروية (Periapical)", kind: "imaging" },
+  { id: "panoramic", label: "بانوراما (Panoramic)", kind: "imaging" },
+  { id: "cbct", label: "أشعة مقطعية (CBCT)", kind: "imaging" },
+  { id: "intraoral", label: "صورة داخل الفم", kind: "imaging" },
+  { id: "photo", label: "صورة سريرية", kind: "imaging" },
+  { id: "before_after", label: "قبل / بعد", kind: "imaging" },
+  { id: "document", label: "مستند", kind: "document" },
+  { id: "consent", label: "موافقة / إقرار", kind: "document" },
+  { id: "other", label: "أخرى", kind: "document" },
+];
+
+export const FILE_CATEGORY_MAP: Record<string, string> = Object.fromEntries(FILE_CATEGORIES.map((c) => [c.id, c.label]));
+
 export const TREATMENT_CATEGORIES: Record<string, string> = {
   general: "عام",
   preventive: "وقائي",

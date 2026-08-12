@@ -269,7 +269,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       voided: Boolean(p.voidedAt),
       createdAt: new Date(p.createdAt as string | Date).toISOString(),
     })),
-    prescriptions: prescriptions.map((p) => ({ id: Number(p.id), items: parseJsonArray(p.items), notes: p.notes ? String(p.notes) : null, createdAt: new Date(p.createdAt as string | Date).toISOString() })),
+    prescriptions: prescriptions.map((p) => ({ id: Number(p.id), items: parseJsonArray(p.items), notes: p.notes ? String(p.notes) : null, doctorName: p.doctorName ? String(p.doctorName) : null, diagnosis: p.diagnosis ? String(p.diagnosis) : null, createdAt: new Date(p.createdAt as string | Date).toISOString() })),
     appointments: appts.map((a) => ({ id: Number(a.id), startAt: new Date(a.startAt as string | Date).toISOString(), treatmentType: a.treatmentType ? String(a.treatmentType) : null, doctorName: a.doctorName ? String(a.doctorName) : null, status: String(a.status) })),
     timeline,
     finance: {
@@ -378,7 +378,7 @@ export async function setToothSurface(ctx: DentalContext, patientId: number, too
 }
 
 export async function getToothPanel(companyId: number, patientId: number, toothNumber: number) {
-  const [condRow, surfaces, history, treatments] = await Promise.all([
+  const [condRow, surfaces, history, treatments, files] = await Promise.all([
     queryOne<{ condition: string; notes: string | null }>(
       "SELECT condition, notes FROM DentalToothCondition WHERE patientId = ? AND toothNumber = ? LIMIT 1",
       [patientId, toothNumber]
@@ -392,12 +392,17 @@ export async function getToothPanel(companyId: number, patientId: number, toothN
       "SELECT treatment, status, priceCents FROM DentalTreatmentItem WHERE patientId = ? AND toothNumber = ? ORDER BY createdAt DESC",
       [patientId, toothNumber]
     ),
+    query<Record<string, unknown>>(
+      "SELECT id, category, fileUrl, fileName FROM DentalFile WHERE patientId = ? AND toothNumber = ? AND deletedAt IS NULL ORDER BY createdAt DESC LIMIT 20",
+      [patientId, toothNumber]
+    ),
   ]);
   return {
     toothNumber,
     condition: condRow ? String(condRow.condition) : "healthy",
     notes: condRow?.notes ? String(condRow.notes) : null,
     surfaces: surfaces.map((s) => ({ surface: String(s.surface), condition: String(s.condition) })),
+    files: files.map((f) => ({ id: Number(f.id), category: String(f.category), fileUrl: String(f.fileUrl), fileName: String(f.fileName) })),
     history: history.map((h) => ({
       action: String(h.action),
       surface: h.surface ? String(h.surface) : null,
@@ -409,6 +414,56 @@ export async function getToothPanel(companyId: number, patientId: number, toothN
     })),
     treatments: treatments.map((t) => ({ treatment: String(t.treatment), status: String(t.status), price: Number(t.priceCents || 0) / 100 })),
   };
+}
+
+export async function addDentalFile(ctx: DentalContext, patientId: number, meta: { category: string; fileUrl: string; fileName: string; mimeType?: string | null; sizeBytes?: number | null; description?: string | null; toothNumber?: number | null; visitId?: number | null; treatmentId?: number | null }) {
+  const result = await execute(
+    `INSERT INTO DentalFile (companyId, patientId, toothNumber, visitId, treatmentId, category, fileUrl, fileName, mimeType, sizeBytes, description, uploadedByUserId, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    [
+      ctx.companyId, patientId,
+      meta.toothNumber != null ? Number(meta.toothNumber) : null,
+      meta.visitId != null ? Number(meta.visitId) : null,
+      meta.treatmentId != null ? Number(meta.treatmentId) : null,
+      String(meta.category || "other"),
+      String(meta.fileUrl).slice(0, 1000),
+      String(meta.fileName).slice(0, 255),
+      meta.mimeType ? String(meta.mimeType).slice(0, 180) : null,
+      meta.sizeBytes != null ? Number(meta.sizeBytes) : null,
+      meta.description ? String(meta.description).slice(0, 480) : null,
+      ctx.userId,
+    ]
+  );
+  const id = Number(result.insertId);
+  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "file", title: `رفع ملف: ${meta.fileName}`, refType: "file", refId: id, actorName: ctx.username });
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "upload", entityType: "file", entityId: id, newValues: { category: meta.category, fileName: meta.fileName } });
+  return id;
+}
+
+export async function listFiles(companyId: number, patientId: number, opts: { toothNumber?: number | null; kinds?: string[] } = {}) {
+  const params: (string | number)[] = [companyId, patientId];
+  let sql = "SELECT * FROM DentalFile WHERE companyId = ? AND patientId = ? AND deletedAt IS NULL";
+  if (opts.toothNumber != null) { sql += " AND toothNumber = ?"; params.push(Number(opts.toothNumber)); }
+  if (opts.kinds && opts.kinds.length) { sql += ` AND category IN (${opts.kinds.map(() => "?").join(",")})`; params.push(...opts.kinds); }
+  sql += " ORDER BY createdAt DESC";
+  const rows = await query<Record<string, unknown>>(sql, params);
+  return rows.map((f) => ({
+    id: Number(f.id),
+    category: String(f.category),
+    fileUrl: String(f.fileUrl),
+    fileName: String(f.fileName),
+    mimeType: f.mimeType ? String(f.mimeType) : null,
+    toothNumber: f.toothNumber != null ? Number(f.toothNumber) : null,
+    description: f.description ? String(f.description) : null,
+    createdAt: new Date(f.createdAt as string | Date).toISOString(),
+  }));
+}
+
+export async function softDeleteFile(ctx: DentalContext, fileId: number) {
+  const row = await queryOne<{ patientId: number; fileName: string }>("SELECT patientId, fileName FROM DentalFile WHERE id = ? AND companyId = ? AND deletedAt IS NULL LIMIT 1", [fileId, ctx.companyId]);
+  if (!row) throw new Error("الملف غير موجود");
+  await execute("UPDATE DentalFile SET deletedAt = NOW() WHERE id = ?", [fileId]);
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "delete", entityType: "file", entityId: fileId, oldValues: { fileName: row.fileName } });
 }
 
 export async function addVisit(ctx: DentalContext, patientId: number, input: Record<string, unknown>) {

@@ -869,6 +869,28 @@ model DentalPayment {
   @@index([patientId])
 }
 
+model DentalFile {
+  id               Int       @id @default(autoincrement())
+  companyId        Int
+  patientId        Int
+  toothNumber      Int?
+  visitId          Int?
+  treatmentId      Int?
+  category         String    @default("other")
+  fileUrl          String    @db.VarChar(1000)
+  fileName         String
+  mimeType         String?
+  sizeBytes        Int?
+  description      String?
+  uploadedByUserId Int?
+  deletedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([patientId, toothNumber])
+  @@index([companyId])
+}
+
 model DentalLedgerEntry {
   id              Int       @id @default(autoincrement())
   companyId       Int
