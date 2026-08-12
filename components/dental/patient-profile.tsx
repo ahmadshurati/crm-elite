@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Loader2, Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, ClipboardList, Loader2, Plus, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
 import { PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP } from "@/lib/dental/constants";
 
 const TABS = [
   { id: "overview", label: "نظرة عامة" },
+  { id: "medical", label: "التاريخ الطبي" },
   { id: "chart", label: "مخطط الأسنان" },
   { id: "visits", label: "الزيارات" },
   { id: "plan", label: "خطة العلاج" },
@@ -15,6 +16,8 @@ const TABS = [
   { id: "timeline", label: "السجل الزمني" },
 ] as const;
 
+type MedicalFlags = { diabetes: boolean; hypertension: boolean; heartDisease: boolean; bloodThinners: boolean; pregnancy: string };
+
 type Profile = {
   patient: {
     id: number;
@@ -22,6 +25,7 @@ type Profile = {
     fullName: string;
     nationalId: string | null;
     birthDate: string | null;
+    age: number | null;
     gender: string | null;
     phone: string | null;
     whatsapp: string | null;
@@ -32,7 +36,15 @@ type Profile = {
     medicalHistory: string[];
     allergies: string[];
     medications: string[];
+    otherConditions: string[];
+    medical: MedicalFlags;
+    medicalReviewedAt: string | null;
+    medicalReviewedBy: string | null;
+    alerts: string[];
   };
+  planCounts: Record<string, number>;
+  nextAppointment: { id: number; startAt: string; treatmentType: string | null; doctorName: string | null } | null;
+  lastVisit: string | null;
   teeth: { toothNumber: number; condition: string }[];
   visits: { id: number; visitDate: string; doctorName: string | null; chiefComplaint: string | null; diagnosis: string | null; teeth: string | null; procedures: string | null; notes: string | null }[];
   plan: { id: number; title: string; discount: number; status: string } | null;
@@ -82,22 +94,37 @@ export function PatientProfile({ patientId, onBack }: { patientId: number; onBac
             <h2 className="text-2xl font-bold text-[#1F2937]">{p.fullName}</h2>
             <p className="mt-1 text-sm text-[#707A84]">
               رقم المريض: {p.patientNumber}
+              {p.age != null && <span> · العمر {p.age}</span>}
               {p.phone && <span dir="ltr"> · {p.phone}</span>}
             </p>
           </div>
-          <div className="flex gap-6 text-center">
+          <div className="flex flex-wrap gap-6 text-center">
+            <div>
+              <p className="text-xs text-[#94A3B8]">آخر زيارة</p>
+              <p className="text-sm font-bold text-[#334155]">{data.lastVisit ? new Date(data.lastVisit).toLocaleDateString("ar") : "—"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#94A3B8]">الموعد القادم</p>
+              <p className="text-sm font-bold text-[#334155]">{data.nextAppointment ? new Date(data.nextAppointment.startAt).toLocaleDateString("ar") : "—"}</p>
+            </div>
             <div>
               <p className="text-xs text-[#94A3B8]">الرصيد المتبقي</p>
               <p className={`text-xl font-black ${data.finance.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
                 ₪ {data.finance.balance.toLocaleString()}
               </p>
             </div>
-            <div>
-              <p className="text-xs text-[#94A3B8]">المدفوع</p>
-              <p className="text-xl font-black text-[#0F8B94]">₪ {data.finance.paid.toLocaleString()}</p>
-            </div>
           </div>
         </div>
+
+        {p.alerts.length > 0 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span className="text-xs font-bold text-rose-700">تنبيه طبي:</span>
+            {p.alerts.map((a) => (
+              <span key={a} className="rounded-full bg-white px-2.5 py-0.5 text-xs font-bold text-rose-700 ring-1 ring-rose-200">{a}</span>
+            ))}
+          </div>
+        )}
 
         <div className="mt-5 flex flex-wrap gap-1.5 border-t border-[#F1F5F9] pt-4">
           {TABS.map((t) => (
@@ -112,7 +139,8 @@ export function PatientProfile({ patientId, onBack }: { patientId: number; onBac
         </div>
       </div>
 
-      {tab === "overview" && <Overview p={p} />}
+      {tab === "overview" && <Overview data={data} onGo={setTab} />}
+      {tab === "medical" && <MedicalHistory patientId={patientId} p={p} onChange={load} />}
       {tab === "chart" && <DentalChart patientId={patientId} teeth={data.teeth} onChange={load} />}
       {tab === "visits" && <Visits patientId={patientId} visits={data.visits} onChange={load} />}
       {tab === "plan" && <TreatmentPlan patientId={patientId} data={data} onChange={load} />}
@@ -151,10 +179,11 @@ function Card({ children }: { children: React.ReactNode }) {
   return <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">{children}</div>;
 }
 
-function Overview({ p }: { p: Profile["patient"] }) {
+function Overview({ data, onGo }: { data: Profile; onGo: (t: (typeof TABS)[number]["id"]) => void }) {
+  const p = data.patient;
   const info: [string, string | null][] = [
     ["رقم الهوية", p.nationalId],
-    ["تاريخ الميلاد", p.birthDate],
+    ["العمر", p.age != null ? String(p.age) : null],
     ["الجنس", p.gender],
     ["الهاتف", p.phone],
     ["واتساب", p.whatsapp],
@@ -162,8 +191,74 @@ function Overview({ p }: { p: Profile["patient"] }) {
     ["العنوان", p.address],
     ["جهة اتصال للطوارئ", p.emergencyContact],
   ];
+  const recent = data.timeline.slice(0, 6);
+
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Medical alerts */}
+      <Card>
+        <div className="mb-3 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-rose-500" />
+          <h3 className="text-lg font-bold text-[#1F2937]">تنبيهات طبية</h3>
+        </div>
+        {p.alerts.length ? (
+          <div className="flex flex-wrap gap-2">
+            {p.alerts.map((a) => (
+              <span key={a} className="rounded-full bg-rose-50 px-3 py-1 text-sm font-bold text-rose-700">{a}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[#94A3B8]">لا توجد تنبيهات طبية مسجّلة.</p>
+        )}
+        <button onClick={() => onGo("medical")} className="mt-4 text-xs font-bold text-[#0F8B94]">تحديث التاريخ الطبي ←</button>
+      </Card>
+
+      {/* Upcoming appointment */}
+      <Card>
+        <div className="mb-3 flex items-center gap-2">
+          <CalendarClock className="h-5 w-5 text-[#0F8B94]" />
+          <h3 className="text-lg font-bold text-[#1F2937]">الموعد القادم</h3>
+        </div>
+        {data.nextAppointment ? (
+          <div>
+            <p className="text-lg font-bold text-[#1F2937]">{new Date(data.nextAppointment.startAt).toLocaleString("ar", { dateStyle: "medium", timeStyle: "short" })}</p>
+            <p className="mt-1 text-sm text-[#707A84]">{[data.nextAppointment.treatmentType, data.nextAppointment.doctorName].filter(Boolean).join(" · ") || "—"}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-[#94A3B8]">لا يوجد موعد قادم.</p>
+        )}
+      </Card>
+
+      {/* Active treatment plan */}
+      <Card>
+        <div className="mb-3 flex items-center gap-2">
+          <ClipboardList className="h-5 w-5 text-violet-500" />
+          <h3 className="text-lg font-bold text-[#1F2937]">خطة العلاج النشطة</h3>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat n={data.planCounts.proposed || 0} label="مقترح" />
+          <Stat n={data.planCounts.approved || 0} label="موافق عليه" />
+          <Stat n={data.planCounts.in_progress || 0} label="قيد التنفيذ" />
+          <Stat n={data.planCounts.completed || 0} label="مكتمل" />
+        </div>
+        <button onClick={() => onGo("plan")} className="mt-4 text-xs font-bold text-[#0F8B94]">فتح خطة العلاج ←</button>
+      </Card>
+
+      {/* Financial summary */}
+      <Card>
+        <div className="mb-3 flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-amber-500" />
+          <h3 className="text-lg font-bold text-[#1F2937]">الملخص المالي</h3>
+        </div>
+        <div className="space-y-1.5 text-sm">
+          <Row k="إجمالي العلاجات" v={`₪ ${data.finance.chargeable.toLocaleString()}`} />
+          <Row k="الخصم" v={`₪ ${data.finance.discount.toLocaleString()}`} />
+          <Row k="المدفوع" v={`₪ ${data.finance.paid.toLocaleString()}`} />
+          <Row k="المتبقي" v={`₪ ${data.finance.balance.toLocaleString()}`} strong />
+        </div>
+      </Card>
+
+      {/* Personal info */}
       <Card>
         <h3 className="mb-4 text-lg font-bold text-[#1F2937]">المعلومات الشخصية</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -176,31 +271,142 @@ function Overview({ p }: { p: Profile["patient"] }) {
         </div>
         {p.notes && <p className="mt-4 rounded-xl bg-[#F8FAFC] p-3 text-sm text-[#475569]">{p.notes}</p>}
       </Card>
+
+      {/* Recent activity */}
       <Card>
-        <h3 className="mb-4 text-lg font-bold text-[#1F2937]">المعلومات الطبية</h3>
-        <MedList title="التاريخ الطبي" items={p.medicalHistory} tone="amber" />
-        <MedList title="الحساسية" items={p.allergies} tone="rose" />
-        <MedList title="الأدوية الحالية" items={p.medications} tone="blue" />
+        <h3 className="mb-4 text-lg font-bold text-[#1F2937]">آخر النشاطات</h3>
+        {recent.length ? (
+          <div className="space-y-2">
+            {recent.map((e) => (
+              <div key={e.id} className="flex items-center justify-between text-sm">
+                <span className="text-[#334155]">{e.title}</span>
+                <span className="text-xs text-[#94A3B8]">{new Date(e.createdAt).toLocaleDateString("ar")}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-[#94A3B8]">لا يوجد نشاط بعد.</p>
+        )}
       </Card>
     </div>
   );
 }
 
-function MedList({ title, items, tone }: { title: string; items: string[]; tone: string }) {
-  const toneClass = tone === "rose" ? "bg-rose-50 text-rose-700" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-700";
+function Stat({ n, label }: { n: number; label: string }) {
   return (
-    <div className="mb-4">
-      <p className="mb-2 text-xs font-bold text-[#94A3B8]">{title}</p>
-      {items.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {items.map((it, i) => (
-            <span key={i} className={`rounded-full px-2.5 py-1 text-xs font-bold ${toneClass}`}>{it}</span>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-[#CBD5E1]">لا يوجد</p>
-      )}
+    <div className="rounded-xl bg-[#F8FAFC] p-3 text-center">
+      <p className="text-2xl font-black text-[#1F2937]">{n}</p>
+      <p className="text-[11px] font-bold text-[#94A3B8]">{label}</p>
     </div>
+  );
+}
+
+function MedicalHistory({ patientId, p, onChange }: { patientId: number; p: Profile["patient"]; onChange: () => void }) {
+  const [form, setForm] = useState({
+    diabetes: p.medical.diabetes,
+    hypertension: p.medical.hypertension,
+    heartDisease: p.medical.heartDisease,
+    bloodThinners: p.medical.bloodThinners,
+    pregnancy: p.medical.pregnancy,
+    allergies: p.allergies.join("\n"),
+    medications: p.medications.join("\n"),
+    otherConditions: p.otherConditions.join("\n"),
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const toggles: ["diabetes" | "hypertension" | "heartDisease" | "bloodThinners", string][] = [
+    ["diabetes", "السكري"],
+    ["hypertension", "ضغط الدم"],
+    ["heartDisease", "أمراض القلب"],
+    ["bloodThinners", "مميّعات الدم"],
+  ];
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setSaved(false);
+    try {
+      const payload = {
+        diabetes: form.diabetes,
+        hypertension: form.hypertension,
+        heartDisease: form.heartDisease,
+        bloodThinners: form.bloodThinners,
+        pregnancy: form.pregnancy,
+        allergies: form.allergies.split("\n").map((s) => s.trim()).filter(Boolean),
+        medications: form.medications.split("\n").map((s) => s.trim()).filter(Boolean),
+        otherConditions: form.otherConditions.split("\n").map((s) => s.trim()).filter(Boolean),
+      };
+      const res = await fetch(`/api/dental/patients/${patientId}/medical`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (res.ok) {
+        setSaved(true);
+        onChange();
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert(d.error || "تعذّر الحفظ");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-bold text-[#1F2937]">التاريخ الطبي</h3>
+        {p.medicalReviewedAt && (
+          <span className="text-xs text-[#94A3B8]">آخر مراجعة: {new Date(p.medicalReviewedAt).toLocaleDateString("ar")}{p.medicalReviewedBy ? ` · ${p.medicalReviewedBy}` : ""}</span>
+        )}
+      </div>
+      <form onSubmit={save} className="space-y-5">
+        <div>
+          <p className="mb-2 text-sm font-bold text-[#334155]">حالات مزمنة</p>
+          <div className="flex flex-wrap gap-2">
+            {toggles.map(([key, label]) => (
+              <button
+                type="button"
+                key={key}
+                onClick={() => setForm({ ...form, [key]: !form[key] })}
+                className={`rounded-full px-4 py-2 text-sm font-bold transition ${form[key] ? "bg-rose-500 text-white" : "bg-[#F1F5F9] text-[#475569]"}`}
+              >
+                {label} {form[key] ? "✓" : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-sm font-bold text-[#334155]">الحمل</p>
+          <select value={form.pregnancy} onChange={(e) => setForm({ ...form, pregnancy: e.target.value })} className={`${INP} max-w-[220px]`}>
+            <option value="na">لا ينطبق</option>
+            <option value="yes">نعم</option>
+            <option value="no">لا</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-bold text-rose-600">الحساسية (سطر لكل نوع)</span>
+            <textarea value={form.allergies} onChange={(e) => setForm({ ...form, allergies: e.target.value })} className={`${INP} min-h-[110px]`} placeholder={"بنسلين\nLatex"} />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-bold text-[#334155]">الأدوية الحالية</span>
+            <textarea value={form.medications} onChange={(e) => setForm({ ...form, medications: e.target.value })} className={`${INP} min-h-[110px]`} />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-bold text-[#334155]">حالات أخرى</span>
+            <textarea value={form.otherConditions} onChange={(e) => setForm({ ...form, otherConditions: e.target.value })} className={`${INP} min-h-[110px]`} />
+          </label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60">
+            {saving ? "جاري الحفظ..." : "حفظ ومراجعة التاريخ الطبي"}
+          </button>
+          {saved && <span className="text-sm font-bold text-emerald-600">تم الحفظ ✓</span>}
+        </div>
+      </form>
+    </Card>
   );
 }
 

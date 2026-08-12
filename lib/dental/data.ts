@@ -157,6 +157,39 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   const dueCents = Math.max(chargeableCents - discountCents, 0);
   const balanceCents = dueCents - paidCents;
 
+  const allergies = parseJsonArray(patient.allergies);
+  const medical = {
+    diabetes: Boolean(patient.medDiabetes),
+    hypertension: Boolean(patient.medHypertension),
+    heartDisease: Boolean(patient.medHeartDisease),
+    bloodThinners: Boolean(patient.medBloodThinners),
+    pregnancy: String(patient.medPregnancy || "na"),
+  };
+  const alerts: string[] = [];
+  for (const a of allergies) alerts.push(`حساسية: ${a}`);
+  if (medical.diabetes) alerts.push("سكري");
+  if (medical.hypertension) alerts.push("ضغط الدم");
+  if (medical.heartDisease) alerts.push("أمراض قلب");
+  if (medical.bloodThinners) alerts.push("مميّعات دم");
+  if (medical.pregnancy === "yes") alerts.push("حامل");
+
+  const birth = patient.birthDate ? new Date(patient.birthDate as string | Date) : null;
+  const age = birth ? Math.max(0, Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000))) : null;
+
+  const planCounts = { proposed: 0, approved: 0, in_progress: 0, completed: 0, cancelled: 0 } as Record<string, number>;
+  for (const i of planItems) planCounts[String(i.status)] = (planCounts[String(i.status)] || 0) + 1;
+
+  const nextAppointment = await queryOne<Record<string, unknown>>(
+    `SELECT id, startAt, treatmentType, doctorName, status FROM DentalAppointment
+     WHERE companyId = ? AND patientId = ? AND startAt >= NOW() AND status NOT IN ('cancelled','no_show','completed')
+     ORDER BY startAt ASC LIMIT 1`,
+    [companyId, patientId]
+  );
+  const lastVisitRow = await queryOne<{ visitDate: string | Date }>(
+    "SELECT visitDate FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC LIMIT 1",
+    [patientId]
+  );
+
   return {
     patient: {
       id: Number(patient.id),
@@ -164,6 +197,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       fullName: String(patient.fullName || ""),
       nationalId: patient.nationalId ? String(patient.nationalId) : null,
       birthDate: patient.birthDate ? new Date(patient.birthDate as string | Date).toISOString().slice(0, 10) : null,
+      age,
       gender: patient.gender ? String(patient.gender) : null,
       phone: patient.phone ? String(patient.phone) : null,
       whatsapp: patient.whatsapp ? String(patient.whatsapp) : null,
@@ -172,9 +206,24 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       emergencyContact: patient.emergencyContact ? String(patient.emergencyContact) : null,
       notes: patient.notes ? String(patient.notes) : null,
       medicalHistory: parseJsonArray(patient.medicalHistory),
-      allergies: parseJsonArray(patient.allergies),
+      allergies,
       medications: parseJsonArray(patient.medications),
+      otherConditions: parseJsonArray(patient.otherConditions),
+      medical,
+      medicalReviewedAt: patient.medicalReviewedAt ? new Date(patient.medicalReviewedAt as string | Date).toISOString() : null,
+      medicalReviewedBy: patient.medicalReviewedBy ? String(patient.medicalReviewedBy) : null,
+      alerts,
     },
+    planCounts,
+    nextAppointment: nextAppointment
+      ? {
+          id: Number(nextAppointment.id),
+          startAt: new Date(nextAppointment.startAt as string | Date).toISOString(),
+          treatmentType: nextAppointment.treatmentType ? String(nextAppointment.treatmentType) : null,
+          doctorName: nextAppointment.doctorName ? String(nextAppointment.doctorName) : null,
+        }
+      : null,
+    lastVisit: lastVisitRow ? new Date(lastVisitRow.visitDate as string | Date).toISOString() : null,
     teeth: teeth.map((t) => ({ toothNumber: Number(t.toothNumber), condition: String(t.condition), notes: t.notes ? String(t.notes) : null })),
     visits: visits.map((v) => ({
       id: Number(v.id),
@@ -213,6 +262,57 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       balance: toMoney(balanceCents),
     },
   };
+}
+
+export async function updatePatientPersonal(ctx: DentalContext, patientId: number, input: Record<string, unknown>) {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+  const allowed: [string, number][] = [
+    ["fullName", 180], ["nationalId", 60], ["gender", 20], ["phone", 40],
+    ["whatsapp", 40], ["email", 180], ["address", 240], ["emergencyContact", 180], ["notes", 2000],
+  ];
+  for (const [key, max] of allowed) {
+    if (input[key] !== undefined) {
+      fields.push(`${key} = ?`);
+      values.push(input[key] ? String(input[key]).slice(0, max) : null);
+    }
+  }
+  if (input.birthDate !== undefined) {
+    fields.push("birthDate = ?");
+    values.push(input.birthDate ? String(input.birthDate).slice(0, 10) : null);
+  }
+  if (!fields.length) return;
+  fields.push("updatedAt = NOW()");
+  values.push(patientId, ctx.companyId);
+  await execute(`UPDATE DentalPatient SET ${fields.join(", ")} WHERE id = ? AND companyId = ?`, values);
+  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "patient", title: "تحديث بيانات المريض", actorName: ctx.username });
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "patient", entityId: patientId, newValues: input });
+}
+
+export async function updateMedicalHistory(ctx: DentalContext, patientId: number, input: Record<string, unknown>) {
+  const pregnancy = ["na", "yes", "no"].includes(String(input.pregnancy)) ? String(input.pregnancy) : "na";
+  await execute(
+    `UPDATE DentalPatient SET
+       medDiabetes = ?, medHypertension = ?, medHeartDisease = ?, medBloodThinners = ?, medPregnancy = ?,
+       allergies = ?, medications = ?, otherConditions = ?,
+       medicalReviewedAt = NOW(), medicalReviewedBy = ?, updatedAt = NOW()
+     WHERE id = ? AND companyId = ?`,
+    [
+      input.diabetes ? 1 : 0,
+      input.hypertension ? 1 : 0,
+      input.heartDisease ? 1 : 0,
+      input.bloodThinners ? 1 : 0,
+      pregnancy,
+      JSON.stringify(Array.isArray(input.allergies) ? input.allergies : []),
+      JSON.stringify(Array.isArray(input.medications) ? input.medications : []),
+      JSON.stringify(Array.isArray(input.otherConditions) ? input.otherConditions : []),
+      ctx.username,
+      patientId,
+      ctx.companyId,
+    ]
+  );
+  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "medical", title: "تحديث التاريخ الطبي", actorName: ctx.username });
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "medicalHistory", entityId: patientId, newValues: { pregnancy, diabetes: !!input.diabetes, hypertension: !!input.hypertension, heartDisease: !!input.heartDisease, bloodThinners: !!input.bloodThinners } });
 }
 
 export async function patientBelongs(companyId: number, patientId: number) {

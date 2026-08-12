@@ -630,6 +630,14 @@ model DentalPatient {
   medicalHistory   String?   @db.Text
   allergies        String?   @db.Text
   medications      String?   @db.Text
+  medDiabetes      Boolean   @default(false)
+  medHypertension  Boolean   @default(false)
+  medHeartDisease  Boolean   @default(false)
+  medBloodThinners Boolean   @default(false)
+  medPregnancy     String    @default("na")
+  otherConditions  String?   @db.Text
+  medicalReviewedAt DateTime?
+  medicalReviewedBy String?
   createdByUserId  Int?
   deletedAt        DateTime?
   createdAt        DateTime  @default(now())
