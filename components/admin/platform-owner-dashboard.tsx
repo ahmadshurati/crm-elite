@@ -54,6 +54,7 @@ export function PlatformOwnerDashboard() {
   const [tab, setTab] = useState<"companies" | "users" | "demo">("companies");
   const [companyForm, setCompanyForm] = useState({
     name: "",
+    type: "insurance",
     contactEmail: "",
     contactPhone: "",
     adminUsername: "",
@@ -123,6 +124,7 @@ export function PlatformOwnerDashboard() {
 
       setCompanyForm({
         name: "",
+        type: "insurance",
         contactEmail: "",
         contactPhone: "",
         adminUsername: "",
@@ -328,8 +330,19 @@ export function PlatformOwnerDashboard() {
               شركة جديدة (عميل)
             </h3>
             <div className="space-y-3">
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-400">نوع النظام</span>
+                <select
+                  value={companyForm.type}
+                  onChange={(e) => setCompanyForm((prev) => ({ ...prev, type: e.target.value }))}
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#0B1120] px-3 text-white outline-none focus:border-orange-400"
+                >
+                  <option value="insurance">تأمين (CRM)</option>
+                  <option value="dental">عيادة أسنان</option>
+                </select>
+              </label>
               {[
-                ["name", "اسم الشركة", "text"],
+                ["name", "اسم الشركة / العيادة", "text"],
                 ["contactEmail", "البريد", "email"],
                 ["contactPhone", "الهاتف", "text"],
                 ["adminUsername", "مدير الشركة (اسم مستخدم)", "text"],
@@ -371,7 +384,16 @@ export function PlatformOwnerDashboard() {
                 {clientCompanies.map((company) => (
                   <tr key={company.id} className="border-t border-white/10">
                     <td className="px-5 py-4">
-                      <div className="font-bold text-white">{company.name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white">{company.name}</span>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                            company.type === "dental" ? "bg-sky-500/20 text-sky-300" : "bg-orange-500/20 text-orange-300"
+                          }`}
+                        >
+                          {company.type === "dental" ? "أسنان" : "تأمين"}
+                        </span>
+                      </div>
                       <div className="text-xs text-slate-500" dir="ltr">
                         {company.slug}
                       </div>

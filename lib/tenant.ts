@@ -7,6 +7,7 @@ export type CompanyRecord = {
   id: number;
   name: string;
   slug: string;
+  type: string;
   isActive: boolean | number;
   isDemo: boolean | number;
   contactEmail: string | null;

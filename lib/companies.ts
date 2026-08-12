@@ -8,6 +8,7 @@ function mapCompany(row: Record<string, unknown>): CompanyRecord {
     id: Number(row.id),
     name: String(row.name),
     slug: String(row.slug),
+    type: String(row.type || "insurance"),
     isActive: Boolean(row.isActive),
     isDemo: Boolean(row.isDemo),
     contactEmail: row.contactEmail ? String(row.contactEmail) : null,
@@ -59,6 +60,7 @@ async function ensureUniqueSlug(base: string) {
 export async function createCompany(input: {
   name: string;
   slug?: string;
+  type?: string;
   contactEmail?: string;
   contactPhone?: string;
   notes?: string;
@@ -67,15 +69,17 @@ export async function createCompany(input: {
   const name = String(input.name || "").trim();
   if (!name) throw new Error("Company name is required");
 
+  const type = input.type === "dental" ? "dental" : "insurance";
   const baseSlug = slugifyCompanyName(input.slug || name);
   const slug = await ensureUniqueSlug(baseSlug);
 
   const result = await execute(
-    `INSERT INTO Company (name, slug, isActive, isDemo, contactEmail, contactPhone, notes, createdAt, updatedAt)
-     VALUES (?, ?, 1, ?, ?, ?, ?, NOW(), NOW())`,
+    `INSERT INTO Company (name, slug, type, isActive, isDemo, contactEmail, contactPhone, notes, createdAt, updatedAt)
+     VALUES (?, ?, ?, 1, ?, ?, ?, ?, NOW(), NOW())`,
     [
       name,
       slug,
+      type,
       input.isDemo ? 1 : 0,
       input.contactEmail ? String(input.contactEmail) : null,
       input.contactPhone ? String(input.contactPhone) : null,

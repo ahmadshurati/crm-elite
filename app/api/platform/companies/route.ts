@@ -57,6 +57,7 @@ async function handlePost(req: Request) {
     const company = await createCompany({
       name: body.name,
       slug: body.slug,
+      type: body.type === "dental" ? "dental" : "insurance",
       contactEmail: body.contactEmail,
       contactPhone: body.contactPhone,
       notes: body.notes,
