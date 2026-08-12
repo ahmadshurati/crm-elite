@@ -162,11 +162,12 @@ model AccidentUpdate {
 
 model AppUser {
   id        Int     @id @default(autoincrement())
-  username  String  @unique
-  password  String
-  role      String  @default("user")
-  isActive  Boolean @default(true)
-  companyId Int?
+  username   String  @unique
+  password   String
+  role       String  @default("user")
+  dentalRole String?
+  isActive   Boolean @default(true)
+  companyId  Int?
 
   viewSubscribers   Boolean @default(true)
   createSubscribers Boolean @default(false)
@@ -629,6 +630,8 @@ model DentalPatient {
   medicalHistory   String?   @db.Text
   allergies        String?   @db.Text
   medications      String?   @db.Text
+  createdByUserId  Int?
+  deletedAt        DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -636,19 +639,51 @@ model DentalPatient {
   @@index([phone])
 }
 
+model DentalAuditLog {
+  id         Int      @id @default(autoincrement())
+  companyId  Int
+  userId     Int?
+  username   String
+  action     String
+  entityType String
+  entityId   String?
+  oldValues  String?  @db.Text
+  newValues  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model DentalTimelineEvent {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  patientId Int
+  type      String
+  title     String
+  refType   String?
+  refId     Int?
+  actorName String?
+  createdAt DateTime @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([companyId])
+}
+
 model DentalAppointment {
-  id            Int      @id @default(autoincrement())
-  companyId     Int
-  patientId     Int
-  doctorName    String?
-  treatmentType String?
-  startAt       DateTime
-  durationMin   Int      @default(30)
-  room          String?
-  status        String   @default("scheduled")
-  notes         String?  @db.Text
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  doctorName      String?
+  treatmentType   String?
+  startAt         DateTime
+  durationMin     Int      @default(30)
+  room            String?
+  status          String   @default("scheduled")
+  notes           String?  @db.Text
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([companyId, startAt])
   @@index([patientId])
@@ -668,6 +703,7 @@ model DentalVisit {
   medications     String?  @db.Text
   notes           String?  @db.Text
   recommendations String?  @db.Text
+  createdByUserId Int?
   createdAt       DateTime @default(now())
 
   @@index([companyId])
@@ -688,54 +724,63 @@ model DentalToothCondition {
 }
 
 model DentalTreatmentPlan {
-  id        Int      @id @default(autoincrement())
-  companyId Int
-  patientId Int
-  title     String   @default("خطة علاج")
-  discount  Float    @default(0)
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  title           String   @default("خطة علاج")
+  discount        Float    @default(0)
+  discountCents   Int      @default(0)
+  status          String   @default("active")
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@index([companyId])
   @@index([patientId])
 }
 
 model DentalTreatmentItem {
-  id          Int      @id @default(autoincrement())
-  planId      Int
-  companyId   Int
-  patientId   Int
-  toothNumber Int?
-  treatment   String
-  price       Float    @default(0)
-  status      String   @default("proposed")
-  createdAt   DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  planId          Int
+  companyId       Int
+  patientId       Int
+  toothNumber     Int?
+  treatment       String
+  price           Float    @default(0)
+  priceCents      Int      @default(0)
+  status          String   @default("proposed")
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
 
   @@index([planId])
   @@index([patientId])
 }
 
 model DentalPayment {
-  id        Int      @id @default(autoincrement())
-  companyId Int
-  patientId Int
-  amount    Float    @default(0)
-  method    String   @default("cash")
-  notes     String?
-  createdAt DateTime @default(now())
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  amount          Float     @default(0)
+  amountCents     Int       @default(0)
+  method          String    @default("cash")
+  notes           String?
+  createdByUserId Int?
+  voidedAt        DateTime?
+  voidReason      String?
+  createdAt       DateTime  @default(now())
 
   @@index([companyId, createdAt])
   @@index([patientId])
 }
 
 model DentalPrescription {
-  id        Int      @id @default(autoincrement())
-  companyId Int
-  patientId Int
-  items     String   @db.Text
-  notes     String?  @db.Text
-  createdAt DateTime @default(now())
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  items           String   @db.Text
+  notes           String?  @db.Text
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
 
   @@index([patientId])
 }

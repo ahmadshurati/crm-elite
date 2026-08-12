@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireDental, updatePlanItemStatus } from "@/lib/dental/data";
+import { ensure, requireDental, updatePlanItemStatus } from "@/lib/dental/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +15,13 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   if (!VALID.includes(status)) {
     return NextResponse.json({ error: "حالة غير صحيحة" }, { status: 400 });
   }
-  await updatePlanItemStatus(ctx.companyId, Number(id), status);
-  return NextResponse.json({ ok: true });
+  const denied = ensure(ctx, status === "completed" ? "treatments.complete" : "treatments.create");
+  if (denied) return denied;
+  try {
+    await updatePlanItemStatus(ctx, Number(id), status);
+    return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "تعذّر التحديث";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

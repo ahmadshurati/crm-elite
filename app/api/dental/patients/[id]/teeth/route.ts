@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { patientBelongs, requireDental, upsertToothCondition } from "@/lib/dental/data";
+import { ensure, patientBelongs, requireDental, upsertToothCondition } from "@/lib/dental/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export async function PUT(req: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await requireDental();
   if (ctx instanceof NextResponse) return ctx;
+  const denied = ensure(ctx, "chart.edit");
+  if (denied) return denied;
   const { id } = await context.params;
   const patientId = Number(id);
   if (!(await patientBelongs(ctx.companyId, patientId))) {
@@ -17,6 +19,6 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
   if (!Number.isFinite(toothNumber)) {
     return NextResponse.json({ error: "رقم السن غير صحيح" }, { status: 400 });
   }
-  await upsertToothCondition(ctx.companyId, patientId, toothNumber, String(body.condition || "healthy"), body.notes ? String(body.notes) : null);
+  await upsertToothCondition(ctx, patientId, toothNumber, String(body.condition || "healthy"), body.notes ? String(body.notes) : null);
   return NextResponse.json({ ok: true });
 }

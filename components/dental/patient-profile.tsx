@@ -12,6 +12,7 @@ const TABS = [
   { id: "plan", label: "خطة العلاج" },
   { id: "billing", label: "الحساب المالي" },
   { id: "rx", label: "الوصفات" },
+  { id: "timeline", label: "السجل الزمني" },
 ] as const;
 
 type Profile = {
@@ -36,9 +37,10 @@ type Profile = {
   visits: { id: number; visitDate: string; doctorName: string | null; chiefComplaint: string | null; diagnosis: string | null; teeth: string | null; procedures: string | null; notes: string | null }[];
   plan: { id: number; title: string; discount: number; status: string } | null;
   planItems: { id: number; toothNumber: number | null; treatment: string; price: number; status: string }[];
-  payments: { id: number; amount: number; method: string; notes: string | null; createdAt: string }[];
+  payments: { id: number; amount: number; method: string; notes: string | null; voided: boolean; createdAt: string }[];
   prescriptions: { id: number; items: string[]; notes: string | null; createdAt: string }[];
   appointments: { id: number; startAt: string; treatmentType: string | null; status: string }[];
+  timeline: { id: number; type: string; title: string; actorName: string | null; createdAt: string }[];
   finance: { chargeable: number; discount: number; due: number; paid: number; balance: number };
 };
 
@@ -116,7 +118,32 @@ export function PatientProfile({ patientId, onBack }: { patientId: number; onBac
       {tab === "plan" && <TreatmentPlan patientId={patientId} data={data} onChange={load} />}
       {tab === "billing" && <Billing patientId={patientId} data={data} onChange={load} />}
       {tab === "rx" && <Prescriptions patientId={patientId} list={data.prescriptions} onChange={load} />}
+      {tab === "timeline" && <Timeline events={data.timeline} />}
     </div>
+  );
+}
+
+function Timeline({ events }: { events: Profile["timeline"] }) {
+  return (
+    <Card>
+      <h3 className="mb-4 text-lg font-bold text-[#1F2937]">السجل الزمني للمريض</h3>
+      {events.length === 0 ? (
+        <p className="py-8 text-center text-sm text-[#94A3B8]">لا توجد أحداث بعد. تُسجَّل الأحداث تلقائياً مع كل عملية.</p>
+      ) : (
+        <div className="relative space-y-4 pr-4">
+          {events.map((e) => (
+            <div key={e.id} className="relative border-r-2 border-[#E7F6F5] pr-5">
+              <span className="absolute right-[-7px] top-1 h-3 w-3 rounded-full bg-[#0F8B94]" />
+              <p className="text-sm font-bold text-[#1F2937]">{e.title}</p>
+              <p className="mt-0.5 text-xs text-[#94A3B8]">
+                {new Date(e.createdAt).toLocaleString("ar")}
+                {e.actorName ? ` · ${e.actorName}` : ""}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -354,10 +381,35 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
           {data.payments.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-4 py-2.5 text-sm">
               <div>
-                <p className="font-bold text-[#1F2937]">₪ {p.amount.toLocaleString()}</p>
-                <p className="text-xs text-[#94A3B8]">{PAYMENT_METHODS.find((m) => m.id === p.method)?.label || p.method}{p.notes ? ` · ${p.notes}` : ""}</p>
+                <p className={`font-bold ${p.voided ? "text-[#94A3B8] line-through" : "text-[#1F2937]"}`}>₪ {p.amount.toLocaleString()}</p>
+                <p className="text-xs text-[#94A3B8]">
+                  {PAYMENT_METHODS.find((m) => m.id === p.method)?.label || p.method}
+                  {p.notes ? ` · ${p.notes}` : ""}
+                </p>
               </div>
-              <span className="text-xs text-[#94A3B8]">{new Date(p.createdAt).toLocaleDateString("ar")}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#94A3B8]">{new Date(p.createdAt).toLocaleDateString("ar")}</span>
+                {p.voided ? (
+                  <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">ملغاة</span>
+                ) : (
+                  <button
+                    onClick={async () => {
+                      const reason = prompt("سبب إلغاء الدفعة (Void):");
+                      if (reason === null) return;
+                      const res = await fetch(`/api/dental/payments/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) });
+                      if (!res.ok) {
+                        const d = await res.json().catch(() => ({}));
+                        alert(d.error || "تعذّر الإلغاء");
+                        return;
+                      }
+                      onChange();
+                    }}
+                    className="rounded-lg border border-[#E5E7EB] px-2 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-50"
+                  >
+                    إلغاء
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>

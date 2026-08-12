@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addPlanItem, patientBelongs, requireDental } from "@/lib/dental/data";
+import { addPlanItem, ensure, patientBelongs, requireDental } from "@/lib/dental/data";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request, context: { params: Promise<{ id: string }> }) {
   const ctx = await requireDental();
   if (ctx instanceof NextResponse) return ctx;
+  const denied = ensure(ctx, "treatments.create");
+  if (denied) return denied;
   const { id } = await context.params;
   const patientId = Number(id);
   if (!(await patientBelongs(ctx.companyId, patientId))) {
@@ -16,6 +18,6 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   if (!String(body.treatment || "").trim()) {
     return NextResponse.json({ error: "اسم العلاج مطلوب" }, { status: 400 });
   }
-  await addPlanItem(ctx.companyId, patientId, body);
+  await addPlanItem(ctx, patientId, body);
   return NextResponse.json({ ok: true });
 }
