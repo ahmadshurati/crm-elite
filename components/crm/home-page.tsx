@@ -4044,10 +4044,15 @@ export function HomePage() {
         return;
       }
       const data = await userRes.json();
-      setCurrentUser(data);
       if (brandingRes.ok) {
-        setBranding(await brandingRes.json());
+        const brandingData = await brandingRes.json();
+        if (brandingData.companyType === "dental") {
+          window.location.replace("/dental");
+          return;
+        }
+        setBranding(brandingData);
       }
+      setCurrentUser(data);
     } catch (error) {
       console.error("Load current user error:", error);
       window.location.href = "/login";

@@ -23,8 +23,8 @@ async function handleGet() {
 
     const [settings, company] = await Promise.all([
       getSystemSettings(companyId),
-      queryOne<{ isDemo: boolean | number; name: string; slug: string }>(
-        "SELECT isDemo, name, slug FROM Company WHERE id = ? LIMIT 1",
+      queryOne<{ isDemo: boolean | number; name: string; slug: string; type: string }>(
+        "SELECT isDemo, name, slug, type FROM Company WHERE id = ? LIMIT 1",
         [companyId]
       ),
     ]);
@@ -33,6 +33,7 @@ async function handleGet() {
       resolveBranding({
         companyName: settings.companyName || company?.name,
         logoUrl: settings.logoUrl,
+        companyType: company?.type,
         isDemo: isDemoTenant({
           companyId,
           isDemo: company?.isDemo,

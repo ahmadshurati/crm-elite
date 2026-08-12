@@ -5,6 +5,7 @@ export type TenantBranding = {
   logoUrl: string | null;
   tagline: string;
   isDemo: boolean;
+  companyType: string;
 };
 
 export type CrmVocabulary = {
@@ -279,11 +280,13 @@ export function resolveBranding(input: {
   companyName?: string | null;
   logoUrl?: string | null;
   isDemo?: boolean;
+  companyType?: string | null;
 }): TenantBranding {
   const isDemo = Boolean(input.isDemo);
   const vocabulary = getCrmVocabulary(isDemo);
   return {
     isDemo,
+    companyType: String(input.companyType || "insurance"),
     companyName: String(input.companyName || (isDemo ? "Gosol CRM" : "Elite Insurance")),
     logoUrl: input.logoUrl || (isDemo ? DEMO_LOGO_URL : DEFAULT_LOGO_URL),
     tagline: vocabulary.tagline,

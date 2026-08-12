@@ -24,6 +24,7 @@ type AuthUser = {
   isActive: boolean | number;
   companyId: number | null;
   companyIsActive: boolean | number | null;
+  companyType: string | null;
   totpEnabled: boolean | number;
   totpSecret: string | null;
 };
@@ -35,7 +36,7 @@ function clean(value: unknown) {
 async function loadUser(username: string) {
   return queryOne<AuthUser>(
     `SELECT u.id, u.username, u.password, u.role, u.isActive, u.companyId, u.totpEnabled, u.totpSecret,
-            c.isActive AS companyIsActive
+            c.isActive AS companyIsActive, c.type AS companyType
      FROM AppUser u
      LEFT JOIN Company c ON c.id = u.companyId
      WHERE u.username = ? LIMIT 1`,
@@ -120,9 +121,10 @@ async function authenticate(req: Request, expected: "tenant" | "platform_owner")
   }
 
   const token = await createSessionToken(user.id, user.username, user.role);
+  const tenantHome = user.companyType === "dental" ? "/dental" : "/";
   const res = NextResponse.json({
     ok: true,
-    redirectTo: expected === "platform_owner" ? "/admin" : "/",
+    redirectTo: expected === "platform_owner" ? "/admin" : tenantHome,
   });
 
   clearLegacyAuthCookies(res);

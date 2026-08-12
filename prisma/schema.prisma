@@ -11,6 +11,7 @@ model Company {
   id           Int      @id @default(autoincrement())
   name         String
   slug         String   @unique
+  type         String   @default("insurance")
   isActive     Boolean  @default(true)
   isDemo       Boolean  @default(false)
   contactEmail String?
@@ -609,4 +610,132 @@ model ScanEvent {
 
   @@index([shopCode])
   @@index([createdAt])
+}
+
+model DentalPatient {
+  id               Int       @id @default(autoincrement())
+  companyId        Int
+  patientNumber    String
+  fullName         String
+  nationalId       String?
+  birthDate        DateTime? @db.Date
+  gender           String?
+  phone            String?
+  whatsapp         String?
+  email            String?
+  address          String?
+  emergencyContact String?
+  notes            String?   @db.Text
+  medicalHistory   String?   @db.Text
+  allergies        String?   @db.Text
+  medications      String?   @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([companyId])
+  @@index([phone])
+}
+
+model DentalAppointment {
+  id            Int      @id @default(autoincrement())
+  companyId     Int
+  patientId     Int
+  doctorName    String?
+  treatmentType String?
+  startAt       DateTime
+  durationMin   Int      @default(30)
+  room          String?
+  status        String   @default("scheduled")
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([companyId, startAt])
+  @@index([patientId])
+}
+
+model DentalVisit {
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  patientId       Int
+  visitDate       DateTime @default(now())
+  doctorName      String?
+  chiefComplaint  String?
+  diagnosis       String?  @db.Text
+  teeth           String?
+  procedures      String?  @db.Text
+  anesthesia      String?
+  medications     String?  @db.Text
+  notes           String?  @db.Text
+  recommendations String?  @db.Text
+  createdAt       DateTime @default(now())
+
+  @@index([companyId])
+  @@index([patientId])
+}
+
+model DentalToothCondition {
+  id          Int      @id @default(autoincrement())
+  companyId   Int
+  patientId   Int
+  toothNumber Int
+  condition   String   @default("healthy")
+  notes       String?  @db.Text
+  updatedAt   DateTime @updatedAt
+
+  @@unique([patientId, toothNumber])
+  @@index([companyId])
+}
+
+model DentalTreatmentPlan {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  patientId Int
+  title     String   @default("خطة علاج")
+  discount  Float    @default(0)
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([patientId])
+}
+
+model DentalTreatmentItem {
+  id          Int      @id @default(autoincrement())
+  planId      Int
+  companyId   Int
+  patientId   Int
+  toothNumber Int?
+  treatment   String
+  price       Float    @default(0)
+  status      String   @default("proposed")
+  createdAt   DateTime @default(now())
+
+  @@index([planId])
+  @@index([patientId])
+}
+
+model DentalPayment {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  patientId Int
+  amount    Float    @default(0)
+  method    String   @default("cash")
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
+  @@index([patientId])
+}
+
+model DentalPrescription {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  patientId Int
+  items     String   @db.Text
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([patientId])
 }
