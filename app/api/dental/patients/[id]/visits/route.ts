@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { addVisit, ensure, patientBelongs, requireDental } from "@/lib/dental/data";
+import { ensure, patientBelongs, requireDental } from "@/lib/dental/data";
+import { startVisit } from "@/lib/dental/services/visits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,11 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: "المريض غير موجود" }, { status: 404 });
   }
   const body = await req.json().catch(() => ({}));
-  await addVisit(ctx, patientId, body);
-  return NextResponse.json({ ok: true });
+  try {
+    const visitId = await startVisit(ctx, patientId, body);
+    return NextResponse.json({ ok: true, id: visitId });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "تعذّر إنشاء الزيارة";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

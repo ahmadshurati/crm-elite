@@ -42,6 +42,7 @@ export function DentalApp() {
   const [clinic, setClinic] = useState("");
   const [view, setView] = useState<View>("dashboard");
   const [patientId, setPatientId] = useState<number | null>(null);
+  const [patientTab, setPatientTab] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetch("/api/dental/me", { cache: "no-store" })
@@ -80,7 +81,13 @@ export function DentalApp() {
 
   function go(v: View) {
     setPatientId(null);
+    setPatientTab(undefined);
     setView(v);
+  }
+
+  function openPatient(id: number, tab?: string) {
+    setPatientTab(tab);
+    setPatientId(id);
   }
 
   return (
@@ -126,13 +133,13 @@ export function DentalApp() {
 
         <div className="p-6">
           {patientId ? (
-            <PatientProfile patientId={patientId} onBack={() => setPatientId(null)} />
+            <PatientProfile patientId={patientId} initialTab={patientTab} onBack={() => { setPatientId(null); setPatientTab(undefined); }} />
           ) : view === "dashboard" ? (
             <Dashboard onGo={go} />
           ) : view === "reception" ? (
-            <Reception />
+            <Reception onOpenPatient={openPatient} />
           ) : view === "patients" ? (
-            <Patients onOpen={(id) => setPatientId(id)} />
+            <Patients onOpen={(id) => openPatient(id)} />
           ) : view === "treatments" ? (
             <TreatmentsCatalog />
           ) : (
@@ -477,7 +484,7 @@ function Patients({ onOpen }: { onOpen: (id: number) => void }) {
 /* ---------------- Reception ---------------- */
 type Appt = { id: number; patientId: number; patientName: string; phone: string | null; doctorName: string | null; treatmentType: string | null; startAt: string; durationMin: number; room: string | null; status: string };
 
-function Reception() {
+function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string) => void }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [appts, setAppts] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -485,6 +492,18 @@ function Reception() {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [form, setForm] = useState({ patientId: "", treatmentType: "", doctorName: "", startAt: "", durationMin: "30", room: "" });
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function sendToDoctor(appointmentId: number) {
+    setErr("");
+    const res = await fetch(`/api/dental/appointments/${appointmentId}/start-visit`, { method: "POST" });
+    if (res.ok) {
+      const d = await res.json();
+      onOpenPatient(d.patientId, "visits");
+    } else {
+      setErr((await res.json().catch(() => ({}))).error || "تعذّر بدء الزيارة (صلاحية الطبيب مطلوبة)");
+    }
+  }
 
   const load = useCallback(async (d: string) => {
     setLoading(true);
@@ -554,6 +573,8 @@ function Reception() {
         </form>
       )}
 
+      {err && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700">{err}</div>}
+
       <div className="rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
         {loading ? (
           <Spinner />
@@ -570,13 +591,19 @@ function Reception() {
                     <p className="text-xs text-[#94A3B8]">{[a.treatmentType, a.doctorName, a.room].filter(Boolean).join(" · ") || "—"}</p>
                   </div>
                 </div>
-                <select
-                  value={a.status}
-                  onChange={(e) => setStatus(a.id, e.target.value)}
-                  className={`rounded-lg border-0 px-2.5 py-1 text-xs font-bold ${APPOINTMENT_STATUS_MAP[a.status]?.color || "bg-slate-100 text-slate-600"}`}
-                >
-                  {APPOINTMENT_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                </select>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => sendToDoctor(a.id)} className="inline-flex items-center gap-1 rounded-lg bg-[#F1FBFA] px-2.5 py-1 text-xs font-bold text-[#0F8B94] hover:bg-[#E3F5F4]">
+                    <Stethoscope className="h-3.5 w-3.5" /> إدخال للدكتور
+                  </button>
+                  <button onClick={() => onOpenPatient(a.patientId, "billing")} className="rounded-lg bg-[#F8FAFC] px-2.5 py-1 text-xs font-bold text-[#475569] hover:bg-[#EEF2F6]">دفع</button>
+                  <select
+                    value={a.status}
+                    onChange={(e) => setStatus(a.id, e.target.value)}
+                    className={`rounded-lg border-0 px-2.5 py-1 text-xs font-bold ${APPOINTMENT_STATUS_MAP[a.status]?.color || "bg-slate-100 text-slate-600"}`}
+                  >
+                    {APPOINTMENT_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </div>
               </div>
             ))}
           </div>

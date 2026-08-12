@@ -20,10 +20,11 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     return NextResponse.json({ error: "رقم السن غير صحيح" }, { status: 400 });
   }
   const condition = String(body.condition || "healthy");
+  const visitId = body.visitId != null && body.visitId !== "" ? Number(body.visitId) : null;
   if (body.surface) {
-    await setToothSurface(ctx, patientId, toothNumber, String(body.surface), condition);
+    await setToothSurface(ctx, patientId, toothNumber, String(body.surface), condition, visitId);
   } else {
-    await setToothCondition(ctx, patientId, toothNumber, condition, body.notes ? String(body.notes) : null);
+    await setToothCondition(ctx, patientId, toothNumber, condition, body.notes ? String(body.notes) : null, visitId);
   }
   return NextResponse.json({ ok: true });
 }

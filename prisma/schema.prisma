@@ -698,24 +698,31 @@ model DentalAppointment {
 }
 
 model DentalVisit {
-  id              Int      @id @default(autoincrement())
+  id              Int       @id @default(autoincrement())
   companyId       Int
   patientId       Int
-  visitDate       DateTime @default(now())
+  appointmentId   Int?
+  visitDate       DateTime  @default(now())
   doctorName      String?
   chiefComplaint  String?
-  diagnosis       String?  @db.Text
+  examination     String?   @db.Text
+  diagnosis       String?   @db.Text
   teeth           String?
-  procedures      String?  @db.Text
+  procedures      String?   @db.Text
   anesthesia      String?
-  medications     String?  @db.Text
-  notes           String?  @db.Text
-  recommendations String?  @db.Text
+  medications     String?   @db.Text
+  notes           String?   @db.Text
+  recommendations String?   @db.Text
+  postOp          String?   @db.Text
+  nextVisitAt     DateTime?
+  status          String    @default("completed")
   createdByUserId Int?
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
 
   @@index([companyId])
   @@index([patientId])
+  @@index([appointmentId])
 }
 
 model DentalToothCondition {
@@ -786,6 +793,7 @@ model DentalTreatmentItem {
   companyId       Int
   patientId       Int
   catalogId       Int?
+  visitId         Int?
   toothNumber     Int?
   treatment       String
   price           Float     @default(0)
@@ -863,10 +871,14 @@ model DentalPrescription {
   id              Int      @id @default(autoincrement())
   companyId       Int
   patientId       Int
+  visitId         Int?
+  doctorName      String?
+  diagnosis       String?
   items           String   @db.Text
   notes           String?  @db.Text
   createdByUserId Int?
   createdAt       DateTime @default(now())
 
   @@index([patientId])
+  @@index([visitId])
 }

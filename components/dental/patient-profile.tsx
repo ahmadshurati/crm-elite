@@ -1,9 +1,9 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Loader2, Plus, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Loader2, Plus, Stethoscope, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
-import { PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP } from "@/lib/dental/constants";
+import { PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
 
 const TABS = [
   { id: "overview", label: "نظرة عامة" },
@@ -47,7 +47,7 @@ type Profile = {
   lastVisit: string | null;
   teeth: { toothNumber: number; condition: string }[];
   toothSurfaces: { toothNumber: number; surface: string; condition: string }[];
-  visits: { id: number; visitDate: string; doctorName: string | null; chiefComplaint: string | null; diagnosis: string | null; teeth: string | null; procedures: string | null; notes: string | null }[];
+  visits: { id: number; visitDate: string; status: string; doctorName: string | null; chiefComplaint: string | null; diagnosis: string | null; teeth: string | null; procedures: string | null; notes: string | null; nextVisitAt: string | null }[];
   plan: { id: number; title: string; discount: number; insurance: number; status: string } | null;
   planItems: {
     id: number;
@@ -80,10 +80,12 @@ type CatalogItem = {
   expectedSessions: number;
 };
 
-export function PatientProfile({ patientId, onBack }: { patientId: number; onBack: () => void }) {
+export function PatientProfile({ patientId, onBack, initialTab }: { patientId: number; onBack: () => void; initialTab?: string }) {
   const [data, setData] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("overview");
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(
+    (TABS.find((t) => t.id === initialTab)?.id as (typeof TABS)[number]["id"]) || "overview"
+  );
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/dental/patients/${patientId}`, { cache: "no-store" });
@@ -435,49 +437,52 @@ function MedicalHistory({ patientId, p, onChange }: { patientId: number; p: Prof
 }
 
 function Visits({ patientId, visits, onChange }: { patientId: number; visits: Profile["visits"]; onChange: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ doctorName: "", chiefComplaint: "", diagnosis: "", teeth: "", procedures: "", notes: "" });
-  const [saving, setSaving] = useState(false);
+  const [activeVisit, setActiveVisit] = useState<number | null>(null);
+  const [starting, setStarting] = useState(false);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
+  const inProgress = visits.find((v) => v.status === "in_progress");
+
+  async function startVisit() {
+    setStarting(true);
     try {
-      await fetch(`/api/dental/patients/${patientId}/visits`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      setForm({ doctorName: "", chiefComplaint: "", diagnosis: "", teeth: "", procedures: "", notes: "" });
-      setOpen(false);
-      onChange();
+      const res = await fetch(`/api/dental/patients/${patientId}/visits`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      if (res.ok) {
+        const d = await res.json();
+        setActiveVisit(d.id);
+        onChange();
+      }
     } finally {
-      setSaving(false);
+      setStarting(false);
     }
+  }
+
+  if (activeVisit) {
+    return <VisitWorkspace visitId={activeVisit} patientId={patientId} onClose={() => setActiveVisit(null)} onChange={onChange} />;
   }
 
   return (
     <Card>
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg font-bold text-[#1F2937]">الزيارات ({visits.length})</h3>
-        <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F8B94] px-3 py-1.5 text-sm font-bold text-white hover:bg-[#0B6E75]">
-          <Plus className="h-4 w-4" />
-          زيارة جديدة
-        </button>
+        <h3 className="text-lg font-bold text-[#1F2937]">الزيارات السريرية ({visits.length})</h3>
+        {inProgress ? (
+          <button onClick={() => setActiveVisit(inProgress.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-1.5 text-sm font-bold text-white hover:bg-amber-600">
+            <Stethoscope className="h-4 w-4" /> متابعة الزيارة الحالية
+          </button>
+        ) : (
+          <button onClick={startVisit} disabled={starting} className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F8B94] px-3 py-1.5 text-sm font-bold text-white hover:bg-[#0B6E75] disabled:opacity-60">
+            <Plus className="h-4 w-4" /> بدء زيارة جديدة
+          </button>
+        )}
       </div>
-      {open && (
-        <form onSubmit={save} className="mb-5 grid grid-cols-1 gap-3 rounded-2xl bg-[#F8FAFC] p-4 md:grid-cols-2">
-          <input value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} placeholder="الطبيب" className={INP} />
-          <input value={form.teeth} onChange={(e) => setForm({ ...form, teeth: e.target.value })} placeholder="الأسنان (مثال: 16, 26)" className={INP} />
-          <input value={form.chiefComplaint} onChange={(e) => setForm({ ...form, chiefComplaint: e.target.value })} placeholder="الشكوى الرئيسية" className={INP} />
-          <input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="التشخيص" className={INP} />
-          <input value={form.procedures} onChange={(e) => setForm({ ...form, procedures: e.target.value })} placeholder="الإجراءات" className={`${INP} md:col-span-2`} />
-          <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="ملاحظات" className={`${INP} md:col-span-2`} />
-          <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white md:col-span-2">{saving ? "..." : "حفظ الزيارة"}</button>
-        </form>
-      )}
       <div className="space-y-3">
         {visits.length === 0 && <p className="py-6 text-center text-sm text-[#94A3B8]">لا توجد زيارات بعد.</p>}
         {visits.map((v) => (
-          <div key={v.id} className="rounded-2xl border border-[#EEF1F4] p-4">
+          <button key={v.id} onClick={() => setActiveVisit(v.id)} className="block w-full rounded-2xl border border-[#EEF1F4] p-4 text-right transition hover:border-[#0F8B94]/40 hover:bg-[#F9FBFC]">
             <div className="flex items-center justify-between">
-              <p className="font-bold text-[#1F2937]">{new Date(v.visitDate).toLocaleDateString("ar")}</p>
+              <p className="font-bold text-[#1F2937]">
+                {new Date(v.visitDate).toLocaleDateString("ar")}
+                {v.status === "in_progress" && <span className="mr-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">قيد التنفيذ</span>}
+              </p>
               {v.doctorName && <span className="text-xs text-[#94A3B8]">{v.doctorName}</span>}
             </div>
             <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-[#475569] md:grid-cols-2">
@@ -487,9 +492,226 @@ function Visits({ patientId, visits, onChange }: { patientId: number; visits: Pr
               {v.procedures && <p><span className="text-[#94A3B8]">الإجراءات: </span>{v.procedures}</p>}
             </div>
             {v.notes && <p className="mt-1 text-sm text-[#64748B]">{v.notes}</p>}
-          </div>
+          </button>
         ))}
       </div>
+    </Card>
+  );
+}
+
+type VisitDetail = {
+  id: number;
+  patientId: number;
+  status: string;
+  visitDate: string;
+  doctorName: string | null;
+  chiefComplaint: string | null;
+  examination: string | null;
+  diagnosis: string | null;
+  teeth: string | null;
+  procedures: string | null;
+  anesthesia: string | null;
+  medications: string | null;
+  notes: string | null;
+  recommendations: string | null;
+  postOp: string | null;
+  nextVisitAt: string | null;
+  treatments: { id: number; treatment: string; toothNumber: number | null; status: string; price: number }[];
+  prescriptions: { id: number; items: string[]; notes: string | null; diagnosis: string | null; doctorName: string | null; createdAt: string }[];
+  toothHistory: { toothNumber: number; surface: string | null; action: string; condition: string | null; treatment: string | null; createdAt: string }[];
+};
+
+function VisitWorkspace({ visitId, patientId, onClose, onChange }: { visitId: number; patientId: number; onClose: () => void; onChange: () => void }) {
+  const [visit, setVisit] = useState<VisitDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saved, setSaved] = useState(false);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/dental/visits/${visitId}`, { cache: "no-store" });
+    if (res.ok) setVisit(await res.json());
+    setLoading(false);
+  }, [visitId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const readOnly = visit?.status === "completed";
+
+  async function saveField(field: string, value: string) {
+    await fetch(`/api/dental/visits/${visitId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1200);
+    onChange();
+  }
+
+  async function complete() {
+    await fetch(`/api/dental/visits/${visitId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) });
+    onChange();
+    onClose();
+  }
+
+  if (loading || !visit) {
+    return <Card><div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div></Card>;
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="inline-flex items-center gap-1 text-sm font-bold text-[#0F8B94]"><ArrowRight className="h-4 w-4" /> الزيارات</button>
+            <span className="text-[#CBD5E1]">/</span>
+            <h3 className="text-lg font-bold text-[#1F2937]">زيارة {new Date(visit.visitDate).toLocaleDateString("ar")}</h3>
+            {readOnly ? (
+              <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-bold text-teal-700">مكتملة</span>
+            ) : (
+              <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">قيد التنفيذ</span>
+            )}
+            {saved && <span className="text-xs font-semibold text-emerald-600">تم الحفظ ✓</span>}
+          </div>
+          {!readOnly && (
+            <button onClick={complete} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]">إنهاء الزيارة</button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <VField label="الطبيب" defaultValue={visit.doctorName} readOnly={readOnly} onSave={(v) => saveField("doctorName", v)} />
+          <VField label="الأسنان المعنية" placeholder="مثال: 16, 26" defaultValue={visit.teeth} readOnly={readOnly} onSave={(v) => saveField("teeth", v)} />
+          <VField label="الشكوى الرئيسية" defaultValue={visit.chiefComplaint} readOnly={readOnly} onSave={(v) => saveField("chiefComplaint", v)} />
+          <VField label="الفحص السريري" defaultValue={visit.examination} readOnly={readOnly} onSave={(v) => saveField("examination", v)} />
+          <VField label="التشخيص" defaultValue={visit.diagnosis} readOnly={readOnly} onSave={(v) => saveField("diagnosis", v)} area />
+          <VField label="الإجراءات المنفّذة" defaultValue={visit.procedures} readOnly={readOnly} onSave={(v) => saveField("procedures", v)} area />
+          <VField label="التخدير" defaultValue={visit.anesthesia} readOnly={readOnly} onSave={(v) => saveField("anesthesia", v)} />
+          <VField label="الأدوية المستخدمة" defaultValue={visit.medications} readOnly={readOnly} onSave={(v) => saveField("medications", v)} />
+          <VField label="ملاحظات سريرية" defaultValue={visit.notes} readOnly={readOnly} onSave={(v) => saveField("notes", v)} area />
+          <VField label="تعليمات ما بعد العلاج" defaultValue={visit.postOp} readOnly={readOnly} onSave={(v) => saveField("postOp", v)} area />
+          <VField label="التوصيات / العلاج الموصى به" defaultValue={visit.recommendations} readOnly={readOnly} onSave={(v) => saveField("recommendations", v)} area />
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-[#64748B]">الزيارة القادمة الموصى بها</label>
+            <input type="datetime-local" defaultValue={visit.nextVisitAt ? visit.nextVisitAt.slice(0, 16) : ""} disabled={readOnly} onBlur={(e) => saveField("nextVisitAt", e.target.value)} className={INP} />
+          </div>
+        </div>
+      </Card>
+
+      {!readOnly && <VisitActions visitId={visitId} patientId={patientId} doctorName={visit.doctorName} onDone={() => { load(); onChange(); }} />}
+
+      <Card>
+        <h4 className="mb-3 text-sm font-bold text-[#1F2937]">ما تم في هذه الزيارة</h4>
+        {visit.treatments.length === 0 && visit.prescriptions.length === 0 && visit.toothHistory.length === 0 ? (
+          <p className="py-4 text-center text-sm text-[#94A3B8]">لم تُسجَّل إجراءات مرتبطة بهذه الزيارة بعد.</p>
+        ) : (
+          <div className="space-y-3 text-sm">
+            {visit.toothHistory.map((h, idx) => (
+              <div key={`th-${idx}`} className="flex items-center gap-2 rounded-xl bg-[#F8FAFC] px-3 py-2">
+                <span className="rounded-lg bg-white px-2 py-0.5 text-xs font-bold text-[#0F8B94]">سن {h.toothNumber}{h.surface ? `/${h.surface}` : ""}</span>
+                <span className="text-[#475569]">{h.treatment || h.condition || h.action}</span>
+              </div>
+            ))}
+            {visit.treatments.map((t) => (
+              <div key={`tr-${t.id}`} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2">
+                <span className="text-[#475569]">{t.toothNumber ? `سن ${t.toothNumber} · ` : ""}{t.treatment}</span>
+                <span className="font-bold text-[#334155]">₪ {t.price.toLocaleString()} · {PLAN_ITEM_STATUS_MAP[t.status] || t.status}</span>
+              </div>
+            ))}
+            {visit.prescriptions.map((p) => (
+              <div key={`rx-${p.id}`} className="rounded-xl bg-[#F8FAFC] px-3 py-2">
+                <span className="text-xs font-bold text-[#0F8B94]">وصفة طبية</span>
+                {p.items.length > 0 && <p className="mt-0.5 text-[#475569]">{p.items.join("، ")}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function VField({ label, defaultValue, onSave, readOnly, area, placeholder }: { label: string; defaultValue: string | null; onSave: (v: string) => void; readOnly?: boolean; area?: boolean; placeholder?: string }) {
+  return (
+    <div className={area ? "md:col-span-2" : ""}>
+      <label className="mb-1 block text-xs font-semibold text-[#64748B]">{label}</label>
+      {area ? (
+        <textarea defaultValue={defaultValue || ""} disabled={readOnly} placeholder={placeholder} onBlur={(e) => { if (e.target.value !== (defaultValue || "")) onSave(e.target.value); }} className={`${INP} min-h-[64px] py-2`} />
+      ) : (
+        <input defaultValue={defaultValue || ""} disabled={readOnly} placeholder={placeholder} onBlur={(e) => { if (e.target.value !== (defaultValue || "")) onSave(e.target.value); }} className={INP} />
+      )}
+    </div>
+  );
+}
+
+function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: number; patientId: number; doctorName: string | null; onDone: () => void }) {
+  const [tab, setTab] = useState<"tooth" | "treatment" | "rx" | "followup" | null>(null);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [tooth, setTooth] = useState({ toothNumber: "", condition: "caries" });
+  const [tx, setTx] = useState({ catalogId: "", toothNumber: "", treatment: "", price: "" });
+  const [rx, setRx] = useState({ diagnosis: "", meds: "" });
+  const [fu, setFu] = useState({ startAt: "", treatmentType: "" });
+
+  useEffect(() => {
+    fetch("/api/dental/treatments/catalog", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => setCatalog(d.items || [])).catch(() => {});
+  }, []);
+
+  async function post(url: string, body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (res.ok) { setTab(null); onDone(); }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const btn = (id: typeof tab, label: string) => (
+    <button onClick={() => setTab(tab === id ? null : id)} className={`rounded-xl border px-3 py-2 text-sm font-bold transition ${tab === id ? "border-[#0F8B94] bg-[#F1FBFA] text-[#0F8B94]" : "border-[#E5E7EB] text-[#475569] hover:bg-[#F8FAFC]"}`}>{label}</button>
+  );
+
+  return (
+    <Card>
+      <h4 className="mb-3 text-sm font-bold text-[#1F2937]">إجراءات أثناء الزيارة</h4>
+      <div className="flex flex-wrap gap-2">
+        {btn("tooth", "تحديث سِن")}
+        {btn("treatment", "إضافة علاج")}
+        {btn("rx", "وصفة طبية")}
+        {btn("followup", "موعد متابعة")}
+      </div>
+
+      {tab === "tooth" && (
+        <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[120px_1fr_auto]">
+          <input value={tooth.toothNumber} onChange={(e) => setTooth({ ...tooth, toothNumber: e.target.value })} placeholder="رقم السن" className={INP} inputMode="numeric" />
+          <select value={tooth.condition} onChange={(e) => setTooth({ ...tooth, condition: e.target.value })} className={INP}>
+            {TOOTH_CONDITIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+          <button disabled={busy || !tooth.toothNumber} onClick={() => post(`/api/dental/patients/${patientId}/teeth`, { toothNumber: Number(tooth.toothNumber), condition: tooth.condition, visitId })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ</button>
+        </div>
+      )}
+
+      {tab === "treatment" && (
+        <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[1.3fr_90px_110px_auto]">
+          <select value={tx.catalogId} onChange={(e) => { const c = catalog.find((x) => String(x.id) === e.target.value); setTx({ ...tx, catalogId: e.target.value, price: c ? String(c.defaultPrice) : tx.price }); }} className={INP}>
+            <option value="">— اختر علاجاً —</option>
+            {catalog.map((c) => <option key={c.id} value={c.id}>{c.name} · ₪{c.defaultPrice.toLocaleString()}</option>)}
+          </select>
+          <input value={tx.toothNumber} onChange={(e) => setTx({ ...tx, toothNumber: e.target.value })} placeholder="السن" className={INP} inputMode="numeric" />
+          <input value={tx.price} onChange={(e) => setTx({ ...tx, price: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
+          <button disabled={busy || !tx.catalogId} onClick={() => post(`/api/dental/patients/${patientId}/plan-items`, { catalogId: Number(tx.catalogId), toothNumber: tx.toothNumber, price: tx.price, visitId })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">أضف للخطة</button>
+        </div>
+      )}
+
+      {tab === "rx" && (
+        <div className="mt-3 space-y-2 rounded-2xl bg-[#F8FAFC] p-3">
+          <input value={rx.diagnosis} onChange={(e) => setRx({ ...rx, diagnosis: e.target.value })} placeholder="التشخيص / السبب" className={INP} />
+          <textarea value={rx.meds} onChange={(e) => setRx({ ...rx, meds: e.target.value })} placeholder="الأدوية (سطر لكل دواء)" className={`${INP} min-h-[70px] py-2`} />
+          <button disabled={busy || !rx.meds.trim()} onClick={() => post(`/api/dental/patients/${patientId}/prescriptions`, { items: rx.meds.split("\n").map((s) => s.trim()).filter(Boolean), diagnosis: rx.diagnosis, doctorName, visitId })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ الوصفة</button>
+        </div>
+      )}
+
+      {tab === "followup" && (
+        <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[1fr_1fr_auto]">
+          <input type="datetime-local" value={fu.startAt} onChange={(e) => setFu({ ...fu, startAt: e.target.value })} className={INP} />
+          <input value={fu.treatmentType} onChange={(e) => setFu({ ...fu, treatmentType: e.target.value })} placeholder="نوع العلاج" className={INP} />
+          <button disabled={busy || !fu.startAt} onClick={() => post(`/api/dental/appointments`, { patientId, startAt: new Date(fu.startAt).toISOString(), treatmentType: fu.treatmentType, doctorName })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حجز المتابعة</button>
+        </div>
+      )}
     </Card>
   );
 }

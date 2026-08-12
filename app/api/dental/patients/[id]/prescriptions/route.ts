@@ -16,6 +16,12 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
   }
   const body = await req.json().catch(() => ({}));
   const items = Array.isArray(body.items) ? body.items : [];
-  await addPrescription(ctx, patientId, items, body.notes ? String(body.notes) : null);
+  await addPrescription(ctx, patientId, {
+    items,
+    notes: body.notes ? String(body.notes) : null,
+    visitId: body.visitId != null && body.visitId !== "" ? Number(body.visitId) : null,
+    doctorName: body.doctorName ? String(body.doctorName) : null,
+    diagnosis: body.diagnosis ? String(body.diagnosis) : null,
+  });
   return NextResponse.json({ ok: true });
 }

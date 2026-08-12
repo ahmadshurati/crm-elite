@@ -238,12 +238,14 @@ export async function getPatientProfile(companyId: number, patientId: number) {
     visits: visits.map((v) => ({
       id: Number(v.id),
       visitDate: new Date(v.visitDate as string | Date).toISOString(),
+      status: String(v.status || "completed"),
       doctorName: v.doctorName ? String(v.doctorName) : null,
       chiefComplaint: v.chiefComplaint ? String(v.chiefComplaint) : null,
       diagnosis: v.diagnosis ? String(v.diagnosis) : null,
       teeth: v.teeth ? String(v.teeth) : null,
       procedures: v.procedures ? String(v.procedures) : null,
       notes: v.notes ? String(v.notes) : null,
+      nextVisitAt: v.nextVisitAt ? new Date(v.nextVisitAt as string | Date).toISOString() : null,
     })),
     plan: plan ? { id: Number(plan.id), title: String(plan.title), discount: toMoney(discountCents), insurance: toMoney(insuranceCents), status: String(plan.status) } : null,
     planItems: planItems.map((i) => ({
@@ -341,7 +343,7 @@ export async function patientBelongs(companyId: number, patientId: number) {
   return Boolean(row);
 }
 
-export async function setToothCondition(ctx: DentalContext, patientId: number, toothNumber: number, condition: string, notes?: string | null) {
+export async function setToothCondition(ctx: DentalContext, patientId: number, toothNumber: number, condition: string, notes?: string | null, visitId?: number | null) {
   await execute(
     `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, condition, notes, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
@@ -349,15 +351,15 @@ export async function setToothCondition(ctx: DentalContext, patientId: number, t
     [ctx.companyId, patientId, toothNumber, condition, notes || null]
   );
   await execute(
-    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, notes, createdByUserId, createdAt)
-     VALUES (?, ?, ?, NULL, 'condition', ?, ?, ?, NOW())`,
-    [ctx.companyId, patientId, toothNumber, condition, notes || null, ctx.userId]
+    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, notes, visitId, createdByUserId, createdAt)
+     VALUES (?, ?, ?, NULL, 'condition', ?, ?, ?, ?, NOW())`,
+    [ctx.companyId, patientId, toothNumber, condition, notes || null, visitId != null ? Number(visitId) : null, ctx.userId]
   );
   await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `تحديث حالة السن ${toothNumber}`, actorName: ctx.username });
   await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "tooth", entityId: `${patientId}:${toothNumber}`, newValues: { condition } });
 }
 
-export async function setToothSurface(ctx: DentalContext, patientId: number, toothNumber: number, surface: string, condition: string) {
+export async function setToothSurface(ctx: DentalContext, patientId: number, toothNumber: number, surface: string, condition: string, visitId?: number | null) {
   await execute(
     `INSERT INTO DentalToothSurface (companyId, patientId, toothNumber, surface, condition, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
@@ -365,9 +367,9 @@ export async function setToothSurface(ctx: DentalContext, patientId: number, too
     [ctx.companyId, patientId, toothNumber, surface, condition]
   );
   await execute(
-    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, createdByUserId, createdAt)
-     VALUES (?, ?, ?, ?, 'surface', ?, ?, NOW())`,
-    [ctx.companyId, patientId, toothNumber, surface, condition, ctx.userId]
+    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, visitId, createdByUserId, createdAt)
+     VALUES (?, ?, ?, ?, 'surface', ?, ?, ?, NOW())`,
+    [ctx.companyId, patientId, toothNumber, surface, condition, visitId != null ? Number(visitId) : null, ctx.userId]
   );
   await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `سطح ${surface} للسن ${toothNumber}: ${condition}`, actorName: ctx.username });
   await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "toothSurface", entityId: `${patientId}:${toothNumber}:${surface}`, newValues: { condition } });
@@ -456,10 +458,18 @@ export async function voidPayment(ctx: DentalContext, paymentId: number, reason:
   });
 }
 
-export async function addPrescription(ctx: DentalContext, patientId: number, items: unknown[], notes?: string | null) {
+export async function addPrescription(ctx: DentalContext, patientId: number, input: { items: unknown[]; notes?: string | null; visitId?: number | null; doctorName?: string | null; diagnosis?: string | null }) {
   const result = await execute(
-    "INSERT INTO DentalPrescription (companyId, patientId, items, notes, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, NOW())",
-    [ctx.companyId, patientId, JSON.stringify(items || []), notes || null, ctx.userId]
+    "INSERT INTO DentalPrescription (companyId, patientId, visitId, doctorName, diagnosis, items, notes, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
+    [
+      ctx.companyId, patientId,
+      input.visitId != null ? Number(input.visitId) : null,
+      input.doctorName ? String(input.doctorName) : null,
+      input.diagnosis ? String(input.diagnosis) : null,
+      JSON.stringify(input.items || []),
+      input.notes || null,
+      ctx.userId,
+    ]
   );
   const id = Number(result.insertId);
   await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "prescription", title: "وصفة طبية", refType: "prescription", refId: id, actorName: ctx.username });
@@ -499,9 +509,10 @@ export async function addPlanItem(ctx: DentalContext, patientId: number, input: 
   if (!treatment) throw new Error("اسم العلاج مطلوب");
 
   const result = await execute(
-    "INSERT INTO DentalTreatmentItem (planId, companyId, patientId, catalogId, toothNumber, treatment, price, priceCents, status, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, NOW())",
+    "INSERT INTO DentalTreatmentItem (planId, companyId, patientId, catalogId, visitId, toothNumber, treatment, price, priceCents, status, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'proposed', ?, NOW())",
     [
       planId, ctx.companyId, patientId, catalogId,
+      input.visitId != null && input.visitId !== "" ? Number(input.visitId) : null,
       input.toothNumber != null && input.toothNumber !== "" ? Number(input.toothNumber) : null,
       treatment,
       price,
