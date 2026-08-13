@@ -5,6 +5,7 @@ import { resolveCompanyId } from "@/lib/tenant";
 import { addTimelineEvent, getTimeline } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { resolveDentalRole, roleCan, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
+import { computeBalance, computeResponsibility, toCents as toCentsPure, toMoney as toMoneyPure } from "@/lib/dental/money";
 
 const CHARGEABLE = ["accepted", "in_progress", "completed"];
 
@@ -50,8 +51,8 @@ export function ensure(ctx: DentalContext, permission: DentalPermission): NextRe
   return null;
 }
 
-const toCents = (value: unknown) => Math.round(Number(value || 0) * 100);
-const toMoney = (cents: unknown) => Number(cents || 0) / 100;
+const toCents = toCentsPure;
+const toMoney = toMoneyPure;
 
 function parseJsonArray(value: unknown): string[] {
   if (!value) return [];
@@ -164,8 +165,8 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   const paidCents = payments
     .filter((p) => !p.voidedAt)
     .reduce((sum, p) => sum + Number(p.amountCents || 0), 0);
-  const responsibilityCents = Math.max(subtotalCents - discountCents - insuranceCents, 0);
-  const balanceCents = responsibilityCents - paidCents + adjustmentsCents;
+  const responsibilityCents = computeResponsibility(subtotalCents, discountCents, insuranceCents);
+  const balanceCents = computeBalance(responsibilityCents, paidCents, adjustmentsCents);
 
   const allergies = parseJsonArray(patient.allergies);
   const medical = {

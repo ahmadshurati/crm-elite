@@ -2,11 +2,10 @@ import { execute, query, queryOne, withTransaction } from "@/lib/db";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { CHARGEABLE_STATUSES } from "@/lib/dental/constants";
+import { toCents, toMoney } from "@/lib/dental/money";
 
 type Ctx = { companyId: number; userId: number; username: string };
 
-const toCents = (v: unknown) => Math.round(Number(v || 0) * 100);
-const toMoney = (c: unknown) => Number(c || 0) / 100;
 const CHARGE_LIST = CHARGEABLE_STATUSES.map((s) => `'${s}'`).join(",");
 
 export type LedgerEntry = { date: string; type: string; label: string; amount: number; balance: number };
