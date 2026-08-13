@@ -1,8 +1,9 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Loader2, Plus, Stethoscope, Wallet } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Plus, Stethoscope, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
+import { apiFetch, EmptyState, fmtDate, fmtDateTime, fmtMoney, StateView, useApi, useConfirm, useMutation, useToast } from "@/components/dental/ui";
 import { FILE_CATEGORIES, FILE_CATEGORY_MAP, PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
 
 const TABS = [
@@ -83,26 +84,21 @@ type CatalogItem = {
 };
 
 export function PatientProfile({ patientId, onBack, initialTab }: { patientId: number; onBack: () => void; initialTab?: string }) {
-  const [data, setData] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(
     (TABS.find((t) => t.id === initialTab)?.id as (typeof TABS)[number]["id"]) || "overview"
   );
+  const { data, loading, error, reload } = useApi<Profile>(`/api/dental/patients/${patientId}`);
+  const load = reload;
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/patients/${patientId}`, { cache: "no-store" });
-    if (res.ok) setData(await res.json());
-    setLoading(false);
-  }, [patientId]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  if (loading || !data) {
+  if (!data) {
     return (
-      <div className="flex items-center justify-center py-24 text-[#94A3B8]">
-        <Loader2 className="h-6 w-6 animate-spin" />
+      <div className="space-y-5">
+        <button onClick={onBack} className="inline-flex items-center gap-1.5 text-sm font-bold text-[#0F8B94]">
+          <ArrowRight className="h-4 w-4" /> رجوع للمرضى
+        </button>
+        <div className="rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
+          <StateView loading={loading} error={error} onRetry={reload} loadingLabel="جارِ تحميل ملف المريض…"><div /></StateView>
+        </div>
       </div>
     );
   }
@@ -129,16 +125,16 @@ export function PatientProfile({ patientId, onBack, initialTab }: { patientId: n
           <div className="flex flex-wrap gap-6 text-center">
             <div>
               <p className="text-xs text-[#94A3B8]">آخر زيارة</p>
-              <p className="text-sm font-bold text-[#334155]">{data.lastVisit ? new Date(data.lastVisit).toLocaleDateString("ar") : "—"}</p>
+              <p className="text-sm font-bold text-[#334155]">{data.lastVisit ? fmtDate(data.lastVisit) : "—"}</p>
             </div>
             <div>
               <p className="text-xs text-[#94A3B8]">الموعد القادم</p>
-              <p className="text-sm font-bold text-[#334155]">{data.nextAppointment ? new Date(data.nextAppointment.startAt).toLocaleDateString("ar") : "—"}</p>
+              <p className="text-sm font-bold text-[#334155]">{data.nextAppointment ? fmtDateTime(data.nextAppointment.startAt) : "—"}</p>
             </div>
             <div>
               <p className="text-xs text-[#94A3B8]">الرصيد المتبقي</p>
               <p className={`text-xl font-black ${data.finance.balance > 0 ? "text-rose-600" : "text-emerald-600"}`}>
-                ₪ {data.finance.balance.toLocaleString()}
+                {fmtMoney(data.finance.balance)}
               </p>
             </div>
           </div>
@@ -281,10 +277,10 @@ function Overview({ data, onGo }: { data: Profile; onGo: (t: (typeof TABS)[numbe
           <h3 className="text-lg font-bold text-[#1F2937]">الملخص المالي</h3>
         </div>
         <div className="space-y-1.5 text-sm">
-          <Row k="إجمالي العلاجات" v={`₪ ${data.finance.chargeable.toLocaleString()}`} />
-          <Row k="الخصم" v={`₪ ${data.finance.discount.toLocaleString()}`} />
-          <Row k="المدفوع" v={`₪ ${data.finance.paid.toLocaleString()}`} />
-          <Row k="المتبقي" v={`₪ ${data.finance.balance.toLocaleString()}`} strong />
+          <Row k="إجمالي العلاجات" v={fmtMoney(data.finance.chargeable)} />
+          <Row k="الخصم" v={fmtMoney(data.finance.discount)} />
+          <Row k="المدفوع" v={fmtMoney(data.finance.paid)} />
+          <Row k="المتبقي" v={fmtMoney(data.finance.balance)} strong />
         </div>
       </Card>
 
@@ -310,7 +306,7 @@ function Overview({ data, onGo }: { data: Profile; onGo: (t: (typeof TABS)[numbe
             {recent.map((e) => (
               <div key={e.id} className="flex items-center justify-between text-sm">
                 <span className="text-[#334155]">{e.title}</span>
-                <span className="text-xs text-[#94A3B8]">{new Date(e.createdAt).toLocaleDateString("ar")}</span>
+                <span className="text-xs text-[#94A3B8]">{fmtDate(e.createdAt)}</span>
               </div>
             ))}
           </div>
@@ -352,31 +348,31 @@ function MedicalHistory({ patientId, p, onChange }: { patientId: number; p: Prof
     ["bloodThinners", "مميّعات الدم"],
   ];
 
+  const toast = useToast();
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
     setSaved(false);
-    try {
-      const payload = {
-        diabetes: form.diabetes,
-        hypertension: form.hypertension,
-        heartDisease: form.heartDisease,
-        bloodThinners: form.bloodThinners,
-        pregnancy: form.pregnancy,
-        allergies: form.allergies.split("\n").map((s) => s.trim()).filter(Boolean),
-        medications: form.medications.split("\n").map((s) => s.trim()).filter(Boolean),
-        otherConditions: form.otherConditions.split("\n").map((s) => s.trim()).filter(Boolean),
-      };
-      const res = await fetch(`/api/dental/patients/${patientId}/medical`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (res.ok) {
-        setSaved(true);
-        onChange();
-      } else {
-        const d = await res.json().catch(() => ({}));
-        alert(d.error || "تعذّر الحفظ");
-      }
-    } finally {
-      setSaving(false);
+    const payload = {
+      diabetes: form.diabetes,
+      hypertension: form.hypertension,
+      heartDisease: form.heartDisease,
+      bloodThinners: form.bloodThinners,
+      pregnancy: form.pregnancy,
+      allergies: form.allergies.split("\n").map((s) => s.trim()).filter(Boolean),
+      medications: form.medications.split("\n").map((s) => s.trim()).filter(Boolean),
+      otherConditions: form.otherConditions.split("\n").map((s) => s.trim()).filter(Boolean),
+    };
+    const r = await apiFetch(`/api/dental/patients/${patientId}/medical`, { method: "PATCH", body: JSON.stringify(payload) });
+    setSaving(false);
+    if (r.ok) {
+      setSaved(true);
+      toast.success("تم حفظ التاريخ الطبي");
+      onChange();
+    } else {
+      toast.error(r.error);
     }
   }
 
@@ -385,7 +381,7 @@ function MedicalHistory({ patientId, p, onChange }: { patientId: number; p: Prof
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-lg font-bold text-[#1F2937]">التاريخ الطبي</h3>
         {p.medicalReviewedAt && (
-          <span className="text-xs text-[#94A3B8]">آخر مراجعة: {new Date(p.medicalReviewedAt).toLocaleDateString("ar")}{p.medicalReviewedBy ? ` · ${p.medicalReviewedBy}` : ""}</span>
+          <span className="text-xs text-[#94A3B8]">آخر مراجعة: {fmtDate(p.medicalReviewedAt)}{p.medicalReviewedBy ? ` · ${p.medicalReviewedBy}` : ""}</span>
         )}
       </div>
       <form onSubmit={save} className="space-y-5">
@@ -442,21 +438,15 @@ function MedicalHistory({ patientId, p, onChange }: { patientId: number; p: Prof
 
 function Visits({ patientId, visits, onChange }: { patientId: number; visits: Profile["visits"]; onChange: () => void }) {
   const [activeVisit, setActiveVisit] = useState<number | null>(null);
-  const [starting, setStarting] = useState(false);
+  const { pending: starting, run } = useMutation();
 
   const inProgress = visits.find((v) => v.status === "in_progress");
 
   async function startVisit() {
-    setStarting(true);
-    try {
-      const res = await fetch(`/api/dental/patients/${patientId}/visits`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      if (res.ok) {
-        const d = await res.json();
-        setActiveVisit(d.id);
-        onChange();
-      }
-    } finally {
-      setStarting(false);
+    const d = await run<{ id: number }>(`/api/dental/patients/${patientId}/visits`, "POST", {}, { success: "بدأت الزيارة" });
+    if (d) {
+      setActiveVisit(d.id);
+      onChange();
     }
   }
 
@@ -484,7 +474,7 @@ function Visits({ patientId, visits, onChange }: { patientId: number; visits: Pr
           <button key={v.id} onClick={() => setActiveVisit(v.id)} className="block w-full rounded-2xl border border-[#EEF1F4] p-4 text-right transition hover:border-[#0F8B94]/40 hover:bg-[#F9FBFC]">
             <div className="flex items-center justify-between">
               <p className="font-bold text-[#1F2937]">
-                {new Date(v.visitDate).toLocaleDateString("ar")}
+                {fmtDate(v.visitDate)}
                 {v.status === "in_progress" && <span className="mr-2 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">قيد التنفيذ</span>}
               </p>
               {v.doctorName && <span className="text-xs text-[#94A3B8]">{v.doctorName}</span>}
@@ -526,35 +516,49 @@ type VisitDetail = {
 };
 
 function VisitWorkspace({ visitId, patientId, onClose, onChange }: { visitId: number; patientId: number; onClose: () => void; onChange: () => void }) {
-  const [visit, setVisit] = useState<VisitDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saved, setSaved] = useState(false);
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/visits/${visitId}`, { cache: "no-store" });
-    if (res.ok) setVisit(await res.json());
-    setLoading(false);
-  }, [visitId]);
-
-  useEffect(() => { load(); }, [load]);
+  const toast = useToast();
+  const { data: visit, loading, error, reload, setData: setVisit } = useApi<VisitDetail>(`/api/dental/visits/${visitId}`);
+  const load = reload;
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [completing, setCompleting] = useState(false);
 
   const readOnly = visit?.status === "completed";
 
   async function saveField(field: string, value: string) {
-    await fetch(`/api/dental/visits/${visitId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [field]: value }) });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1200);
-    onChange();
+    setSaveState("saving");
+    const r = await apiFetch(`/api/dental/visits/${visitId}`, { method: "PATCH", body: JSON.stringify({ [field]: value }) });
+    if (r.ok) {
+      setSaveState("saved");
+      setVisit((v) => (v ? { ...v, [field]: value } as VisitDetail : v));
+      setTimeout(() => setSaveState("idle"), 1500);
+      onChange();
+    } else {
+      setSaveState("error");
+      toast.error(r.error);
+    }
   }
 
   async function complete() {
-    await fetch(`/api/dental/visits/${visitId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "completed" }) });
-    onChange();
-    onClose();
+    if (completing) return;
+    setCompleting(true);
+    const r = await apiFetch(`/api/dental/visits/${visitId}`, { method: "PATCH", body: JSON.stringify({ status: "completed" }) });
+    setCompleting(false);
+    if (r.ok) {
+      toast.success("تم إنهاء الزيارة");
+      onChange();
+      onClose();
+    } else {
+      toast.error(r.error);
+    }
   }
 
-  if (loading || !visit) {
-    return <Card><div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div></Card>;
+  if (!visit) {
+    return (
+      <Card>
+        <button onClick={onClose} className="mb-2 inline-flex items-center gap-1 text-sm font-bold text-[#0F8B94]"><ArrowRight className="h-4 w-4" /> الزيارات</button>
+        <StateView loading={loading} error={error} onRetry={reload} loadingLabel="جارِ تحميل الزيارة…"><div /></StateView>
+      </Card>
+    );
   }
 
   return (
@@ -564,16 +568,18 @@ function VisitWorkspace({ visitId, patientId, onClose, onChange }: { visitId: nu
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="inline-flex items-center gap-1 text-sm font-bold text-[#0F8B94]"><ArrowRight className="h-4 w-4" /> الزيارات</button>
             <span className="text-[#CBD5E1]">/</span>
-            <h3 className="text-lg font-bold text-[#1F2937]">زيارة {new Date(visit.visitDate).toLocaleDateString("ar")}</h3>
+            <h3 className="text-lg font-bold text-[#1F2937]">زيارة {fmtDate(visit.visitDate)}</h3>
             {readOnly ? (
               <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-[11px] font-bold text-teal-700">مكتملة</span>
             ) : (
               <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-bold text-amber-700">قيد التنفيذ</span>
             )}
-            {saved && <span className="text-xs font-semibold text-emerald-600">تم الحفظ ✓</span>}
+            {saveState === "saving" && <span className="text-xs font-semibold text-[#94A3B8]">جارِ الحفظ…</span>}
+            {saveState === "saved" && <span className="text-xs font-semibold text-emerald-600">تم الحفظ ✓</span>}
+            {saveState === "error" && <span className="text-xs font-semibold text-rose-600">تعذّر الحفظ</span>}
           </div>
           {!readOnly && (
-            <button onClick={complete} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]">إنهاء الزيارة</button>
+            <button onClick={complete} disabled={completing} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75] disabled:opacity-60">{completing ? "جارِ الإنهاء…" : "إنهاء الزيارة"}</button>
           )}
         </div>
 
@@ -613,7 +619,7 @@ function VisitWorkspace({ visitId, patientId, onClose, onChange }: { visitId: nu
             {visit.treatments.map((t) => (
               <div key={`tr-${t.id}`} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2">
                 <span className="text-[#475569]">{t.toothNumber ? `سن ${t.toothNumber} · ` : ""}{t.treatment}</span>
-                <span className="font-bold text-[#334155]">₪ {t.price.toLocaleString()} · {PLAN_ITEM_STATUS_MAP[t.status] || t.status}</span>
+                <span className="font-bold text-[#334155]">{fmtMoney(t.price)} · {PLAN_ITEM_STATUS_MAP[t.status] || t.status}</span>
               </div>
             ))}
             {visit.prescriptions.map((p) => (
@@ -643,6 +649,7 @@ function VField({ label, defaultValue, onSave, readOnly, area, placeholder }: { 
 }
 
 function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: number; patientId: number; doctorName: string | null; onDone: () => void }) {
+  const toast = useToast();
   const [tab, setTab] = useState<"tooth" | "treatment" | "rx" | "followup" | "xray" | null>(null);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [busy, setBusy] = useState(false);
@@ -654,7 +661,7 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
 
   async function uploadXray(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || busy) return;
     setBusy(true);
     try {
       const fd = new FormData();
@@ -662,8 +669,9 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
       fd.append("category", xray.category);
       fd.append("visitId", String(visitId));
       if (xray.toothNumber) fd.append("toothNumber", xray.toothNumber);
-      const res = await fetch(`/api/dental/patients/${patientId}/files`, { method: "POST", body: fd });
-      if (res.ok) { setTab(null); onDone(); }
+      const r = await apiFetch(`/api/dental/patients/${patientId}/files`, { method: "POST", body: fd, timeoutMs: 60000 });
+      if (r.ok) { toast.success("تم رفع الملف"); setTab(null); onDone(); }
+      else toast.error(r.error);
     } finally {
       setBusy(false);
       e.target.value = "";
@@ -671,17 +679,16 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
   }
 
   useEffect(() => {
-    fetch("/api/dental/treatments/catalog", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { items: [] })).then((d) => setCatalog(d.items || [])).catch(() => {});
+    apiFetch<{ items: CatalogItem[] }>("/api/dental/treatments/catalog").then((r) => { if (r.ok) setCatalog(r.data.items || []); });
   }, []);
 
-  async function post(url: string, body: Record<string, unknown>) {
+  async function post(url: string, body: Record<string, unknown>, success: string) {
+    if (busy) return;
     setBusy(true);
-    try {
-      const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (res.ok) { setTab(null); onDone(); }
-    } finally {
-      setBusy(false);
-    }
+    const r = await apiFetch(url, { method: "POST", body: JSON.stringify(body) });
+    setBusy(false);
+    if (r.ok) { toast.success(success); setTab(null); onDone(); }
+    else toast.error(r.error);
   }
 
   const btn = (id: typeof tab, label: string) => (
@@ -705,7 +712,7 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
           <select value={tooth.condition} onChange={(e) => setTooth({ ...tooth, condition: e.target.value })} className={INP}>
             {TOOTH_CONDITIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
-          <button disabled={busy || !tooth.toothNumber} onClick={() => post(`/api/dental/patients/${patientId}/teeth`, { toothNumber: Number(tooth.toothNumber), condition: tooth.condition, visitId })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ</button>
+          <button disabled={busy || !tooth.toothNumber} onClick={() => post(`/api/dental/patients/${patientId}/teeth`, { toothNumber: Number(tooth.toothNumber), condition: tooth.condition, visitId }, "تم تحديث السن")} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ</button>
         </div>
       )}
 
@@ -717,7 +724,7 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
           </select>
           <input value={tx.toothNumber} onChange={(e) => setTx({ ...tx, toothNumber: e.target.value })} placeholder="السن" className={INP} inputMode="numeric" />
           <input value={tx.price} onChange={(e) => setTx({ ...tx, price: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
-          <button disabled={busy || !tx.catalogId} onClick={() => post(`/api/dental/patients/${patientId}/plan-items`, { catalogId: Number(tx.catalogId), toothNumber: tx.toothNumber, price: tx.price, visitId })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">أضف للخطة</button>
+          <button disabled={busy || !tx.catalogId} onClick={() => post(`/api/dental/patients/${patientId}/plan-items`, { catalogId: Number(tx.catalogId), toothNumber: tx.toothNumber, price: tx.price, visitId }, "تمت إضافة العلاج للخطة")} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">أضف للخطة</button>
         </div>
       )}
 
@@ -725,7 +732,7 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
         <div className="mt-3 space-y-2 rounded-2xl bg-[#F8FAFC] p-3">
           <input value={rx.diagnosis} onChange={(e) => setRx({ ...rx, diagnosis: e.target.value })} placeholder="التشخيص / السبب" className={INP} />
           <textarea value={rx.meds} onChange={(e) => setRx({ ...rx, meds: e.target.value })} placeholder="الأدوية (سطر لكل دواء)" className={`${INP} min-h-[70px] py-2`} />
-          <button disabled={busy || !rx.meds.trim()} onClick={() => post(`/api/dental/patients/${patientId}/prescriptions`, { items: rx.meds.split("\n").map((s) => s.trim()).filter(Boolean), diagnosis: rx.diagnosis, doctorName, visitId })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ الوصفة</button>
+          <button disabled={busy || !rx.meds.trim()} onClick={() => post(`/api/dental/patients/${patientId}/prescriptions`, { items: rx.meds.split("\n").map((s) => s.trim()).filter(Boolean), diagnosis: rx.diagnosis, doctorName, visitId }, "تم حفظ الوصفة")} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ الوصفة</button>
         </div>
       )}
 
@@ -733,7 +740,7 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
         <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[1fr_1fr_auto]">
           <input type="datetime-local" value={fu.startAt} onChange={(e) => setFu({ ...fu, startAt: e.target.value })} className={INP} />
           <input value={fu.treatmentType} onChange={(e) => setFu({ ...fu, treatmentType: e.target.value })} placeholder="نوع العلاج" className={INP} />
-          <button disabled={busy || !fu.startAt} onClick={() => post(`/api/dental/appointments`, { patientId, startAt: new Date(fu.startAt).toISOString(), treatmentType: fu.treatmentType, doctorName })} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حجز المتابعة</button>
+          <button disabled={busy || !fu.startAt} onClick={() => post(`/api/dental/appointments`, { patientId, startAt: new Date(fu.startAt).toISOString(), treatmentType: fu.treatmentType, doctorName }, "تم حجز موعد المتابعة")} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حجز المتابعة</button>
         </div>
       )}
 
@@ -763,19 +770,16 @@ const ITEM_STATUS_STYLE: Record<string, string> = {
 };
 
 function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data: Profile; onChange: () => void }) {
+  const { pending, run } = useMutation();
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [form, setForm] = useState({ catalogId: "", toothNumber: "", treatment: "", price: "" });
-  const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [editFin, setEditFin] = useState(false);
   const [fin, setFin] = useState({ discount: String(data.finance.discount || ""), insurance: String(data.finance.insurance || "") });
 
   useEffect(() => {
-    fetch("/api/dental/treatments/catalog", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
-      .then((d) => setCatalog(d.items || []))
-      .catch(() => setCatalog([]));
+    apiFetch<{ items: CatalogItem[] }>("/api/dental/treatments/catalog").then((r) => { if (r.ok) setCatalog(r.data.items || []); });
   }, []);
 
   const selected = catalog.find((c) => String(c.id) === form.catalogId) || null;
@@ -791,31 +795,24 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
     setErr("");
     if (!form.catalogId && !form.treatment.trim()) { setErr("اختر علاجاً من الكتالوج أو أدخل اسماً"); return; }
     if (selected?.requiresTooth && !form.toothNumber.trim()) { setErr(`علاج «${selected.name}» يتطلب تحديد رقم السن`); return; }
-    setSaving(true);
-    try {
-      const body: Record<string, unknown> = { toothNumber: form.toothNumber, price: form.price };
-      if (form.catalogId) body.catalogId = Number(form.catalogId);
-      else body.treatment = form.treatment;
-      const res = await fetch(`/api/dental/patients/${patientId}/plan-items`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      if (!res.ok) { setErr((await res.json().catch(() => ({}))).error || "تعذّرت الإضافة"); return; }
+    const body: Record<string, unknown> = { toothNumber: form.toothNumber, price: form.price };
+    if (form.catalogId) body.catalogId = Number(form.catalogId);
+    else body.treatment = form.treatment;
+    const ok = await run(`/api/dental/patients/${patientId}/plan-items`, "POST", body, { success: "تمت إضافة العلاج للخطة" });
+    if (ok) {
       setForm({ catalogId: "", toothNumber: "", treatment: "", price: "" });
       onChange();
-    } finally {
-      setSaving(false);
     }
   }
 
   async function setStatus(itemId: number, status: string) {
-    await fetch(`/api/dental/plan-items/${itemId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    onChange();
+    const ok = await run(`/api/dental/plan-items/${itemId}`, "PATCH", { status }, { success: status === "completed" ? "تم إنهاء العلاج" : "تم تحديث الحالة" });
+    if (ok) onChange();
   }
 
   async function saveFinance() {
-    await fetch(`/api/dental/patients/${patientId}/plan`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ discount: Number(fin.discount) || 0, insurance: Number(fin.insurance) || 0 }),
-    });
+    const ok = await run(`/api/dental/patients/${patientId}/plan`, "PATCH", { discount: Number(fin.discount) || 0, insurance: Number(fin.insurance) || 0 }, { success: "تم تحديث الخصم/التأمين" });
+    if (!ok) return;
     setEditFin(false);
     onChange();
   }
@@ -840,7 +837,7 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
         )}
         <input value={form.toothNumber} onChange={(e) => setForm({ ...form, toothNumber: e.target.value })} placeholder={selected?.requiresTooth ? "السن *" : "السن"} className={INP} inputMode="numeric" />
         <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
-        <button disabled={saving} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
+        <button disabled={pending} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
       </form>
       {!form.catalogId && (
         <input value={form.treatment} onChange={(e) => setForm({ ...form, treatment: e.target.value })} placeholder="أو اكتب اسم علاج مخصص" className={`${INP} mb-1`} />
@@ -871,9 +868,9 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
                   <td className="px-3 py-3 text-xs text-[#64748B]">
                     {i.expectedSessions ? `${i.sessionsDone}/${i.expectedSessions}` : i.sessionsDone || "—"}
                   </td>
-                  <td className="px-3 py-3 font-bold text-[#334155]">₪ {i.price.toLocaleString()}</td>
+                  <td className="px-3 py-3 font-bold text-[#334155]">{fmtMoney(i.price)}</td>
                   <td className="px-3 py-3">
-                    <select value={i.status} onChange={(e) => setStatus(i.id, e.target.value)} className={`rounded-lg border px-2 py-1 text-xs font-bold ${ITEM_STATUS_STYLE[i.status] || "border-gray-200 text-gray-600"}`}>
+                    <select value={i.status} disabled={pending} onChange={(e) => setStatus(i.id, e.target.value)} className={`rounded-lg border px-2 py-1 text-xs font-bold disabled:opacity-60 ${ITEM_STATUS_STYLE[i.status] || "border-gray-200 text-gray-600"}`}>
                       {PLAN_ITEM_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                     </select>
                   </td>
@@ -902,16 +899,16 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
           <div className="flex flex-wrap items-end justify-end gap-3">
             <label className="text-xs font-semibold text-[#64748B]">الخصم ₪<input value={fin.discount} onChange={(e) => setFin({ ...fin, discount: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
             <label className="text-xs font-semibold text-[#64748B]">تغطية التأمين ₪<input value={fin.insurance} onChange={(e) => setFin({ ...fin, insurance: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
-            <button onClick={saveFinance} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">حفظ</button>
+            <button onClick={saveFinance} disabled={pending} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{pending ? "جارِ الحفظ…" : "حفظ"}</button>
             <button onClick={() => setEditFin(false)} className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#64748B]">إلغاء</button>
           </div>
         ) : (
           <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm">
-            <span className="text-[#707A84]">الإجمالي: <b className="text-[#1F2937]">₪ {data.finance.subtotal.toLocaleString()}</b></span>
-            <span className="text-[#707A84]">الخصم: <b className="text-[#1F2937]">₪ {data.finance.discount.toLocaleString()}</b></span>
-            <span className="text-[#707A84]">تأمين: <b className="text-[#1F2937]">₪ {data.finance.insurance.toLocaleString()}</b></span>
-            <span className="text-[#707A84]">مسؤولية المريض: <b className="text-[#0F8B94]">₪ {data.finance.responsibility.toLocaleString()}</b></span>
-            <span className="text-[#707A84]">المتبقي: <b className="text-rose-600">₪ {data.finance.balance.toLocaleString()}</b></span>
+            <span className="text-[#707A84]">الإجمالي: <b className="text-[#1F2937]">{fmtMoney(data.finance.subtotal)}</b></span>
+            <span className="text-[#707A84]">الخصم: <b className="text-[#1F2937]">{fmtMoney(data.finance.discount)}</b></span>
+            <span className="text-[#707A84]">تأمين: <b className="text-[#1F2937]">{fmtMoney(data.finance.insurance)}</b></span>
+            <span className="text-[#707A84]">مسؤولية المريض: <b className="text-[#0F8B94]">{fmtMoney(data.finance.responsibility)}</b></span>
+            <span className="text-[#707A84]">المتبقي: <b className="text-rose-600">{fmtMoney(data.finance.balance)}</b></span>
             <button onClick={() => { setFin({ discount: String(data.finance.discount || ""), insurance: String(data.finance.insurance || "") }); setEditFin(true); }} className="rounded-lg border border-[#E5E7EB] px-3 py-1 text-xs font-bold text-[#0F8B94]">تعديل الخصم/التأمين</button>
           </div>
         )}
@@ -921,34 +918,24 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
 }
 
 function SessionsPanel({ itemId, onChange }: { itemId: number; onChange: () => void }) {
-  const [sessions, setSessions] = useState<{ id: number; sessionNumber: number; date: string; doctorName: string | null; procedures: string | null; notes: string | null }[]>([]);
-  const [loading, setLoading] = useState(true);
+  type Session = { id: number; sessionNumber: number; date: string; doctorName: string | null; procedures: string | null; notes: string | null };
   const [form, setForm] = useState({ doctorName: "", procedures: "", notes: "" });
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/plan-items/${itemId}/sessions`, { cache: "no-store" });
-    if (res.ok) setSessions((await res.json()).sessions || []);
-    setLoading(false);
-  }, [itemId]);
-
-  useEffect(() => { load(); }, [load]);
+  const { pending, run } = useMutation();
+  const { data, loading, error, reload } = useApi<{ sessions: Session[] }>(`/api/dental/plan-items/${itemId}/sessions`);
+  const sessions = data?.sessions ?? [];
 
   async function addSession(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/dental/plan-items/${itemId}/sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      if (res.ok) { setForm({ doctorName: "", procedures: "", notes: "" }); await load(); onChange(); }
-    } finally {
-      setSaving(false);
-    }
+    const ok = await run(`/api/dental/plan-items/${itemId}/sessions`, "POST", form, { success: "تمت إضافة الجلسة" });
+    if (ok) { setForm({ doctorName: "", procedures: "", notes: "" }); reload(); onChange(); }
   }
 
   return (
     <div className="space-y-3">
       {loading ? (
         <p className="text-xs text-[#94A3B8]">جارِ التحميل…</p>
+      ) : error ? (
+        <p className="text-xs font-semibold text-rose-600">تعذّر تحميل الجلسات. <button onClick={reload} className="underline">إعادة المحاولة</button></p>
       ) : sessions.length === 0 ? (
         <p className="text-xs text-[#94A3B8]">لا توجد جلسات مسجّلة لهذا العلاج.</p>
       ) : (
@@ -957,7 +944,7 @@ function SessionsPanel({ itemId, onChange }: { itemId: number; onChange: () => v
             <li key={s.id} className="rounded-xl border border-[#EAECEF] bg-white px-3 py-2 text-xs">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-[#1F2937]">جلسة {s.sessionNumber}</span>
-                <span className="text-[#94A3B8]">{new Date(s.date).toLocaleDateString("ar")}</span>
+                <span className="text-[#94A3B8]">{fmtDate(s.date)}</span>
               </div>
               {s.doctorName && <p className="mt-0.5 text-[#64748B]">د. {s.doctorName}</p>}
               {s.procedures && <p className="mt-0.5 text-[#4B5563]">{s.procedures}</p>}
@@ -970,7 +957,7 @@ function SessionsPanel({ itemId, onChange }: { itemId: number; onChange: () => v
         <input value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} placeholder="الطبيب" className={INP} />
         <input value={form.procedures} onChange={(e) => setForm({ ...form, procedures: e.target.value })} placeholder="ما تم في الجلسة" className={INP} />
         <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="ملاحظات" className={INP} />
-        <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">+ جلسة</button>
+        <button disabled={pending} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">+ جلسة</button>
       </form>
     </div>
   );
@@ -978,19 +965,24 @@ function SessionsPanel({ itemId, onChange }: { itemId: number; onChange: () => v
 
 function Billing({ patientId, data, onChange }: { patientId: number; data: Profile; onChange: () => void }) {
   const [form, setForm] = useState({ amount: "", method: "cash", notes: "" });
-  const [saving, setSaving] = useState(false);
+  const { pending, run } = useMutation();
+  const confirm = useConfirm();
 
   async function pay(e: React.FormEvent) {
     e.preventDefault();
-    if (!Number(form.amount)) return;
-    setSaving(true);
-    try {
-      await fetch(`/api/dental/patients/${patientId}/payments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
+    if (!Number(form.amount) || pending) return;
+    const ok = await run(`/api/dental/patients/${patientId}/payments`, "POST", form, { success: "تم تسجيل الدفعة" });
+    if (ok) {
       setForm({ amount: "", method: "cash", notes: "" });
       onChange();
-    } finally {
-      setSaving(false);
     }
+  }
+
+  async function voidPayment(id: number) {
+    const yes = await confirm({ title: "إلغاء الدفعة (Void)", message: "لا يمكن التراجع عن هذا الإجراء. سيبقى سجل الدفعة ظاهرًا كملغى للحفاظ على التاريخ المالي.", confirmText: "إلغاء الدفعة", danger: true });
+    if (!yes) return;
+    const ok = await run(`/api/dental/payments/${id}`, "PATCH", { reason: "إلغاء يدوي" }, { success: "تم إلغاء الدفعة" });
+    if (ok) onChange();
   }
 
   return (
@@ -998,13 +990,13 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
       <Card>
         <h3 className="mb-4 text-lg font-bold text-[#1F2937]">الملخص المالي</h3>
         <div className="space-y-2 text-sm">
-          <Row k="إجمالي العلاجات" v={`₪ ${data.finance.subtotal.toLocaleString()}`} />
-          <Row k="الخصم" v={`₪ ${data.finance.discount.toLocaleString()}`} />
-          <Row k="تغطية التأمين" v={`₪ ${data.finance.insurance.toLocaleString()}`} />
-          <Row k="مسؤولية المريض" v={`₪ ${data.finance.responsibility.toLocaleString()}`} />
-          <Row k="المدفوع" v={`₪ ${data.finance.paid.toLocaleString()}`} />
+          <Row k="إجمالي العلاجات" v={fmtMoney(data.finance.subtotal)} />
+          <Row k="الخصم" v={fmtMoney(data.finance.discount)} />
+          <Row k="تغطية التأمين" v={fmtMoney(data.finance.insurance)} />
+          <Row k="مسؤولية المريض" v={fmtMoney(data.finance.responsibility)} />
+          <Row k="المدفوع" v={fmtMoney(data.finance.paid)} />
           <div className="border-t border-[#F1F5F9] pt-2">
-            <Row k="المتبقي" v={`₪ ${data.finance.balance.toLocaleString()}`} strong />
+            <Row k="المتبقي" v={fmtMoney(data.finance.balance)} strong />
           </div>
         </div>
         <form onSubmit={pay} className="mt-5 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-4 md:grid-cols-2">
@@ -1013,7 +1005,7 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
             {PAYMENT_METHODS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
           </select>
           <input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="ملاحظة" className={`${INP} md:col-span-2`} />
-          <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white md:col-span-2">تسجيل دفعة</button>
+          <button disabled={pending || !Number(form.amount)} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60 md:col-span-2">{pending ? "جارِ الحفظ…" : "تسجيل دفعة"}</button>
         </form>
       </Card>
       <Card>
@@ -1023,31 +1015,18 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
           {data.payments.map((p) => (
             <div key={p.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-4 py-2.5 text-sm">
               <div>
-                <p className={`font-bold ${p.voided ? "text-[#94A3B8] line-through" : "text-[#1F2937]"}`}>₪ {p.amount.toLocaleString()}</p>
+                <p className={`font-bold ${p.voided ? "text-[#94A3B8] line-through" : "text-[#1F2937]"}`}>{fmtMoney(p.amount)}</p>
                 <p className="text-xs text-[#94A3B8]">
                   {PAYMENT_METHODS.find((m) => m.id === p.method)?.label || p.method}
                   {p.notes ? ` · ${p.notes}` : ""}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#94A3B8]">{new Date(p.createdAt).toLocaleDateString("ar")}</span>
+                <span className="text-xs text-[#94A3B8]">{fmtDate(p.createdAt)}</span>
                 {p.voided ? (
                   <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">ملغاة</span>
                 ) : (
-                  <button
-                    onClick={async () => {
-                      const reason = prompt("سبب إلغاء الدفعة (Void):");
-                      if (reason === null) return;
-                      const res = await fetch(`/api/dental/payments/${p.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) });
-                      if (!res.ok) {
-                        const d = await res.json().catch(() => ({}));
-                        alert(d.error || "تعذّر الإلغاء");
-                        return;
-                      }
-                      onChange();
-                    }}
-                    className="rounded-lg border border-[#E5E7EB] px-2 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-50"
-                  >
+                  <button onClick={() => voidPayment(p.id)} disabled={pending} className="rounded-lg border border-[#E5E7EB] px-2 py-0.5 text-[10px] font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-60">
                     إلغاء
                   </button>
                 )}
@@ -1067,26 +1046,16 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
 }
 
 function LedgerPanel({ patientId, onChange }: { patientId: number; onChange: () => void }) {
-  const [ledger, setLedger] = useState<{ entries: { date: string; type: string; label: string; amount: number; balance: number }[]; summary: Record<string, number> } | null>(null);
+  type Ledger = { entries: { date: string; type: string; label: string; amount: number; balance: number }[]; summary: Record<string, number> };
   const [adj, setAdj] = useState({ type: "credit", amount: "", reason: "" });
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/patients/${patientId}/ledger`, { cache: "no-store" });
-    if (res.ok) setLedger(await res.json());
-  }, [patientId]);
-  useEffect(() => { load(); }, [load]);
+  const { pending, run } = useMutation();
+  const { data: ledger, loading, error, reload } = useApi<Ledger>(`/api/dental/patients/${patientId}/ledger`);
 
   async function addAdjustment(e: React.FormEvent) {
     e.preventDefault();
-    if (!Number(adj.amount)) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/dental/patients/${patientId}/adjustments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(adj) });
-      if (res.ok) { setAdj({ type: "credit", amount: "", reason: "" }); await load(); onChange(); }
-    } finally {
-      setBusy(false);
-    }
+    if (!Number(adj.amount) || pending) return;
+    const ok = await run(`/api/dental/patients/${patientId}/adjustments`, "POST", adj, { success: "تمت إضافة القيد المالي" });
+    if (ok) { setAdj({ type: "credit", amount: "", reason: "" }); reload(); onChange(); }
   }
 
   return (
@@ -1100,13 +1069,9 @@ function LedgerPanel({ patientId, onChange }: { patientId: number; onChange: () 
         </select>
         <input value={adj.amount} onChange={(e) => setAdj({ ...adj, amount: e.target.value })} placeholder="المبلغ ₪" className={INP} inputMode="numeric" />
         <input value={adj.reason} onChange={(e) => setAdj({ ...adj, reason: e.target.value })} placeholder="السبب" className={INP} />
-        <button disabled={busy} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">إضافة قيد</button>
+        <button disabled={pending || !Number(adj.amount)} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">إضافة قيد</button>
       </form>
-      {!ledger ? (
-        <p className="py-4 text-center text-sm text-[#94A3B8]">جارِ التحميل…</p>
-      ) : ledger.entries.length === 0 ? (
-        <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد حركات مالية.</p>
-      ) : (
+      <StateView loading={loading} error={error} onRetry={reload} isEmpty={!ledger?.entries?.length} empty={<p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد حركات مالية.</p>}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-right text-sm">
             <thead>
@@ -1118,48 +1083,39 @@ function LedgerPanel({ patientId, onChange }: { patientId: number; onChange: () 
               </tr>
             </thead>
             <tbody>
-              {ledger.entries.map((e, i) => (
+              {(ledger?.entries ?? []).map((e, i) => (
                 <tr key={i} className="border-b border-[#F5F7FA] last:border-none">
-                  <td className="px-3 py-2 text-xs text-[#94A3B8]">{new Date(e.date).toLocaleDateString("ar")}</td>
+                  <td className="px-3 py-2 text-xs text-[#94A3B8]">{fmtDate(e.date)}</td>
                   <td className="px-3 py-2 text-[#475569]">{e.label}</td>
-                  <td className={`px-3 py-2 font-bold ${e.amount < 0 ? "text-emerald-600" : "text-[#334155]"}`}>{e.amount < 0 ? "" : "+"}₪ {e.amount.toLocaleString()}</td>
-                  <td className="px-3 py-2 font-bold text-[#0F8B94]">₪ {e.balance.toLocaleString()}</td>
+                  <td className={`px-3 py-2 font-bold ${e.amount < 0 ? "text-emerald-600" : "text-[#334155]"}`}>{e.amount < 0 ? "" : "+"}{fmtMoney(e.amount)}</td>
+                  <td className="px-3 py-2 font-bold text-[#0F8B94]">{fmtMoney(e.balance)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+      </StateView>
     </Card>
   );
 }
 
 function Installments({ patientId }: { patientId: number }) {
-  const [list, setList] = useState<{ id: number; dueDate: string; amount: number; status: string; note: string | null }[]>([]);
+  type Inst = { id: number; dueDate: string; amount: number; status: string; note: string | null };
   const [form, setForm] = useState({ count: "3", amountEach: "", startDate: new Date().toISOString().slice(0, 10), note: "" });
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/patients/${patientId}/installments`, { cache: "no-store" });
-    if (res.ok) setList((await res.json()).installments || []);
-  }, [patientId]);
-  useEffect(() => { load(); }, [load]);
+  const { pending, run } = useMutation();
+  const { data, loading, error, reload } = useApi<{ installments: Inst[] }>(`/api/dental/patients/${patientId}/installments`);
+  const list = data?.installments ?? [];
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    if (!Number(form.amountEach) || !Number(form.count)) return;
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/dental/patients/${patientId}/installments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      if (res.ok) { setForm({ count: "3", amountEach: "", startDate: new Date().toISOString().slice(0, 10), note: "" }); load(); }
-    } finally {
-      setBusy(false);
-    }
+    if (!Number(form.amountEach) || !Number(form.count) || pending) return;
+    const ok = await run(`/api/dental/patients/${patientId}/installments`, "POST", form, { success: "تم إنشاء خطة الأقساط" });
+    if (ok) { setForm({ count: "3", amountEach: "", startDate: new Date().toISOString().slice(0, 10), note: "" }); reload(); }
   }
 
   async function pay(id: number) {
-    const res = await fetch(`/api/dental/installments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "cash" }) });
-    if (res.ok) load();
+    const ok = await run(`/api/dental/installments/${id}`, "PATCH", { method: "cash" }, { success: "تم سداد القسط" });
+    if (ok) reload();
   }
 
   const badge: Record<string, string> = { upcoming: "bg-slate-100 text-slate-600", overdue: "bg-rose-50 text-rose-700", paid: "bg-emerald-50 text-emerald-700" };
@@ -1172,46 +1128,38 @@ function Installments({ patientId }: { patientId: number }) {
         <input value={form.count} onChange={(e) => setForm({ ...form, count: e.target.value })} placeholder="عدد الأقساط" className={INP} inputMode="numeric" />
         <input value={form.amountEach} onChange={(e) => setForm({ ...form, amountEach: e.target.value })} placeholder="قيمة القسط ₪" className={INP} inputMode="numeric" />
         <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className={INP} />
-        <button disabled={busy} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">إنشاء الأقساط</button>
+        <button disabled={pending || !Number(form.amountEach) || !Number(form.count)} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">إنشاء الأقساط</button>
       </form>
-      <div className="space-y-2">
-        {list.length === 0 && <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد أقساط.</p>}
-        {list.map((i) => (
-          <div key={i.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
-            <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badge[i.status]}`}>{badgeLabel[i.status]}</span>
-              <span className="text-[#475569]">{new Date(i.dueDate).toLocaleDateString("ar")}</span>
+      <StateView loading={loading} error={error} onRetry={reload} isEmpty={list.length === 0} empty={<p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد أقساط.</p>}>
+        <div className="space-y-2">
+          {list.map((i) => (
+            <div key={i.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badge[i.status]}`}>{badgeLabel[i.status]}</span>
+                <span className="text-[#475569]">{fmtDate(i.dueDate)}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[#334155]">{fmtMoney(i.amount)}</span>
+                {i.status !== "paid" && <button onClick={() => pay(i.id)} disabled={pending} className="rounded-lg bg-[#0F8B94] px-2.5 py-1 text-[11px] font-bold text-white disabled:opacity-60">سداد</button>}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-[#334155]">₪ {i.amount.toLocaleString()}</span>
-              {i.status !== "paid" && <button onClick={() => pay(i.id)} className="rounded-lg bg-[#0F8B94] px-2.5 py-1 text-[11px] font-bold text-white">سداد</button>}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </StateView>
     </Card>
   );
 }
 
 function Invoices({ patientId }: { patientId: number }) {
-  const [list, setList] = useState<{ id: number; number: string; type: string; total: number; status: string; createdAt: string }[]>([]);
+  type Inv = { id: number; number: string; type: string; total: number; status: string; createdAt: string };
   const [type, setType] = useState("invoice");
-  const [busy, setBusy] = useState(false);
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/patients/${patientId}/invoices`, { cache: "no-store" });
-    if (res.ok) setList((await res.json()).invoices || []);
-  }, [patientId]);
-  useEffect(() => { load(); }, [load]);
+  const { pending, run } = useMutation();
+  const { data, loading, error, reload } = useApi<{ invoices: Inv[] }>(`/api/dental/patients/${patientId}/invoices`);
+  const list = data?.invoices ?? [];
 
   async function issue() {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/dental/patients/${patientId}/invoices`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type }) });
-      if (res.ok) { const d = await res.json(); await load(); printInvoice(d.id); }
-    } finally {
-      setBusy(false);
-    }
+    const d = await run<{ id: number }>(`/api/dental/patients/${patientId}/invoices`, "POST", { type }, { success: "تم إصدار المستند" });
+    if (d) { reload(); printInvoice(d.id); }
   }
 
   const typeLabel: Record<string, string> = { invoice: "فاتورة", estimate: "عرض سعر", receipt: "إيصال", credit_note: "إشعار دائن" };
@@ -1226,24 +1174,25 @@ function Invoices({ patientId }: { patientId: number }) {
             <option value="estimate">عرض سعر</option>
             <option value="receipt">إيصال</option>
           </select>
-          <button onClick={issue} disabled={busy} className="rounded-xl bg-[#0F8B94] px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">إصدار</button>
+          <button onClick={issue} disabled={pending} className="rounded-xl bg-[#0F8B94] px-3 py-1.5 text-sm font-bold text-white disabled:opacity-60">{pending ? "جارِ الإصدار…" : "إصدار"}</button>
         </div>
       </div>
-      <div className="space-y-2">
-        {list.length === 0 && <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد مستندات.</p>}
-        {list.map((v) => (
-          <div key={v.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
-            <div>
-              <p className="font-bold text-[#1F2937]" dir="ltr">{v.number}</p>
-              <p className="text-xs text-[#94A3B8]">{typeLabel[v.type] || v.type} · {new Date(v.createdAt).toLocaleDateString("ar")}</p>
+      <StateView loading={loading} error={error} onRetry={reload} isEmpty={list.length === 0} empty={<p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد مستندات.</p>}>
+        <div className="space-y-2">
+          {list.map((v) => (
+            <div key={v.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+              <div>
+                <p className="font-bold text-[#1F2937]" dir="ltr">{v.number}</p>
+                <p className="text-xs text-[#94A3B8]">{typeLabel[v.type] || v.type} · {fmtDate(v.createdAt)}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-[#334155]">{fmtMoney(v.total)}</span>
+                <button onClick={() => printInvoice(v.id)} className="rounded-lg border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-bold text-[#0F8B94]">طباعة</button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-[#334155]">₪ {v.total.toLocaleString()}</span>
-              <button onClick={() => printInvoice(v.id)} className="rounded-lg border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-bold text-[#0F8B94]">طباعة</button>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </StateView>
     </Card>
   );
 }
@@ -1288,20 +1237,14 @@ function Row({ k, v, strong }: { k: string; v: string; strong?: boolean }) {
 
 function Prescriptions({ patientId, list, patientName, onChange }: { patientId: number; list: Profile["prescriptions"]; patientName: string; onChange: () => void }) {
   const [form, setForm] = useState({ diagnosis: "", doctorName: "", text: "" });
-  const [saving, setSaving] = useState(false);
+  const { pending, run } = useMutation();
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     const items = form.text.split("\n").map((l) => l.trim()).filter(Boolean);
-    if (!items.length) return;
-    setSaving(true);
-    try {
-      await fetch(`/api/dental/patients/${patientId}/prescriptions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items, diagnosis: form.diagnosis, doctorName: form.doctorName }) });
-      setForm({ diagnosis: "", doctorName: "", text: "" });
-      onChange();
-    } finally {
-      setSaving(false);
-    }
+    if (!items.length || pending) return;
+    const ok = await run(`/api/dental/patients/${patientId}/prescriptions`, "POST", { items, diagnosis: form.diagnosis, doctorName: form.doctorName }, { success: "تم إصدار الوصفة" });
+    if (ok) { setForm({ diagnosis: "", doctorName: "", text: "" }); onChange(); }
   }
 
   return (
@@ -1313,14 +1256,14 @@ function Prescriptions({ patientId, list, patientName, onChange }: { patientId: 
           <input value={form.diagnosis} onChange={(e) => setForm({ ...form, diagnosis: e.target.value })} placeholder="التشخيص / السبب" className={INP} />
         </div>
         <textarea value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder={"كل دواء بسطر مثال:\nAugmentin 875mg — قرص مرتين يومياً 7 أيام"} className={`${INP} min-h-[90px]`} />
-        <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">إصدار وصفة</button>
+        <button disabled={pending || !form.text.trim()} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{pending ? "جارِ الإصدار…" : "إصدار وصفة"}</button>
       </form>
       <div className="space-y-3">
         {list.length === 0 && <p className="py-6 text-center text-sm text-[#94A3B8]">لا توجد وصفات.</p>}
         {list.map((rx) => (
           <div key={rx.id} className="rounded-2xl border border-[#EEF1F4] p-4">
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs text-[#94A3B8]">{new Date(rx.createdAt).toLocaleDateString("ar")}{rx.doctorName ? ` · د. ${rx.doctorName}` : ""}{rx.diagnosis ? ` · ${rx.diagnosis}` : ""}</p>
+              <p className="text-xs text-[#94A3B8]">{fmtDate(rx.createdAt)}{rx.doctorName ? ` · د. ${rx.doctorName}` : ""}{rx.diagnosis ? ` · ${rx.diagnosis}` : ""}</p>
               <button onClick={() => printPrescription(rx, patientName)} className="rounded-lg border border-[#E5E7EB] px-2.5 py-1 text-[11px] font-bold text-[#0F8B94]">طباعة</button>
             </div>
             <ul className="list-disc space-y-1 pr-5 text-sm text-[#334155]">
@@ -1351,33 +1294,28 @@ async function printPrescription(rx: Profile["prescriptions"][number], patientNa
 }
 
 function FilesTab({ patientId, kind }: { patientId: number; kind: "imaging" | "document" }) {
-  const [files, setFiles] = useState<{ id: number; category: string; fileUrl: string; fileName: string; mimeType: string | null; toothNumber: number | null; description: string | null; createdAt: string }[]>([]);
-  const [loading, setLoading] = useState(true);
+  type FileRow = { id: number; category: string; fileUrl: string; fileName: string; mimeType: string | null; toothNumber: number | null; description: string | null; createdAt: string };
+  const toast = useToast();
+  const confirm = useConfirm();
   const [uploading, setUploading] = useState(false);
-  const [err, setErr] = useState("");
   const cats = FILE_CATEGORIES.filter((c) => c.kind === kind);
   const [category, setCategory] = useState(cats[0]?.id || "other");
   const [tooth, setTooth] = useState("");
-
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/dental/patients/${patientId}/files?kind=${kind}`, { cache: "no-store" });
-    if (res.ok) setFiles((await res.json()).files || []);
-    setLoading(false);
-  }, [patientId, kind]);
-  useEffect(() => { load(); }, [load]);
+  const { data, loading, error, reload } = useApi<{ files: FileRow[] }>(`/api/dental/patients/${patientId}/files?kind=${kind}`);
+  const files = data?.files ?? [];
 
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true); setErr("");
+    if (!file || uploading) return;
+    setUploading(true);
     try {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("category", category);
       if (tooth) fd.append("toothNumber", tooth);
-      const res = await fetch(`/api/dental/patients/${patientId}/files`, { method: "POST", body: fd });
-      if (res.ok) { setTooth(""); load(); }
-      else setErr((await res.json().catch(() => ({}))).error || "تعذّر الرفع");
+      const r = await apiFetch(`/api/dental/patients/${patientId}/files`, { method: "POST", body: fd, timeoutMs: 60000 });
+      if (r.ok) { toast.success("تم رفع الملف"); setTooth(""); reload(); }
+      else toast.error(r.error);
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -1385,9 +1323,11 @@ function FilesTab({ patientId, kind }: { patientId: number; kind: "imaging" | "d
   }
 
   async function remove(id: number) {
-    if (!confirm("حذف هذا الملف؟")) return;
-    const res = await fetch(`/api/dental/files/${id}`, { method: "DELETE" });
-    if (res.ok) load();
+    const yes = await confirm({ title: "حذف الملف", message: "سيتم حذف هذا الملف. هل أنت متأكد؟", danger: true, confirmText: "حذف" });
+    if (!yes) return;
+    const r = await apiFetch(`/api/dental/files/${id}`, { method: "DELETE" });
+    if (r.ok) { toast.success("تم حذف الملف"); reload(); }
+    else toast.error(r.error);
   }
 
   return (
@@ -1403,12 +1343,8 @@ function FilesTab({ patientId, kind }: { patientId: number; kind: "imaging" | "d
           <input type="file" accept="image/*,application/pdf" onChange={upload} disabled={uploading} className="hidden" />
         </label>
       </div>
-      {err && <p className="mb-3 text-xs font-semibold text-rose-600">{err}</p>}
-      {loading ? (
-        <div className="flex justify-center py-12 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div>
-      ) : files.length === 0 ? (
-        <p className="py-10 text-center text-sm text-[#94A3B8]">لا توجد ملفات بعد.</p>
-      ) : kind === "imaging" ? (
+      <StateView loading={loading} error={error} onRetry={reload} isEmpty={files.length === 0} empty={<EmptyState icon={kind === "imaging" ? Layers : ClipboardList} title={kind === "imaging" ? "لا توجد صور أو أشعة بعد" : "لا توجد مستندات بعد"} hint="استخدم زر «رفع ملف» بالأعلى لإضافة أول ملف." />}>
+        {kind === "imaging" ? (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {files.map((f) => (
             <div key={f.id} className="group relative overflow-hidden rounded-xl border border-[#EAECEF]">
@@ -1419,25 +1355,26 @@ function FilesTab({ patientId, kind }: { patientId: number; kind: "imaging" | "d
               )}
               <div className="p-2">
                 <p className="truncate text-[11px] font-bold text-[#334155]">{FILE_CATEGORY_MAP[f.category] || f.category}</p>
-                <p className="text-[10px] text-[#94A3B8]">{f.toothNumber ? `سن ${f.toothNumber} · ` : ""}{new Date(f.createdAt).toLocaleDateString("ar")}</p>
+                <p className="text-[10px] text-[#94A3B8]">{f.toothNumber ? `سن ${f.toothNumber} · ` : ""}{fmtDate(f.createdAt)}</p>
               </div>
               <button onClick={() => remove(f.id)} className="absolute left-1 top-1 rounded-lg bg-white/90 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 opacity-0 transition group-hover:opacity-100">حذف</button>
             </div>
           ))}
         </div>
-      ) : (
+        ) : (
         <div className="space-y-2">
           {files.map((f) => (
             <div key={f.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
               <a href={f.fileUrl} target="_blank" rel="noreferrer" className="font-bold text-[#0F8B94] hover:underline">{f.fileName}</a>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-[#94A3B8]">{FILE_CATEGORY_MAP[f.category] || f.category} · {new Date(f.createdAt).toLocaleDateString("ar")}</span>
+                <span className="text-xs text-[#94A3B8]">{FILE_CATEGORY_MAP[f.category] || f.category} · {fmtDate(f.createdAt)}</span>
                 <button onClick={() => remove(f.id)} className="rounded-lg border border-[#E5E7EB] px-2 py-0.5 text-[10px] font-bold text-rose-600">حذف</button>
               </div>
             </div>
           ))}
         </div>
-      )}
+        )}
+      </StateView>
     </Card>
   );
 }

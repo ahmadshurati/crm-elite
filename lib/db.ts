@@ -30,6 +30,8 @@ export function getPool() {
       waitForConnections: true,
       connectionLimit: getPoolLimit(),
       queueLimit: getQueueLimit(),
+      // Fail fast if the DB is unreachable instead of hanging the request/serverless invocation.
+      connectTimeout: Number(process.env.DATABASE_CONNECT_TIMEOUT_MS || 15000),
       charset: "utf8mb4",
       dateStrings: false,
       enableKeepAlive: true,

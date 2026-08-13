@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Loader2, Plus, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { Plus, ShieldCheck } from "lucide-react";
+import { fmtDateTime, StateView, useApi, useMutation } from "@/components/dental/ui";
 import { DENTAL_PERMISSION_LABELS, DENTAL_ROLE_LABELS, DENTAL_ROLES, permissionsForRole, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
 
 const INP = "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none focus:border-[#0F8B94]";
@@ -10,34 +11,22 @@ const INP = "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-s
 type Staff = { id: number; username: string; role: string; dentalRole: string | null; effectiveRole: string; isActive: boolean };
 
 export function StaffDashboard() {
-  const [staff, setStaff] = useState<Staff[]>([]);
-  const [loading, setLoading] = useState(true);
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", dentalRole: "reception" });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-
-  const load = useCallback(async () => {
-    const res = await fetch("/api/dental/staff", { cache: "no-store" });
-    if (res.ok) setStaff((await res.json()).staff || []);
-    setLoading(false);
-  }, []);
-  useEffect(() => { load(); }, [load]);
+  const { pending, run } = useMutation();
+  const { data, loading, error, reload } = useApi<{ staff: Staff[] }>("/api/dental/staff");
+  const staff = data?.staff ?? [];
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    setErr("");
-    setBusy(true);
-    try {
-      const res = await fetch("/api/dental/staff", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      if (res.ok) { setForm({ username: "", password: "", dentalRole: "reception" }); setShow(false); load(); }
-      else setErr((await res.json().catch(() => ({}))).error || "تعذّرت الإضافة");
-    } finally { setBusy(false); }
+    if (pending) return;
+    const ok = await run("/api/dental/staff", "POST", form, { success: "تم إنشاء الموظف" });
+    if (ok) { setForm({ username: "", password: "", dentalRole: "reception" }); setShow(false); reload(); }
   }
 
   async function patch(id: number, body: Record<string, unknown>) {
-    const res = await fetch(`/api/dental/staff/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) load(); else setErr((await res.json().catch(() => ({}))).error || "تعذّر التحديث");
+    const ok = await run(`/api/dental/staff/${id}`, "PATCH", body, { success: "تم تحديث الموظف" });
+    if (ok) reload();
   }
 
   return (
@@ -53,12 +42,11 @@ export function StaffDashboard() {
           <select value={form.dentalRole} onChange={(e) => setForm({ ...form, dentalRole: e.target.value })} className={INP}>
             {DENTAL_ROLES.map((r) => <option key={r} value={r}>{DENTAL_ROLE_LABELS[r]}</option>)}
           </select>
-          <button disabled={busy} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white">{busy ? "..." : "إنشاء"}</button>
-          {err && <p className="text-xs font-semibold text-rose-600 md:col-span-4">{err}</p>}
+          <button disabled={pending} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{pending ? "جارِ الإنشاء…" : "إنشاء"}</button>
         </form>
       )}
       <div className="rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
-        {loading ? <div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
+        <StateView loading={loading} error={error} onRetry={reload}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-right text-sm">
               <thead><tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]"><th className="px-4 py-3 font-semibold">المستخدم</th><th className="px-4 py-3 font-semibold">الدور</th><th className="px-4 py-3 font-semibold">الحالة</th></tr></thead>
@@ -79,7 +67,7 @@ export function StaffDashboard() {
               </tbody>
             </table>
           </div>
-        )}
+        </StateView>
       </div>
     </div>
   );
@@ -106,17 +94,9 @@ type Audit = { id: number; username: string; action: string; entityType: string;
 const ACTION_LABELS: Record<string, string> = { create: "إنشاء", update: "تحديث", delete: "حذف", void: "إلغاء", payment: "دفعة", complete: "إكمال", reschedule: "إعادة جدولة", role_change: "تغيير دور", upload: "رفع ملف", adjust: "تعديل مالي", session: "جلسة" };
 
 function AuditLog() {
-  const [entries, setEntries] = useState<Audit[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    const res = await fetch(`/api/dental/audit${filter ? `?entityType=${filter}` : ""}`, { cache: "no-store" });
-    if (res.ok) setEntries((await res.json()).entries || []);
-    setLoading(false);
-  }, [filter]);
-  useEffect(() => { load(); }, [load]);
+  const { data, loading, error, reload } = useApi<{ entries: Audit[] }>(`/api/dental/audit${filter ? `?entityType=${filter}` : ""}`);
+  const entries = data?.entries ?? [];
 
   return (
     <div className="rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
@@ -127,14 +107,14 @@ function AuditLog() {
           {["patient", "appointment", "payment", "treatmentItem", "visit", "invoice", "user", "ledger", "labOrder", "inventory", "recall", "file"].map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
-      {loading ? <div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div> : entries.length === 0 ? <p className="py-16 text-center text-sm text-[#94A3B8]">لا توجد سجلات.</p> : (
+      <StateView loading={loading} error={error} onRetry={reload} isEmpty={entries.length === 0} empty={<p className="py-16 text-center text-sm text-[#94A3B8]">لا توجد سجلات.</p>}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-right text-sm">
             <thead><tr className="border-b border-[#EEF1F4] text-xs text-[#8B95A1]"><th className="px-4 py-3 font-semibold">التاريخ</th><th className="px-4 py-3 font-semibold">المستخدم</th><th className="px-4 py-3 font-semibold">الإجراء</th><th className="px-4 py-3 font-semibold">العنصر</th></tr></thead>
             <tbody>
               {entries.map((e) => (
                 <tr key={e.id} className="border-b border-[#F5F7FA] last:border-none">
-                  <td className="px-4 py-2.5 text-xs text-[#94A3B8]">{new Date(e.createdAt).toLocaleString("ar")}</td>
+                  <td className="px-4 py-2.5 text-xs text-[#94A3B8]">{fmtDateTime(e.createdAt)}</td>
                   <td className="px-4 py-2.5 font-bold text-[#334155]" dir="ltr">{e.username}</td>
                   <td className="px-4 py-2.5 text-[#475569]">{ACTION_LABELS[e.action] || e.action}</td>
                   <td className="px-4 py-2.5 text-xs text-[#64748B]">{e.entityType}{e.entityId ? ` #${e.entityId}` : ""}</td>
@@ -143,7 +123,7 @@ function AuditLog() {
             </tbody>
           </table>
         </div>
-      )}
+      </StateView>
     </div>
   );
 }

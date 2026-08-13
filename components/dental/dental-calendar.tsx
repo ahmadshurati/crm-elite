@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Loader2, Plus, Stethoscope, Wallet, X } from "lucide-react";
+import { apiFetch, fmtDateTime, fmtTime, useToast } from "@/components/dental/ui";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP } from "@/lib/dental/constants";
 
 const INP = "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none focus:border-[#0F8B94]";
@@ -34,6 +35,7 @@ export function DentalCalendar({ onOpenPatient }: { onOpenPatient: (id: number, 
   const [anchor, setAnchor] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; });
   const [appts, setAppts] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("");
   const [roomFilter, setRoomFilter] = useState("");
   const [selected, setSelected] = useState<Appt | null>(null);
@@ -47,11 +49,13 @@ export function DentalCalendar({ onOpenPatient }: { onOpenPatient: (id: number, 
 
   const load = useCallback(async () => {
     setLoading(true);
+    setErr("");
     const from = ymd(days[0]);
     const to = ymd(days[days.length - 1]);
     const url = view === "day" ? `/api/dental/appointments?date=${from}` : `/api/dental/appointments?from=${from}&to=${to}`;
-    const res = await fetch(url, { cache: "no-store" });
-    if (res.ok) setAppts((await res.json()).appointments || []);
+    const r = await apiFetch<{ appointments: Appt[] }>(url);
+    if (r.ok) setAppts(r.data.appointments || []);
+    else setErr(r.error);
     setLoading(false);
   }, [days, view]);
 
@@ -115,6 +119,11 @@ export function DentalCalendar({ onOpenPatient }: { onOpenPatient: (id: number, 
       <div className="overflow-x-auto rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
         {loading ? (
           <div className="flex justify-center py-20 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div>
+        ) : err ? (
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <p className="text-sm font-semibold text-[#475569]">{err}</p>
+            <button onClick={load} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]">إعادة المحاولة</button>
+          </div>
         ) : (
           <div className="flex min-w-[640px]">
             {/* hour labels */}
@@ -166,36 +175,41 @@ export function DentalCalendar({ onOpenPatient }: { onOpenPatient: (id: number, 
 }
 
 function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; onClose: () => void; onChanged: () => void; onOpenPatient: (id: number, tab?: string) => void }) {
+  const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
   const [resched, setResched] = useState({ startAt: toLocalInput(new Date(appt.startAt)), durationMin: String(appt.durationMin) });
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
 
   async function setStatus(status: string) {
+    if (busy) return;
     setBusy(true);
-    await fetch(`/api/dental/appointments/${appt.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    const r = await apiFetch(`/api/dental/appointments/${appt.id}`, { method: "PATCH", body: JSON.stringify({ status }) });
     setBusy(false);
-    onChanged();
+    if (r.ok) { toast.success("تم تحديث حالة الموعد"); onChanged(); }
+    else toast.error(r.error);
   }
 
   async function saveReschedule(override = false) {
-    setBusy(true); setErr("");
-    const res = await fetch(`/api/dental/appointments/${appt.id}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
+    if (busy) return;
+    setBusy(true);
+    setConflicts(null);
+    const r = await apiFetch<unknown>(`/api/dental/appointments/${appt.id}`, {
+      method: "PATCH",
       body: JSON.stringify({ startAt: new Date(resched.startAt).toISOString(), durationMin: Number(resched.durationMin) || 30, doctorName: appt.doctorName, room: appt.room, override }),
     });
     setBusy(false);
-    if (res.status === 409) { setConflicts((await res.json()).conflicts || []); return; }
-    if (res.ok) onChanged();
-    else setErr((await res.json().catch(() => ({}))).error || "تعذّر التحديث");
+    if (r.ok) { toast.success("تم تحديث الموعد"); onChanged(); return; }
+    if (r.status === 409) { setConflicts(((r.body as { conflicts?: Conflict[] })?.conflicts) || []); return; }
+    toast.error(r.error);
   }
 
   async function sendToDoctor() {
-    setBusy(true); setErr("");
-    const res = await fetch(`/api/dental/appointments/${appt.id}/start-visit`, { method: "POST" });
+    if (busy) return;
+    setBusy(true);
+    const r = await apiFetch<{ patientId: number }>(`/api/dental/appointments/${appt.id}/start-visit`, { method: "POST" });
     setBusy(false);
-    if (res.ok) { const d = await res.json(); onOpenPatient(d.patientId, "visits"); }
-    else setErr((await res.json().catch(() => ({}))).error || "تعذّر بدء الزيارة (صلاحية الطبيب)");
+    if (r.ok) { toast.success("تم إدخال المريض للطبيب"); onOpenPatient(r.data.patientId, "visits"); }
+    else toast.error(r.error);
   }
 
   return (
@@ -207,7 +221,7 @@ function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; on
           <button onClick={onClose} className="rounded-lg p-1 text-[#94A3B8] hover:bg-[#F1F5F9]"><X className="h-5 w-5" /></button>
         </div>
         <div className="space-y-1 text-sm text-[#475569]">
-          <p><span className="text-[#94A3B8]">الوقت: </span>{new Date(appt.startAt).toLocaleString("ar")}</p>
+          <p><span className="text-[#94A3B8]">الوقت: </span>{fmtDateTime(appt.startAt)}</p>
           {appt.treatmentType && <p><span className="text-[#94A3B8]">العلاج: </span>{appt.treatmentType}</p>}
           {appt.doctorName && <p><span className="text-[#94A3B8]">الطبيب: </span>{appt.doctorName}</p>}
           {appt.room && <p><span className="text-[#94A3B8]">الغرفة: </span>{appt.room}</p>}
@@ -228,13 +242,11 @@ function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; on
           {conflicts && conflicts.length > 0 && (
             <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
               <p className="font-bold">تعارض مع:</p>
-              {conflicts.map((c) => <p key={c.id}>{c.patientName} — {new Date(c.startAt).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}</p>)}
+              {conflicts.map((c) => <p key={c.id}>{c.patientName} — {fmtTime(c.startAt)}</p>)}
               <button onClick={() => saveReschedule(true)} className="mt-1 font-bold text-amber-900 underline">احجز رغم التعارض</button>
             </div>
           )}
         </div>
-
-        {err && <p className="mt-3 text-xs font-semibold text-rose-600">{err}</p>}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button onClick={sendToDoctor} disabled={busy} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#F1FBFA] px-3 py-2 text-sm font-bold text-[#0F8B94]"><Stethoscope className="h-4 w-4" /> إدخال للدكتور</button>
@@ -248,6 +260,7 @@ function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; on
 }
 
 function NewAppointmentModal({ initialDate, onClose, onCreated }: { initialDate: Date; onClose: () => void; onCreated: () => void }) {
+  const toast = useToast();
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [form, setForm] = useState({ patientId: "", treatmentType: "", doctorName: "", startAt: toLocalInput(initialDate), durationMin: "30", room: "" });
   const [busy, setBusy] = useState(false);
@@ -255,21 +268,23 @@ function NewAppointmentModal({ initialDate, onClose, onCreated }: { initialDate:
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
 
   useEffect(() => {
-    fetch("/api/dental/patients", { cache: "no-store" }).then((r) => (r.ok ? r.json() : { patients: [] })).then((d) => setPatients(d.patients || [])).catch(() => {});
+    apiFetch<{ patients: PatientRow[] }>("/api/dental/patients").then((r) => { if (r.ok) setPatients(r.data.patients || []); });
   }, []);
 
   async function submit(override = false) {
     setErr("");
     if (!form.patientId || !form.startAt) { setErr("المريض والوقت مطلوبان"); return; }
+    if (busy) return;
     setBusy(true);
-    const res = await fetch("/api/dental/appointments", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+    setConflicts(null);
+    const r = await apiFetch<unknown>("/api/dental/appointments", {
+      method: "POST",
       body: JSON.stringify({ ...form, patientId: Number(form.patientId), startAt: new Date(form.startAt).toISOString(), durationMin: Number(form.durationMin) || 30, override }),
     });
     setBusy(false);
-    if (res.status === 409) { setConflicts((await res.json()).conflicts || []); return; }
-    if (res.ok) onCreated();
-    else setErr((await res.json().catch(() => ({}))).error || "تعذّر الحجز");
+    if (r.ok) { toast.success("تم حجز الموعد"); onCreated(); return; }
+    if (r.status === 409) { setConflicts(((r.body as { conflicts?: Conflict[] })?.conflicts) || []); return; }
+    setErr(r.error);
   }
 
   return (
@@ -293,7 +308,7 @@ function NewAppointmentModal({ initialDate, onClose, onCreated }: { initialDate:
         {conflicts && conflicts.length > 0 && (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
             <p className="font-bold">يوجد تعارض:</p>
-            {conflicts.map((c) => <p key={c.id}>{c.patientName} — {new Date(c.startAt).toLocaleString("ar")} ({c.doctorName || c.room})</p>)}
+            {conflicts.map((c) => <p key={c.id}>{c.patientName} — {fmtDateTime(c.startAt)} ({c.doctorName || c.room})</p>)}
             <button onClick={() => submit(true)} className="mt-2 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white">احجز رغم التعارض</button>
           </div>
         )}

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { apiFetch, fmtDate, fmtMoney, useToast } from "@/components/dental/ui";
 import {
   CONDITION_MAP,
   PRIMARY_QUADRANTS,
@@ -35,10 +36,12 @@ export function DentalChart({
   surfaces: Surface[];
   onChange: () => void;
 }) {
+  const toast = useToast();
   const [dentition, setDentition] = useState<"permanent" | "primary">("permanent");
   const [selected, setSelected] = useState<number | null>(null);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [panelLoading, setPanelLoading] = useState(false);
+  const [panelError, setPanelError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const condMap = new Map(teeth.map((t) => [t.toothNumber, t.condition]));
@@ -49,12 +52,11 @@ export function DentalChart({
 
   const loadPanel = useCallback(async (tooth: number) => {
     setPanelLoading(true);
-    try {
-      const res = await fetch(`/api/dental/patients/${patientId}/teeth/${tooth}`, { cache: "no-store" });
-      if (res.ok) setPanel(await res.json());
-    } finally {
-      setPanelLoading(false);
-    }
+    setPanelError(false);
+    const r = await apiFetch<Panel>(`/api/dental/patients/${patientId}/teeth/${tooth}`);
+    if (r.ok) setPanel(r.data);
+    else setPanelError(true);
+    setPanelLoading(false);
   }, [patientId]);
 
   useEffect(() => {
@@ -63,35 +65,21 @@ export function DentalChart({
   }, [selected, loadPanel]);
 
   async function setToothLevel(condition: string) {
-    if (selected == null) return;
+    if (selected == null || saving) return;
     setSaving(true);
-    try {
-      await fetch(`/api/dental/patients/${patientId}/teeth`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toothNumber: selected, condition }),
-      });
-      await loadPanel(selected);
-      onChange();
-    } finally {
-      setSaving(false);
-    }
+    const r = await apiFetch(`/api/dental/patients/${patientId}/teeth`, { method: "PUT", body: JSON.stringify({ toothNumber: selected, condition }) });
+    setSaving(false);
+    if (r.ok) { toast.success("تم تحديث حالة السن"); await loadPanel(selected); onChange(); }
+    else toast.error(r.error);
   }
 
   async function setSurface(surface: string, condition: string) {
-    if (selected == null) return;
+    if (selected == null || saving) return;
     setSaving(true);
-    try {
-      await fetch(`/api/dental/patients/${patientId}/teeth`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toothNumber: selected, surface, condition }),
-      });
-      await loadPanel(selected);
-      onChange();
-    } finally {
-      setSaving(false);
-    }
+    const r = await apiFetch(`/api/dental/patients/${patientId}/teeth`, { method: "PUT", body: JSON.stringify({ toothNumber: selected, surface, condition }) });
+    setSaving(false);
+    if (r.ok) { toast.success("تم تحديث سطح السن"); await loadPanel(selected); onChange(); }
+    else toast.error(r.error);
   }
 
   const quadrants = dentition === "permanent" ? QUADRANTS : PRIMARY_QUADRANTS;
@@ -162,7 +150,11 @@ export function DentalChart({
         <div className="rounded-2xl border border-[#0F8B94]/30 bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h4 className="text-lg font-bold text-[#0F8B94]">السن رقم {selected}</h4>
-            {panelLoading && <Loader2 className="h-4 w-4 animate-spin text-[#94A3B8]" />}
+            <div className="flex items-center gap-2">
+              {panelLoading && <Loader2 className="h-4 w-4 animate-spin text-[#94A3B8]" />}
+              {panelError && <button onClick={() => selected != null && loadPanel(selected)} className="text-xs font-bold text-rose-600 underline">تعذّر التحميل — إعادة</button>}
+              <button onClick={() => setSelected(null)} className="rounded-lg px-2 py-1 text-xs font-bold text-[#94A3B8] hover:bg-[#F1F5F9]">إغلاق</button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -212,7 +204,7 @@ export function DentalChart({
                     {panel.treatments.map((t, i) => (
                       <div key={i} className="flex items-center justify-between rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
                         <span className="font-bold text-[#1F2937]">{t.treatment}</span>
-                        <span className="text-[#94A3B8]">₪ {t.price.toLocaleString()}</span>
+                        <span className="text-[#94A3B8]">{fmtMoney(t.price)}</span>
                       </div>
                     ))}
                   </div>
@@ -243,7 +235,7 @@ export function DentalChart({
                         {h.surface && ` (${h.surface})`}
                       </p>
                       {h.treatment && <p className="text-xs text-[#475569]">{h.treatment}</p>}
-                      <p className="text-[11px] text-[#94A3B8]">{new Date(h.createdAt).toLocaleDateString("ar")}{h.doctorName ? ` · ${h.doctorName}` : ""}</p>
+                      <p className="text-[11px] text-[#94A3B8]">{fmtDate(h.createdAt)}{h.doctorName ? ` · ${h.doctorName}` : ""}</p>
                     </div>
                   ))}
                 </div>

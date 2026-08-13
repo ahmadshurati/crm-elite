@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   BadgeDollarSign,
@@ -22,6 +22,8 @@ import { PatientProfile } from "@/components/dental/patient-profile";
 import { DentalCalendar } from "@/components/dental/dental-calendar";
 import { InventoryDashboard, LabsDashboard, RecallDashboard, ReportsDashboard } from "@/components/dental/clinic-ops";
 import { SettingsHub, StaffDashboard } from "@/components/dental/admin";
+import { DentalErrorBoundary } from "@/components/dental/error-boundary";
+import { apiFetch, ConfirmProvider, EmptyState, ErrorState, fmtDate, fmtDateTime, fmtMoney, fmtTime, StateView, ToastProvider, useApi, useMutation } from "@/components/dental/ui";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
 type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
@@ -49,35 +51,40 @@ const NAV_PERMISSION: Partial<Record<View, string>> = {
 };
 
 export function DentalApp() {
+  return (
+    <ToastProvider>
+      <ConfirmProvider>
+        <DentalAppInner />
+      </ConfirmProvider>
+    </ToastProvider>
+  );
+}
+
+function DentalAppInner() {
   const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
   const [clinic, setClinic] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [view, setView] = useState<View>("dashboard");
   const [patientId, setPatientId] = useState<number | null>(null);
   const [patientTab, setPatientTab] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
-    fetch("/api/dental/me", { cache: "no-store" })
-      .then((res) => {
-        if (res.status === 401) {
-          window.location.replace("/login");
-          return null;
-        }
-        if (res.status === 403) {
-          window.location.replace("/");
-          return null;
-        }
-        return res.json();
-      })
-      .then((data) => {
-        if (data) {
-          setClinic(data.clinicName || "عيادة");
-          setPermissions(data.permissions || []);
-          setReady(true);
-        }
-      })
-      .catch(() => window.location.replace("/login"));
+  const boot = useCallback(async () => {
+    setBootError(null);
+    setReady(false);
+    const r = await apiFetch<{ clinicName: string; permissions: string[] }>("/api/dental/me");
+    if (r.ok) {
+      setClinic(r.data.clinicName || "عيادة");
+      setPermissions(r.data.permissions || []);
+      setReady(true);
+      return;
+    }
+    if (r.status === 403) { window.location.replace("/"); return; }
+    if (r.status === 401) return; // apiFetch already redirected to /login
+    setBootError(r.error);
   }, []);
+
+  useEffect(() => { boot(); }, [boot]);
 
   const visibleNav = NAV.filter((n) => {
     const req = NAV_PERMISSION[n.id];
@@ -85,8 +92,18 @@ export function DentalApp() {
   });
 
   async function logout() {
-    await fetch("/api/logout", { method: "POST" }).catch(() => {});
+    await apiFetch("/api/logout", { method: "POST" });
     window.location.href = "/login";
+  }
+
+  if (bootError) {
+    return (
+      <main dir="rtl" className="flex min-h-screen items-center justify-center bg-[#F5F8FB] p-6">
+        <div className="w-full max-w-md rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
+          <ErrorState message={bootError} onRetry={boot} />
+        </div>
+      </main>
+    );
   }
 
   if (!ready) {
@@ -150,7 +167,8 @@ export function DentalApp() {
           <span className="shrink-0 rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94]">عيادة أسنان</span>
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
+          <DentalErrorBoundary key={patientId ? `p-${patientId}` : view}>
           {patientId ? (
             <PatientProfile patientId={patientId} initialTab={patientTab} onBack={() => { setPatientId(null); setPatientTab(undefined); }} />
           ) : view === "dashboard" ? (
@@ -176,24 +194,40 @@ export function DentalApp() {
           ) : (
             <ComingSoon label={NAV.find((n) => n.id === view)?.label || ""} />
           )}
+          </DentalErrorBoundary>
         </div>
       </main>
     </div>
   );
 }
 
+type SearchResults = {
+  patients: { id: number; fullName: string; patientNumber: string; phone: string | null }[];
+  invoices: { id: number; number: string; type: string; total: number }[];
+  appointments: { id: number; patientId: number; fullName: string; startAt: string }[];
+};
+
 function GlobalSearch({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string) => void }) {
   const [q, setQ] = useState("");
-  const [res, setRes] = useState<{ patients: { id: number; fullName: string; patientNumber: string; phone: string | null }[]; invoices: { id: number; number: string; type: string; total: number }[]; appointments: { id: number; patientId: number; fullName: string; startAt: string }[] } | null>(null);
+  const [res, setRes] = useState<SearchResults | null>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "error" | "done">("idle");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (q.trim().length < 2) { setRes(null); return; }
-    const t = setTimeout(() => {
-      fetch(`/api/dental/search?q=${encodeURIComponent(q)}`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { setRes(d); setOpen(true); }).catch(() => {});
-    }, 250);
-    return () => clearTimeout(t);
+    if (q.trim().length < 2) { setRes(null); setStatus("idle"); return; }
+    let cancelled = false;
+    setStatus("loading");
+    setOpen(true);
+    const t = setTimeout(async () => {
+      const r = await apiFetch<SearchResults>(`/api/dental/search?q=${encodeURIComponent(q)}`);
+      if (cancelled) return;
+      if (r.ok) { setRes(r.data); setStatus("done"); }
+      else { setRes(null); setStatus("error"); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(t); };
   }, [q]);
+
+  const total = res ? res.patients.length + res.invoices.length + res.appointments.length : 0;
 
   return (
     <div className="relative mx-auto w-full max-w-md">
@@ -201,35 +235,42 @@ function GlobalSearch({ onOpenPatient }: { onOpenPatient: (id: number, tab?: str
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        onFocus={() => res && setOpen(true)}
+        onFocus={() => q.trim().length >= 2 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 200)}
+        aria-label="بحث"
         placeholder="بحث عن مريض، هاتف، رقم فاتورة..."
         className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] pr-10 pl-3 text-sm outline-none focus:border-[#0F8B94]"
       />
-      {open && res && (
+      {open && q.trim().length >= 2 && (
         <div className="absolute inset-x-0 top-12 z-40 max-h-96 overflow-y-auto rounded-2xl border border-[#EAECEF] bg-white p-2 shadow-xl">
-          {res.patients.length === 0 && res.invoices.length === 0 && res.appointments.length === 0 && <p className="p-3 text-center text-sm text-[#94A3B8]">لا نتائج.</p>}
-          {res.patients.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">المرضى</p>}
-          {res.patients.map((p) => (
-            <button key={p.id} onMouseDown={() => { onOpenPatient(p.id); setOpen(false); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-right text-sm hover:bg-[#F8FAFC]">
-              <span className="font-bold text-[#1F2937]">{p.fullName}</span>
-              <span className="text-xs text-[#94A3B8]" dir="ltr">{p.phone || p.patientNumber}</span>
-            </button>
-          ))}
-          {res.appointments.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">المواعيد</p>}
-          {res.appointments.map((a) => (
-            <button key={a.id} onMouseDown={() => { onOpenPatient(a.patientId); setOpen(false); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-right text-sm hover:bg-[#F8FAFC]">
-              <span className="text-[#475569]">{a.fullName}</span>
-              <span className="text-xs text-[#94A3B8]">{new Date(a.startAt).toLocaleDateString("ar")}</span>
-            </button>
-          ))}
-          {res.invoices.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">الفواتير</p>}
-          {res.invoices.map((v) => (
-            <div key={v.id} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm">
-              <span className="font-bold text-[#1F2937]" dir="ltr">{v.number}</span>
-              <span className="text-xs text-[#94A3B8]">₪ {v.total.toLocaleString()}</span>
-            </div>
-          ))}
+          {status === "loading" && <p className="p-3 text-center text-sm text-[#94A3B8]">جارِ البحث…</p>}
+          {status === "error" && <p className="p-3 text-center text-sm text-rose-600">تعذّر تنفيذ البحث. حاول مجددًا.</p>}
+          {status === "done" && total === 0 && <p className="p-3 text-center text-sm text-[#94A3B8]">لا نتائج مطابقة.</p>}
+          {status === "done" && res && (
+            <>
+              {res.patients.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">المرضى</p>}
+              {res.patients.map((p) => (
+                <button key={p.id} onMouseDown={() => { onOpenPatient(p.id); setOpen(false); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-right text-sm hover:bg-[#F8FAFC]">
+                  <span className="font-bold text-[#1F2937]">{p.fullName}</span>
+                  <span className="text-xs text-[#94A3B8]" dir="ltr">{p.phone || p.patientNumber}</span>
+                </button>
+              ))}
+              {res.appointments.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">المواعيد</p>}
+              {res.appointments.map((a) => (
+                <button key={a.id} onMouseDown={() => { onOpenPatient(a.patientId); setOpen(false); setQ(""); }} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-right text-sm hover:bg-[#F8FAFC]">
+                  <span className="text-[#475569]">{a.fullName}</span>
+                  <span className="text-xs text-[#94A3B8]">{fmtDate(a.startAt)}</span>
+                </button>
+              ))}
+              {res.invoices.length > 0 && <p className="px-2 py-1 text-[11px] font-bold text-[#94A3B8]">الفواتير</p>}
+              {res.invoices.map((v) => (
+                <div key={v.id} className="flex items-center justify-between rounded-lg px-3 py-2 text-sm">
+                  <span className="font-bold text-[#1F2937]" dir="ltr">{v.number}</span>
+                  <span className="text-xs text-[#94A3B8]">{fmtMoney(v.total)}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
@@ -261,47 +302,28 @@ type Catalog = {
 };
 
 function TreatmentsCatalog() {
-  const [items, setItems] = useState<Catalog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState("");
-  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ code: "", name: "", category: "restorative", defaultPrice: "", expectedSessions: "1", requiresTooth: false, requiresSurface: false, requiresLab: false });
-
-  const load = useCallback(async () => {
-    const res = await fetch("/api/dental/treatments/catalog?all=1", { cache: "no-store" });
-    if (res.ok) setItems((await res.json()).items || []);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { pending, run } = useMutation();
+  const { data, loading, error, reload } = useApi<{ items: Catalog[] }>("/api/dental/treatments/catalog?all=1");
+  const items = data?.items ?? [];
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
-    setErr("");
-    if (!form.code.trim() || !form.name.trim()) { setErr("الرمز والاسم مطلوبان"); return; }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/dental/treatments/catalog", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: form.code, name: form.name, category: form.category,
-          defaultPrice: Number(form.defaultPrice) || 0, expectedSessions: Number(form.expectedSessions) || 1,
-          requiresTooth: form.requiresTooth, requiresSurface: form.requiresSurface, requiresLab: form.requiresLab,
-        }),
-      });
-      if (!res.ok) { setErr((await res.json().catch(() => ({}))).error || "تعذّرت الإضافة (صلاحية المدير مطلوبة)"); return; }
+    if (!form.code.trim() || !form.name.trim() || pending) return;
+    const ok = await run("/api/dental/treatments/catalog", "POST", {
+      code: form.code, name: form.name, category: form.category,
+      defaultPrice: Number(form.defaultPrice) || 0, expectedSessions: Number(form.expectedSessions) || 1,
+      requiresTooth: form.requiresTooth, requiresSurface: form.requiresSurface, requiresLab: form.requiresLab,
+    }, { success: "تمت إضافة العلاج للكتالوج" });
+    if (ok) {
       setForm({ code: "", name: "", category: "restorative", defaultPrice: "", expectedSessions: "1", requiresTooth: false, requiresSurface: false, requiresLab: false });
-      load();
-    } finally {
-      setSaving(false);
+      reload();
     }
   }
 
   async function patch(id: number, body: Record<string, unknown>) {
-    const res = await fetch(`/api/dental/treatments/catalog/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) load();
-    else setErr((await res.json().catch(() => ({}))).error || "تعذّر التحديث (صلاحية المدير مطلوبة)");
+    const ok = await run(`/api/dental/treatments/catalog/${id}`, "PATCH", body, { success: "تم تحديث العلاج" });
+    if (ok) reload();
   }
 
   return (
@@ -317,22 +339,17 @@ function TreatmentsCatalog() {
           </select>
           <input value={form.defaultPrice} onChange={(e) => setForm({ ...form, defaultPrice: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
           <input value={form.expectedSessions} onChange={(e) => setForm({ ...form, expectedSessions: e.target.value })} placeholder="جلسات" className={INP} inputMode="numeric" />
-          <button disabled={saving} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
+          <button disabled={pending || !form.code.trim() || !form.name.trim()} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
         </form>
         <div className="mt-2 flex flex-wrap gap-4 text-xs text-[#64748B]">
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={form.requiresTooth} onChange={(e) => setForm({ ...form, requiresTooth: e.target.checked })} /> يتطلب سِنّاً</label>
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={form.requiresSurface} onChange={(e) => setForm({ ...form, requiresSurface: e.target.checked })} /> يتطلب سطحاً</label>
           <label className="inline-flex items-center gap-1.5"><input type="checkbox" checked={form.requiresLab} onChange={(e) => setForm({ ...form, requiresLab: e.target.checked })} /> يتطلب مختبراً</label>
         </div>
-        {err && <p className="mt-2 text-xs font-semibold text-rose-600">{err}</p>}
       </div>
 
       <div className="rounded-[24px] border border-[#EAECEF] bg-white p-4 shadow-sm">
-        {loading ? (
-          <div className="flex justify-center py-16 text-[#94A3B8]"><Loader2 className="h-6 w-6 animate-spin" /></div>
-        ) : items.length === 0 ? (
-          <p className="py-12 text-center text-sm text-[#94A3B8]">لا توجد علاجات في الكتالوج بعد.</p>
-        ) : (
+        <StateView loading={loading} error={error} onRetry={reload} isEmpty={items.length === 0} empty={<EmptyState icon={Stethoscope} title="لا توجد علاجات في الكتالوج بعد" hint="أضف أول علاج باستخدام النموذج بالأعلى." />}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-right text-sm">
               <thead>
@@ -381,7 +398,7 @@ function TreatmentsCatalog() {
               </tbody>
             </table>
           </div>
-        )}
+        </StateView>
       </div>
     </div>
   );
@@ -398,14 +415,23 @@ type DashData = {
 };
 
 function Dashboard({ onGo }: { onGo: (v: View) => void }) {
-  const [data, setData] = useState<DashData | null>(null);
-  useEffect(() => {
-    fetch("/api/dental/dashboard", { cache: "no-store" }).then((r) => {
-      if (r.ok) r.json().then(setData);
-    });
-  }, []);
+  const { data, loading, error, reload } = useApi<DashData>("/api/dental/dashboard");
 
-  if (!data) return <Spinner />;
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-[#1F2937]">ملخص اليوم</h2>
+          <p className="mt-1 text-sm text-[#707A84]">نظرة مباشرة على وضع العيادة اليوم.</p>
+        </div>
+        <div className="rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
+          <StateView loading={loading} error={error} onRetry={reload}>
+            <div />
+          </StateView>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -444,7 +470,7 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
             <div className="flex flex-wrap gap-2">
               {PAYMENT_METHODS.map((m) => (
                 <span key={m.id} className="rounded-full bg-[#F1F5F9] px-3 py-1 text-xs font-bold text-[#475569]">
-                  {m.label}: ₪ {(data.finance.byMethod[m.id] || 0).toLocaleString()}
+                  {m.label}: {fmtMoney(data.finance.byMethod[m.id] || 0)}
                 </span>
               ))}
             </div>
@@ -476,7 +502,7 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
             {data.upcoming.map((u, i) => (
               <div key={i} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
                 <div><p className="font-bold text-[#1F2937]">{u.fullName}</p><p className="text-xs text-[#94A3B8]">{u.doctorName || ""}</p></div>
-                <span className="text-xs font-bold text-[#0F8B94]">{new Date(u.startAt).toLocaleString("ar", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                <span className="text-xs font-bold text-[#0F8B94]">{fmtDateTime(u.startAt)}</span>
               </div>
             ))}
           </div>
@@ -488,7 +514,7 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
             {data.recent.map((r, i) => (
               <div key={i} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
                 <span className="text-[#475569]">{r.title}</span>
-                <span className="text-xs text-[#94A3B8]">{new Date(r.createdAt).toLocaleDateString("ar")}</span>
+                <span className="text-xs text-[#94A3B8]">{fmtDate(r.createdAt)}</span>
               </div>
             ))}
           </div>
@@ -502,46 +528,38 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
 type PatientRow = { id: number; patientNumber: string; fullName: string; phone: string | null; gender: string | null; lastVisit: string | null };
 
 function Patients({ onOpen }: { onOpen: (id: number) => void }) {
-  const [rows, setRows] = useState<PatientRow[]>([]);
   const [q, setQ] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ fullName: "", phone: "", gender: "", nationalId: "", birthDate: "" });
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async (search: string) => {
-    setLoading(true);
-    const res = await fetch(`/api/dental/patients?q=${encodeURIComponent(search)}`, { cache: "no-store" });
-    if (res.ok) setRows((await res.json()).patients || []);
-    setLoading(false);
-  }, []);
+  const { pending, run } = useMutation();
 
   useEffect(() => {
-    const t = setTimeout(() => load(q), 250);
+    const t = setTimeout(() => setDebouncedQ(q), 300);
     return () => clearTimeout(t);
-  }, [q, load]);
+  }, [q]);
+
+  const { data, loading, error, reload } = useApi<{ patients: PatientRow[] }>(`/api/dental/patients?q=${encodeURIComponent(debouncedQ)}`);
+  const rows = data?.patients ?? [];
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.fullName.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/dental/patients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      const data = await res.json();
-      if (res.ok) {
-        setShowForm(false);
-        setForm({ fullName: "", phone: "", gender: "", nationalId: "", birthDate: "" });
-        onOpen(data.id);
-      }
-    } finally {
-      setSaving(false);
+    if (!form.fullName.trim() || pending) return;
+    const created = await run<{ id: number }>("/api/dental/patients", "POST", form, { success: "تم إنشاء ملف المريض" });
+    if (created) {
+      setShowForm(false);
+      setForm({ fullName: "", phone: "", gender: "", nationalId: "", birthDate: "" });
+      onOpen(created.id);
     }
   }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold text-[#1F2937]">المرضى</h2>
+        <div>
+          <h2 className="text-2xl font-bold text-[#1F2937]">المرضى</h2>
+          <p className="text-sm text-[#94A3B8]">إدارة ملفات المرضى والبحث عنهم.</p>
+        </div>
         <button onClick={() => setShowForm((v) => !v)} className="inline-flex items-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0B6E75]">
           <UserPlus className="h-4 w-4" />
           مريض جديد
@@ -559,7 +577,7 @@ function Patients({ onOpen }: { onOpen: (id: number) => void }) {
             <option value="أنثى">أنثى</option>
           </select>
           <input type="date" value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} className={INP} />
-          <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white md:col-span-2">{saving ? "..." : "حفظ المريض"}</button>
+          <button disabled={pending || !form.fullName.trim()} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60 md:col-span-2">{pending ? "جارِ الحفظ…" : "حفظ المريض"}</button>
         </form>
       )}
 
@@ -567,14 +585,16 @@ function Patients({ onOpen }: { onOpen: (id: number) => void }) {
         <div className="border-b border-[#EEF1F4] p-4">
           <div className="relative max-w-md">
             <Search className="absolute right-3 top-2.5 h-4 w-4 text-[#94A3B8]" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="بحث بالاسم أو الهاتف أو رقم المريض..." className={`${INP} pr-10`} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} aria-label="بحث المرضى" placeholder="بحث بالاسم أو الهاتف أو رقم المريض..." className={`${INP} pr-10`} />
           </div>
         </div>
-        {loading ? (
-          <Spinner />
-        ) : rows.length === 0 ? (
-          <p className="py-16 text-center text-sm text-[#94A3B8]">لا يوجد مرضى.</p>
-        ) : (
+        <StateView
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          isEmpty={rows.length === 0}
+          empty={<EmptyState icon={Users} title={debouncedQ ? "لا نتائج مطابقة للبحث" : "لا يوجد مرضى حتى الآن"} hint={debouncedQ ? "جرّب كلمة بحث أخرى." : "ابدأ بإضافة أول مريض للعيادة."} action={!debouncedQ ? <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]"><UserPlus className="h-4 w-4" /> إضافة مريض</button> : undefined} />}
+        >
           <div className="overflow-x-auto">
             <table className="w-full min-w-[620px] text-right text-sm">
               <thead>
@@ -591,13 +611,13 @@ function Patients({ onOpen }: { onOpen: (id: number) => void }) {
                     <td className="px-4 py-3.5 font-mono text-xs text-[#475569]" dir="ltr">{r.patientNumber}</td>
                     <td className="px-4 py-3.5 font-bold text-[#1F2937]">{r.fullName}</td>
                     <td className="px-4 py-3.5 text-[#4B5563]" dir="ltr">{r.phone || "—"}</td>
-                    <td className="px-4 py-3.5 text-[#94A3B8]">{r.lastVisit ? new Date(r.lastVisit).toLocaleDateString("ar") : "—"}</td>
+                    <td className="px-4 py-3.5 text-[#94A3B8]">{r.lastVisit ? fmtDate(r.lastVisit) : "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
+        </StateView>
       </div>
     </div>
   );
@@ -623,71 +643,47 @@ function ReceptionHub({ onOpenPatient }: { onOpenPatient: (id: number, tab?: str
 
 function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string) => void }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [appts, setAppts] = useState<Appt[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [form, setForm] = useState({ patientId: "", treatmentType: "", doctorName: "", startAt: "", durationMin: "30", room: "" });
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState("");
+  const { pending, run } = useMutation();
 
-  async function sendToDoctor(appointmentId: number) {
-    setErr("");
-    const res = await fetch(`/api/dental/appointments/${appointmentId}/start-visit`, { method: "POST" });
-    if (res.ok) {
-      const d = await res.json();
-      onOpenPatient(d.patientId, "visits");
-    } else {
-      setErr((await res.json().catch(() => ({}))).error || "تعذّر بدء الزيارة (صلاحية الطبيب مطلوبة)");
-    }
-  }
-
-  const load = useCallback(async (d: string) => {
-    setLoading(true);
-    const res = await fetch(`/api/dental/appointments?date=${d}`, { cache: "no-store" });
-    if (res.ok) setAppts((await res.json()).appointments || []);
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    load(date);
-  }, [date, load]);
+  const { data, loading, error, reload } = useApi<{ appointments: Appt[] }>(`/api/dental/appointments?date=${date}`);
+  const appts = data?.appointments ?? [];
 
   useEffect(() => {
     if (showForm && patients.length === 0) {
-      fetch("/api/dental/patients", { cache: "no-store" }).then((r) => {
-        if (r.ok) r.json().then((d) => setPatients(d.patients || []));
-      });
+      apiFetch<{ patients: PatientRow[] }>("/api/dental/patients").then((r) => { if (r.ok) setPatients(r.data.patients || []); });
     }
   }, [showForm, patients.length]);
 
+  async function sendToDoctor(appointmentId: number) {
+    const r = await run<{ patientId: number }>(`/api/dental/appointments/${appointmentId}/start-visit`, "POST", undefined, { success: "تم إدخال المريض للطبيب" });
+    if (r) onOpenPatient(r.patientId, "visits");
+  }
+
   async function setStatus(id: number, status: string) {
-    await fetch(`/api/dental/appointments/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
-    load(date);
+    const ok = await run(`/api/dental/appointments/${id}`, "PATCH", { status }, { success: "تم تحديث حالة الموعد" });
+    if (ok) reload();
   }
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.patientId || !form.startAt) return;
-    setSaving(true);
-    try {
-      const res = await fetch("/api/dental/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
-      if (res.ok) {
-        setShowForm(false);
-        setForm({ patientId: "", treatmentType: "", doctorName: "", startAt: "", durationMin: "30", room: "" });
-        load(date);
-      }
-    } finally {
-      setSaving(false);
+    if (!form.patientId || !form.startAt || pending) return;
+    const ok = await run(`/api/dental/appointments`, "POST", { ...form, startAt: new Date(form.startAt).toISOString() }, { success: "تم حجز الموعد" });
+    if (ok) {
+      setShowForm(false);
+      setForm({ patientId: "", treatmentType: "", doctorName: "", startAt: "", durationMin: "30", room: "" });
+      reload();
     }
   }
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-bold text-[#1F2937]">الاستقبال والمواعيد</h2>
+        <h2 className="text-2xl font-bold text-[#1F2937]">قائمة اليوم</h2>
         <div className="flex items-center gap-2">
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-10 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm outline-none focus:border-[#0F8B94]" />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="تاريخ" className="h-10 rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm outline-none focus:border-[#0F8B94]" />
           <button onClick={() => setShowForm((v) => !v)} className="inline-flex items-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]">
             <Plus className="h-4 w-4" />
             موعد جديد
@@ -706,37 +702,38 @@ function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string
           <input type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} className={INP} required />
           <input value={form.durationMin} onChange={(e) => setForm({ ...form, durationMin: e.target.value })} placeholder="المدة (دقيقة)" className={INP} inputMode="numeric" />
           <input value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="الغرفة" className={INP} />
-          <button disabled={saving} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white md:col-span-3">{saving ? "..." : "حفظ الموعد"}</button>
+          <button disabled={pending || !form.patientId || !form.startAt} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60 md:col-span-3">{pending ? "جارِ الحفظ…" : "حفظ الموعد"}</button>
         </form>
       )}
 
-      {err && <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700">{err}</div>}
-
       <div className="rounded-[24px] border border-[#EAECEF] bg-white shadow-sm">
-        {loading ? (
-          <Spinner />
-        ) : appts.length === 0 ? (
-          <p className="py-16 text-center text-sm text-[#94A3B8]">لا توجد مواعيد في هذا اليوم.</p>
-        ) : (
+        <StateView
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          isEmpty={appts.length === 0}
+          empty={<EmptyState icon={CalendarDays} title="لا توجد مواعيد في هذا اليوم" hint="أضف موعدًا جديدًا أو اختر تاريخًا آخر." action={<button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]"><Plus className="h-4 w-4" /> موعد جديد</button>} />}
+        >
           <div className="divide-y divide-[#F1F5F9]">
             {appts.map((a) => (
               <div key={a.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
                 <div className="flex items-center gap-4">
-                  <span className="w-14 text-sm font-black text-[#0F8B94]">{new Date(a.startAt).toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" })}</span>
+                  <span className="w-14 text-sm font-black text-[#0F8B94]">{fmtTime(a.startAt)}</span>
                   <div>
                     <p className="font-bold text-[#1F2937]">{a.patientName}</p>
                     <p className="text-xs text-[#94A3B8]">{[a.treatmentType, a.doctorName, a.room].filter(Boolean).join(" · ") || "—"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => sendToDoctor(a.id)} className="inline-flex items-center gap-1 rounded-lg bg-[#F1FBFA] px-2.5 py-1 text-xs font-bold text-[#0F8B94] hover:bg-[#E3F5F4]">
+                  <button onClick={() => sendToDoctor(a.id)} disabled={pending} className="inline-flex items-center gap-1 rounded-lg bg-[#F1FBFA] px-2.5 py-1 text-xs font-bold text-[#0F8B94] hover:bg-[#E3F5F4] disabled:opacity-60">
                     <Stethoscope className="h-3.5 w-3.5" /> إدخال للدكتور
                   </button>
                   <button onClick={() => onOpenPatient(a.patientId, "billing")} className="rounded-lg bg-[#F8FAFC] px-2.5 py-1 text-xs font-bold text-[#475569] hover:bg-[#EEF2F6]">دفع</button>
                   <select
                     value={a.status}
+                    disabled={pending}
                     onChange={(e) => setStatus(a.id, e.target.value)}
-                    className={`rounded-lg border-0 px-2.5 py-1 text-xs font-bold ${APPOINTMENT_STATUS_MAP[a.status]?.color || "bg-slate-100 text-slate-600"}`}
+                    className={`rounded-lg border-0 px-2.5 py-1 text-xs font-bold disabled:opacity-60 ${APPOINTMENT_STATUS_MAP[a.status]?.color || "bg-slate-100 text-slate-600"}`}
                   >
                     {APPOINTMENT_STATUSES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
                   </select>
@@ -744,21 +741,13 @@ function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string
               </div>
             ))}
           </div>
-        )}
+        </StateView>
       </div>
     </div>
   );
 }
 
 /* ---------------- shared ---------------- */
-function Spinner() {
-  return (
-    <div className="flex items-center justify-center py-16 text-[#94A3B8]">
-      <Loader2 className="h-6 w-6 animate-spin" />
-    </div>
-  );
-}
-
 const TONES: Record<string, string> = {
   teal: "text-[#0F8B94]",
   emerald: "text-emerald-600",
@@ -781,7 +770,7 @@ function Money({ label, value, tone }: { label: string; value: number; tone?: st
   return (
     <div>
       <p className="text-xs text-[#94A3B8]">{label}</p>
-      <p className={`mt-1 text-xl font-black ${tone === "rose" ? "text-rose-600" : "text-[#1F2937]"}`}>₪ {value.toLocaleString()}</p>
+      <p className={`mt-1 text-xl font-black ${tone === "rose" ? "text-rose-600" : "text-[#1F2937]"}`}>{fmtMoney(value)}</p>
     </div>
   );
 }
