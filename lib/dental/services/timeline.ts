@@ -1,5 +1,6 @@
 import { execute, query } from "@/lib/db";
 import type { TransactionClient } from "@/lib/db";
+import { safeIso } from "@/lib/dental/format";
 
 type Executor = Pick<TransactionClient, "execute"> | null;
 
@@ -45,6 +46,6 @@ export async function getTimeline(companyId: number, patientId: number) {
     refType: r.refType ? String(r.refType) : null,
     refId: r.refId != null ? Number(r.refId) : null,
     actorName: r.actorName ? String(r.actorName) : null,
-    createdAt: new Date(r.createdAt as string | Date).toISOString(),
+    createdAt: safeIso(r.createdAt),
   }));
 }

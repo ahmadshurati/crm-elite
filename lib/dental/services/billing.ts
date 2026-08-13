@@ -3,6 +3,7 @@ import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { CHARGEABLE_STATUSES } from "@/lib/dental/constants";
 import { toCents, toMoney } from "@/lib/dental/money";
+import { safeDate, safeIso } from "@/lib/dental/format";
 
 type Ctx = { companyId: number; userId: number; username: string };
 
@@ -20,14 +21,15 @@ export async function getLedger(companyId: number, patientId: number) {
   ]);
 
   const raw: { date: string; type: string; label: string; amount: number }[] = [];
-  for (const i of items) raw.push({ date: new Date(i.createdAt as string | Date).toISOString(), type: "charge", label: `علاج: ${String(i.treatment)}${i.toothNumber != null ? ` (سن ${i.toothNumber})` : ""}`, amount: Number(i.priceCents || 0) });
+  const nowIso = new Date().toISOString();
+  for (const i of items) raw.push({ date: safeIso(i.createdAt) ?? nowIso, type: "charge", label: `علاج: ${String(i.treatment)}${i.toothNumber != null ? ` (سن ${i.toothNumber})` : ""}`, amount: Number(i.priceCents || 0) });
   const discountCents = Number(plan?.discountCents || 0);
   const insuranceCents = Number(plan?.insuranceCents || 0);
-  const planDate = plan?.updatedAt ? new Date(plan.updatedAt as string | Date).toISOString() : new Date().toISOString();
+  const planDate = safeIso(plan?.updatedAt) ?? nowIso;
   if (discountCents > 0) raw.push({ date: planDate, type: "discount", label: "خصم", amount: -discountCents });
   if (insuranceCents > 0) raw.push({ date: planDate, type: "insurance", label: "تغطية تأمين", amount: -insuranceCents });
-  for (const p of payments) raw.push({ date: new Date(p.createdAt as string | Date).toISOString(), type: "payment", label: `دفعة (${String(p.method)})${p.reference ? ` - ${String(p.reference)}` : ""}`, amount: -Number(p.amountCents || 0) });
-  for (const a of adjustments) raw.push({ date: new Date(a.createdAt as string | Date).toISOString(), type: String(a.type), label: adjLabel(String(a.type), a.reason ? String(a.reason) : null), amount: Number(a.amountCents || 0) });
+  for (const p of payments) raw.push({ date: safeIso(p.createdAt) ?? nowIso, type: "payment", label: `دفعة (${String(p.method)})${p.reference ? ` - ${String(p.reference)}` : ""}`, amount: -Number(p.amountCents || 0) });
+  for (const a of adjustments) raw.push({ date: safeIso(a.createdAt) ?? nowIso, type: String(a.type), label: adjLabel(String(a.type), a.reason ? String(a.reason) : null), amount: Number(a.amountCents || 0) });
 
   raw.sort((x, y) => x.date.localeCompare(y.date));
   let running = 0;
@@ -105,8 +107,8 @@ export async function listInstallments(companyId: number, patientId: number) {
   const today = new Date().toISOString().slice(0, 10);
   return rows.map((r) => {
     let status = String(r.status);
-    const due = new Date(r.dueDate as string | Date).toISOString().slice(0, 10);
-    if (status === "upcoming" && due < today) status = "overdue";
+    const due = safeDate(r.dueDate) ?? "";
+    if (status === "upcoming" && due && due < today) status = "overdue";
     return { id: Number(r.id), dueDate: due, amount: toMoney(r.amountCents), status, note: r.note ? String(r.note) : null };
   });
 }
@@ -169,7 +171,7 @@ export async function createInvoice(ctx: Ctx, patientId: number, input: { type?:
 
 export async function listInvoices(companyId: number, patientId: number) {
   const rows = await query<Record<string, unknown>>("SELECT id, number, type, totalCents, status, createdAt FROM DentalInvoice WHERE patientId = ? AND companyId = ? ORDER BY createdAt DESC", [patientId, companyId]);
-  return rows.map((r) => ({ id: Number(r.id), number: String(r.number), type: String(r.type), total: toMoney(r.totalCents), status: String(r.status), createdAt: new Date(r.createdAt as string | Date).toISOString() }));
+  return rows.map((r) => ({ id: Number(r.id), number: String(r.number), type: String(r.type), total: toMoney(r.totalCents), status: String(r.status), createdAt: safeIso(r.createdAt) }));
 }
 
 export async function getInvoice(companyId: number, id: number) {
@@ -190,7 +192,7 @@ export async function getInvoice(companyId: number, id: number) {
     total: toMoney(r.totalCents),
     status: String(r.status),
     notes: r.notes ? String(r.notes) : null,
-    createdAt: new Date(r.createdAt as string | Date).toISOString(),
+    createdAt: safeIso(r.createdAt),
     patient: patient ? { fullName: String(patient.fullName || ""), patientNumber: String(patient.patientNumber || ""), phone: patient.phone ? String(patient.phone) : null } : null,
   };
 }

@@ -1,4 +1,5 @@
 import { query, queryOne } from "@/lib/db";
+import { safeDate, safeIso } from "@/lib/dental/format";
 
 const toMoney = (c: unknown) => Number(c || 0) / 100;
 
@@ -53,7 +54,7 @@ export async function getReports(companyId: number, from: string, to: string) {
       revenue: toMoney(revenue?.total),
       paymentsCount: Number(revenue?.count || 0),
       byMethod: method,
-      daily: daily.map((d) => ({ date: new Date(d.d as unknown as string).toISOString().slice(0, 10), total: toMoney(d.total) })),
+      daily: daily.map((d) => ({ date: safeDate(d.d) ?? "", total: toMoney(d.total) })),
       outstanding: toMoney(outstandingCents),
     },
     clinic: {
@@ -91,6 +92,6 @@ export async function globalSearch(companyId: number, q: string) {
   return {
     patients: patients.map((p) => ({ id: Number(p.id), patientNumber: String(p.patientNumber || ""), fullName: String(p.fullName || ""), phone: p.phone ? String(p.phone) : null })),
     invoices: invoices.map((i) => ({ id: Number(i.id), number: String(i.number), type: String(i.type), total: toMoney(i.totalCents) })),
-    appointments: appts.map((a) => ({ id: Number(a.id), patientId: Number(a.patientId), fullName: String(a.fullName || ""), startAt: new Date(a.startAt as string | Date).toISOString() })),
+    appointments: appts.map((a) => ({ id: Number(a.id), patientId: Number(a.patientId), fullName: String(a.fullName || ""), startAt: safeIso(a.startAt) })),
   };
 }

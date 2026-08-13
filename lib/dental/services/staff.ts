@@ -1,5 +1,6 @@
 import { execute, query, queryOne } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
+import { safeIso } from "@/lib/dental/format";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { DENTAL_ROLES, resolveDentalRole, type DentalRole } from "@/lib/dental/rbac";
 
@@ -67,7 +68,7 @@ export async function listAudit(companyId: number, opts: { entityType?: string; 
     action: String(r.action),
     entityType: String(r.entityType),
     entityId: r.entityId ? String(r.entityId) : null,
-    createdAt: new Date(r.createdAt as string | Date).toISOString(),
+    createdAt: safeIso(r.createdAt),
     oldValues: r.oldValues ? String(r.oldValues) : null,
     newValues: r.newValues ? String(r.newValues) : null,
   }));

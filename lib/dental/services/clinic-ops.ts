@@ -1,4 +1,5 @@
 import { execute, query, queryOne } from "@/lib/db";
+import { safeDate } from "@/lib/dental/format";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 
@@ -17,7 +18,7 @@ export async function listLabOrders(companyId: number) {
   );
   const today = new Date().toISOString().slice(0, 10);
   return rows.map((l) => {
-    const expected = l.expectedDate ? new Date(l.expectedDate as string | Date).toISOString().slice(0, 10) : null;
+    const expected = safeDate(l.expectedDate);
     const overdue = !!expected && expected < today && !["received", "fitted"].includes(String(l.status));
     return {
       id: Number(l.id), patientId: Number(l.patientId), patientName: String(l.fullName || ""),
@@ -76,7 +77,7 @@ export async function listInventory(companyId: number) {
   const in60 = new Date(Date.now() + 60 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
   return rows.map((r) => {
-    const expiry = r.expiryDate ? new Date(r.expiryDate as string | Date).toISOString().slice(0, 10) : null;
+    const expiry = safeDate(r.expiryDate);
     return {
       id: Number(r.id), name: String(r.name), sku: r.sku ? String(r.sku) : null, brand: r.brand ? String(r.brand) : null,
       quantity: Number(r.quantity), minQuantity: Number(r.minQuantity), purchasePrice: toMoney(r.purchasePriceCents),
@@ -131,8 +132,8 @@ export async function listRecalls(companyId: number, patientId?: number) {
   const today = new Date().toISOString().slice(0, 10);
   return rows.map((r) => {
     let status = String(r.status);
-    const due = new Date(r.dueDate as string | Date).toISOString().slice(0, 10);
-    if (status === "upcoming") { if (due < today) status = "overdue"; else if (due === today) status = "due"; }
+    const due = safeDate(r.dueDate) ?? "";
+    if (status === "upcoming" && due) { if (due < today) status = "overdue"; else if (due === today) status = "due"; }
     return {
       id: Number(r.id), patientId: Number(r.patientId), patientName: String(r.fullName || ""), phone: r.phone ? String(r.phone) : null,
       type: String(r.type), dueDate: due, status, assignedTo: r.assignedTo ? String(r.assignedTo) : null,

@@ -1,4 +1,5 @@
 import { execute, query, queryOne, withTransaction } from "@/lib/db";
+import { safeIso } from "@/lib/dental/format";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 
@@ -109,7 +110,7 @@ export async function getVisitDetail(companyId: number, visitId: number) {
     id: Number(v.id),
     patientId: Number(v.patientId),
     appointmentId: v.appointmentId != null ? Number(v.appointmentId) : null,
-    visitDate: new Date(v.visitDate as string | Date).toISOString(),
+    visitDate: safeIso(v.visitDate),
     status: String(v.status),
     doctorName: v.doctorName ? String(v.doctorName) : null,
     chiefComplaint: v.chiefComplaint ? String(v.chiefComplaint) : null,
@@ -122,10 +123,10 @@ export async function getVisitDetail(companyId: number, visitId: number) {
     notes: v.notes ? String(v.notes) : null,
     recommendations: v.recommendations ? String(v.recommendations) : null,
     postOp: v.postOp ? String(v.postOp) : null,
-    nextVisitAt: v.nextVisitAt ? new Date(v.nextVisitAt as string | Date).toISOString() : null,
+    nextVisitAt: safeIso(v.nextVisitAt),
     treatments: treatments.map((t) => ({ id: Number(t.id), treatment: String(t.treatment), toothNumber: t.toothNumber != null ? Number(t.toothNumber) : null, status: String(t.status), price: Number(t.priceCents || 0) / 100 })),
-    prescriptions: prescriptions.map((p) => ({ id: Number(p.id), items: safeArr(p.items), notes: p.notes ? String(p.notes) : null, diagnosis: p.diagnosis ? String(p.diagnosis) : null, doctorName: p.doctorName ? String(p.doctorName) : null, createdAt: new Date(p.createdAt as string | Date).toISOString() })),
-    toothHistory: toothHistory.map((h) => ({ toothNumber: Number(h.toothNumber), surface: h.surface ? String(h.surface) : null, action: String(h.action), condition: h.condition ? String(h.condition) : null, treatment: h.treatment ? String(h.treatment) : null, createdAt: new Date(h.createdAt as string | Date).toISOString() })),
+    prescriptions: prescriptions.map((p) => ({ id: Number(p.id), items: safeArr(p.items), notes: p.notes ? String(p.notes) : null, diagnosis: p.diagnosis ? String(p.diagnosis) : null, doctorName: p.doctorName ? String(p.doctorName) : null, createdAt: safeIso(p.createdAt) })),
+    toothHistory: toothHistory.map((h) => ({ toothNumber: Number(h.toothNumber), surface: h.surface ? String(h.surface) : null, action: String(h.action), condition: h.condition ? String(h.condition) : null, treatment: h.treatment ? String(h.treatment) : null, createdAt: safeIso(h.createdAt) })),
   };
 }
 

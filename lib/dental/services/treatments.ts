@@ -1,4 +1,5 @@
 import { execute, query, queryOne, withTransaction } from "@/lib/db";
+import { safeIso } from "@/lib/dental/format";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 
@@ -87,7 +88,7 @@ export async function listSessions(companyId: number, itemId: number) {
   return rows.map((s) => ({
     id: Number(s.id),
     sessionNumber: Number(s.sessionNumber),
-    date: new Date(s.date as string | Date).toISOString(),
+    date: safeIso(s.date),
     doctorName: s.doctorName ? String(s.doctorName) : null,
     procedures: s.procedures ? String(s.procedures) : null,
     notes: s.notes ? String(s.notes) : null,

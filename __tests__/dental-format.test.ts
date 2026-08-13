@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtDate, fmtMoney, statusToMessage } from "@/lib/dental/format";
+import { fmtDate, fmtMoney, safeDate, safeIso, statusToMessage } from "@/lib/dental/format";
 
 describe("dental format helpers", () => {
   it("maps HTTP statuses to Arabic messages (with sensible fallbacks)", () => {
@@ -32,5 +32,19 @@ describe("dental format helpers", () => {
     expect(fmtDate("")).toBe("—");
     expect(fmtDate("not-a-date")).toBe("—");
     expect(fmtDate("2026-08-13T00:00:00.000Z")).not.toBe("—");
+  });
+
+  it("safeIso/safeDate never throw on NULL / invalid / MySQL zero dates (the profile-500 bug class)", () => {
+    // These would throw RangeError with a naive new Date(x).toISOString()
+    expect(safeIso(null)).toBeNull();
+    expect(safeIso("")).toBeNull();
+    expect(safeIso("0000-00-00 00:00:00")).toBeNull();
+    expect(safeIso("not-a-date")).toBeNull();
+    expect(safeIso("2026-13-45")).toBeNull();
+    expect(safeIso("2026-08-13T05:00:00.000Z")).toBe("2026-08-13T05:00:00.000Z");
+    expect(safeIso(new Date("2026-08-13T05:00:00.000Z"))).toBe("2026-08-13T05:00:00.000Z");
+
+    expect(safeDate("0000-00-00")).toBeNull();
+    expect(safeDate("2026-08-13T05:00:00.000Z")).toBe("2026-08-13");
   });
 });

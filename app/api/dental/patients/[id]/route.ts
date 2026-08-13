@@ -10,9 +10,14 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   const denied = ensure(ctx, "patients.view");
   if (denied) return denied;
   const { id } = await context.params;
-  const profile = await getPatientProfile(ctx.companyId, Number(id));
-  if (!profile) return NextResponse.json({ error: "المريض غير موجود" }, { status: 404 });
-  return NextResponse.json(profile);
+  try {
+    const profile = await getPatientProfile(ctx.companyId, Number(id));
+    if (!profile) return NextResponse.json({ error: "المريض غير موجود" }, { status: 404 });
+    return NextResponse.json(profile);
+  } catch (error) {
+    console.error("GET /api/dental/patients/[id] error:", error);
+    return NextResponse.json({ error: "تعذّر تحميل ملف المريض" }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: Request, context: { params: Promise<{ id: string }> }) {

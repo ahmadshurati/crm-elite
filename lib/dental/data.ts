@@ -6,6 +6,7 @@ import { addTimelineEvent, getTimeline } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { resolveDentalRole, roleCan, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
 import { clampDurationMin, computeBalance, computeResponsibility, toCents as toCentsPure, toMoney as toMoneyPure } from "@/lib/dental/money";
+import { safeIso } from "@/lib/dental/format";
 
 const CHARGEABLE = ["accepted", "in_progress", "completed"];
 
@@ -85,8 +86,8 @@ export async function listPatients(companyId: number, search: string) {
     fullName: String(r.fullName || ""),
     phone: r.phone ? String(r.phone) : null,
     gender: r.gender ? String(r.gender) : null,
-    lastVisit: r.lastVisit ? new Date(r.lastVisit as string | Date).toISOString() : null,
-    createdAt: new Date(r.createdAt as string | Date).toISOString(),
+    lastVisit: safeIso(r.lastVisit),
+    createdAt: safeIso(r.createdAt),
   }));
 }
 
@@ -209,7 +210,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       patientNumber: String(patient.patientNumber || ""),
       fullName: String(patient.fullName || ""),
       nationalId: patient.nationalId ? String(patient.nationalId) : null,
-      birthDate: patient.birthDate ? new Date(patient.birthDate as string | Date).toISOString().slice(0, 10) : null,
+      birthDate: safeIso(patient.birthDate)?.slice(0, 10) ?? null,
       age,
       gender: patient.gender ? String(patient.gender) : null,
       phone: patient.phone ? String(patient.phone) : null,
@@ -223,7 +224,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       medications: parseJsonArray(patient.medications),
       otherConditions: parseJsonArray(patient.otherConditions),
       medical,
-      medicalReviewedAt: patient.medicalReviewedAt ? new Date(patient.medicalReviewedAt as string | Date).toISOString() : null,
+      medicalReviewedAt: safeIso(patient.medicalReviewedAt),
       medicalReviewedBy: patient.medicalReviewedBy ? String(patient.medicalReviewedBy) : null,
       alerts,
     },
@@ -231,17 +232,17 @@ export async function getPatientProfile(companyId: number, patientId: number) {
     nextAppointment: nextAppointment
       ? {
           id: Number(nextAppointment.id),
-          startAt: new Date(nextAppointment.startAt as string | Date).toISOString(),
+          startAt: safeIso(nextAppointment.startAt),
           treatmentType: nextAppointment.treatmentType ? String(nextAppointment.treatmentType) : null,
           doctorName: nextAppointment.doctorName ? String(nextAppointment.doctorName) : null,
         }
       : null,
-    lastVisit: lastVisitRow ? new Date(lastVisitRow.visitDate as string | Date).toISOString() : null,
+    lastVisit: safeIso(lastVisitRow?.visitDate),
     teeth: teeth.map((t) => ({ toothNumber: Number(t.toothNumber), condition: String(t.condition), notes: t.notes ? String(t.notes) : null })),
     toothSurfaces: surfaces.map((s) => ({ toothNumber: Number(s.toothNumber), surface: String(s.surface), condition: String(s.condition) })),
     visits: visits.map((v) => ({
       id: Number(v.id),
-      visitDate: new Date(v.visitDate as string | Date).toISOString(),
+      visitDate: safeIso(v.visitDate),
       status: String(v.status || "completed"),
       doctorName: v.doctorName ? String(v.doctorName) : null,
       chiefComplaint: v.chiefComplaint ? String(v.chiefComplaint) : null,
@@ -249,7 +250,7 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       teeth: v.teeth ? String(v.teeth) : null,
       procedures: v.procedures ? String(v.procedures) : null,
       notes: v.notes ? String(v.notes) : null,
-      nextVisitAt: v.nextVisitAt ? new Date(v.nextVisitAt as string | Date).toISOString() : null,
+      nextVisitAt: safeIso(v.nextVisitAt),
     })),
     plan: plan ? { id: Number(plan.id), title: String(plan.title), discount: toMoney(discountCents), insurance: toMoney(insuranceCents), status: String(plan.status) } : null,
     planItems: planItems.map((i) => ({
@@ -261,8 +262,8 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       status: String(i.status),
       expectedSessions: i.expectedSessions != null ? Number(i.expectedSessions) : null,
       sessionsDone: Number(i.sessionsDone || 0),
-      acceptedAt: i.acceptedAt ? new Date(i.acceptedAt as string | Date).toISOString() : null,
-      completedAt: i.completedAt ? new Date(i.completedAt as string | Date).toISOString() : null,
+      acceptedAt: safeIso(i.acceptedAt),
+      completedAt: safeIso(i.completedAt),
     })),
     payments: payments.map((p) => ({
       id: Number(p.id),
@@ -270,10 +271,10 @@ export async function getPatientProfile(companyId: number, patientId: number) {
       method: String(p.method),
       notes: p.notes ? String(p.notes) : null,
       voided: Boolean(p.voidedAt),
-      createdAt: new Date(p.createdAt as string | Date).toISOString(),
+      createdAt: safeIso(p.createdAt),
     })),
-    prescriptions: prescriptions.map((p) => ({ id: Number(p.id), items: parseJsonArray(p.items), notes: p.notes ? String(p.notes) : null, doctorName: p.doctorName ? String(p.doctorName) : null, diagnosis: p.diagnosis ? String(p.diagnosis) : null, createdAt: new Date(p.createdAt as string | Date).toISOString() })),
-    appointments: appts.map((a) => ({ id: Number(a.id), startAt: new Date(a.startAt as string | Date).toISOString(), treatmentType: a.treatmentType ? String(a.treatmentType) : null, doctorName: a.doctorName ? String(a.doctorName) : null, status: String(a.status) })),
+    prescriptions: prescriptions.map((p) => ({ id: Number(p.id), items: parseJsonArray(p.items), notes: p.notes ? String(p.notes) : null, doctorName: p.doctorName ? String(p.doctorName) : null, diagnosis: p.diagnosis ? String(p.diagnosis) : null, createdAt: safeIso(p.createdAt) })),
+    appointments: appts.map((a) => ({ id: Number(a.id), startAt: safeIso(a.startAt), treatmentType: a.treatmentType ? String(a.treatmentType) : null, doctorName: a.doctorName ? String(a.doctorName) : null, status: String(a.status) })),
     timeline,
     finance: {
       subtotal: toMoney(subtotalCents),
@@ -413,7 +414,7 @@ export async function getToothPanel(companyId: number, patientId: number, toothN
       treatment: h.treatment ? String(h.treatment) : null,
       doctorName: h.doctorName ? String(h.doctorName) : null,
       notes: h.notes ? String(h.notes) : null,
-      createdAt: new Date(h.createdAt as string | Date).toISOString(),
+      createdAt: safeIso(h.createdAt),
     })),
     treatments: treatments.map((t) => ({ treatment: String(t.treatment), status: String(t.status), price: Number(t.priceCents || 0) / 100 })),
   };
@@ -458,7 +459,7 @@ export async function listFiles(companyId: number, patientId: number, opts: { to
     mimeType: f.mimeType ? String(f.mimeType) : null,
     toothNumber: f.toothNumber != null ? Number(f.toothNumber) : null,
     description: f.description ? String(f.description) : null,
-    createdAt: new Date(f.createdAt as string | Date).toISOString(),
+    createdAt: safeIso(f.createdAt),
   }));
 }
 
@@ -603,7 +604,7 @@ export async function listAppointments(companyId: number, date: string) {
     phone: a.phone ? String(a.phone) : null,
     doctorName: a.doctorName ? String(a.doctorName) : null,
     treatmentType: a.treatmentType ? String(a.treatmentType) : null,
-    startAt: new Date(a.startAt as string | Date).toISOString(),
+    startAt: safeIso(a.startAt),
     durationMin: Number(a.durationMin || 30),
     room: a.room ? String(a.room) : null,
     status: String(a.status),
@@ -626,7 +627,7 @@ export async function listAppointmentsRange(companyId: number, from: string, to:
     phone: a.phone ? String(a.phone) : null,
     doctorName: a.doctorName ? String(a.doctorName) : null,
     treatmentType: a.treatmentType ? String(a.treatmentType) : null,
-    startAt: new Date(a.startAt as string | Date).toISOString(),
+    startAt: safeIso(a.startAt),
     durationMin: Number(a.durationMin || 30),
     room: a.room ? String(a.room) : null,
     status: String(a.status),
@@ -765,8 +766,8 @@ export async function getDashboard(companyId: number) {
       recallsDue: Number(ops?.recallsDue || 0),
       installmentsDue: Number(ops?.installmentsDue || 0),
     },
-    upcoming: upcoming.map((u) => ({ startAt: new Date(u.startAt as string | Date).toISOString(), fullName: String(u.fullName || ""), doctorName: u.doctorName ? String(u.doctorName) : null, status: String(u.status) })),
-    recent: recent.map((r) => ({ type: String(r.type), title: String(r.title), actorName: r.actorName ? String(r.actorName) : null, createdAt: new Date(r.createdAt as string | Date).toISOString() })),
+    upcoming: upcoming.map((u) => ({ startAt: safeIso(u.startAt), fullName: String(u.fullName || ""), doctorName: u.doctorName ? String(u.doctorName) : null, status: String(u.status) })),
+    recent: recent.map((r) => ({ type: String(r.type), title: String(r.title), actorName: r.actorName ? String(r.actorName) : null, createdAt: safeIso(r.createdAt) })),
     alerts,
   };
 }

@@ -1,5 +1,6 @@
 import { execute, query, queryOne } from "@/lib/db";
 import { clampDurationMin } from "@/lib/dental/money";
+import { safeIso } from "@/lib/dental/format";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 
@@ -42,7 +43,7 @@ export async function findConflicts(companyId: number, input: ConflictInput) {
     patientName: String(r.fullName || ""),
     doctorName: r.doctorName ? String(r.doctorName) : null,
     room: r.room ? String(r.room) : null,
-    startAt: new Date(r.startAt as string | Date).toISOString(),
+    startAt: safeIso(r.startAt),
     durationMin: Number(r.durationMin || 30),
   }));
 }
@@ -66,7 +67,7 @@ export async function rescheduleAppointment(ctx: Ctx, id: number, input: { start
   await addTimelineEvent({ companyId: ctx.companyId, patientId: Number(appt.patientId), type: "appointment", title: `أُعيد جدولة الموعد إلى ${startAt.toLocaleString("ar")}`, refType: "appointment", refId: id, actorName: ctx.username });
   await writeDentalAudit({
     companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "reschedule", entityType: "appointment", entityId: id,
-    oldValues: { startAt: new Date(appt.startAt as string | Date).toISOString(), doctorName: appt.doctorName, room: appt.room },
+    oldValues: { startAt: safeIso(appt.startAt), doctorName: appt.doctorName, room: appt.room },
     newValues: { startAt: startAt.toISOString(), doctorName, room, durationMin },
   });
 }

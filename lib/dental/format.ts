@@ -58,6 +58,18 @@ export function fmtTime(value: unknown): string {
   return d.toLocaleTimeString("ar", { hour: "2-digit", minute: "2-digit" });
 }
 
+/** Convert a DB datetime/date to an ISO string safely — returns null on NULL/invalid/zero dates (never throws). */
+export function safeIso(value: unknown): string | null {
+  if (!value) return null;
+  const d = value instanceof Date ? value : new Date(String(value));
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Same, trimmed to YYYY-MM-DD. */
+export function safeDate(value: unknown): string | null {
+  return safeIso(value)?.slice(0, 10) ?? null;
+}
+
 /** Convert an ISO/date to the value a <input type="datetime-local"> expects (local tz). */
 export function toDateTimeLocal(value: unknown): string {
   const d = toDate(value);
