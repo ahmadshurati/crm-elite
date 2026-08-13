@@ -162,13 +162,30 @@ export function useApi<T>(url: string | null) {
   const [loading, setLoading] = useState<boolean>(!!url);
   const [error, setError] = useState<string | null>(null);
   const dataRef = useRef<T | null>(null);
+  const seqRef = useRef(0);
+  const mountedRef = useRef(true);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; abortRef.current?.abort(); };
+  }, []);
 
   const reload = useCallback(async () => {
     if (!url) return;
+    // Cancel any in-flight request; only the latest one is allowed to write state.
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const seq = ++seqRef.current;
     const firstLoad = dataRef.current === null;
     if (firstLoad) setLoading(true);
     setError(null);
-    const r = await apiFetch<T>(url);
+    const r = await apiFetch<T>(url, { signal: controller.signal });
+    // Ignore stale responses (a newer request started) and post-unmount writes.
+    // These guards run BEFORE any state write, so aborts we triggered never surface as errors;
+    // anything reaching below is the latest, still-mounted request (a real result or real failure).
+    if (!mountedRef.current || seq !== seqRef.current) return;
     if (r.ok) {
       dataRef.current = r.data;
       setData(r.data);

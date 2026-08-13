@@ -85,8 +85,10 @@ export async function completeVisit(ctx: Ctx, visitId: number) {
     [visitId, ctx.companyId]
   );
   if (!visit) throw new Error("الزيارة غير موجودة");
+  if (visit.status === "completed") return; // idempotent: avoid duplicate timeline/audit on double-complete
   await withTransaction(async (tx) => {
-    await tx.execute("UPDATE DentalVisit SET status = 'completed', updatedAt = NOW() WHERE id = ?", [visitId]);
+    const flip = await tx.execute("UPDATE DentalVisit SET status = 'completed', updatedAt = NOW() WHERE id = ? AND companyId = ? AND status <> 'completed'", [visitId, ctx.companyId]);
+    if (flip.affectedRows === 0) return;
     if (visit.appointmentId) {
       await tx.execute("UPDATE DentalAppointment SET status = 'completed' WHERE id = ? AND companyId = ? AND status NOT IN ('cancelled')", [visit.appointmentId, ctx.companyId]);
     }

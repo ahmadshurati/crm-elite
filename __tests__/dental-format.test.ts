@@ -22,6 +22,11 @@ describe("dental format helpers", () => {
     expect(fmtMoney(undefined)).toBe("₪ 0");
   });
 
+  it("renders credits/negative balances (e.g. overpayment) with a sign", () => {
+    expect(fmtMoney(-500)).toBe("₪ -500");
+    expect(fmtMoney(-1234.5)).toBe("₪ -1,234.5");
+  });
+
   it("guards invalid dates instead of rendering 'Invalid Date'", () => {
     expect(fmtDate(null)).toBe("—");
     expect(fmtDate("")).toBe("—");

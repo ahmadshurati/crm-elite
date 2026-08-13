@@ -406,7 +406,7 @@ function TreatmentsCatalog() {
 
 /* ---------------- Dashboard ---------------- */
 type DashData = {
-  today: { total: number; arrived: number; upcoming: number; cancelled: number; noShow: number; newPatients: number };
+  today: { total: number; waiting: number; withDoctor: number; arrived: number; upcoming: number; completed: number; cancelled: number; noShow: number; newPatients: number };
   finance: { todayIncome: number; monthIncome: number; paid: number; remaining: number; byMethod: Record<string, number> };
   ops: { labsDue: number; lowStock: number; recallsDue: number; installmentsDue: number };
   upcoming: { startAt: string; fullName: string; doctorName: string | null; status: string }[];
@@ -440,20 +440,27 @@ function Dashboard({ onGo }: { onGo: (v: View) => void }) {
         <p className="mt-1 text-sm text-[#707A84]">نظرة مباشرة على وضع العيادة اليوم.</p>
       </div>
 
+      {/* Primary: live flow of the day — what reception/doctor act on right now */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
         <button onClick={() => onGo("reception")} className="text-right"><Kpi label="مواعيد اليوم" value={data.today.total} tone="teal" /></button>
-        <Kpi label="وصلوا" value={data.today.arrived} tone="emerald" />
-        <Kpi label="قادمة" value={data.today.upcoming} tone="blue" />
-        <Kpi label="ملغاة" value={data.today.cancelled} tone="rose" />
-        <Kpi label="لم يحضروا" value={data.today.noShow} tone="gray" />
-        <button onClick={() => onGo("patients")} className="text-right"><Kpi label="مرضى جدد" value={data.today.newPatients} tone="violet" /></button>
+        <button onClick={() => onGo("reception")} className="text-right"><Kpi label="بالانتظار" value={data.today.waiting} tone="amber" /></button>
+        <button onClick={() => onGo("reception")} className="text-right"><Kpi label="مع الطبيب" value={data.today.withDoctor} tone="violet" /></button>
+        <button onClick={() => onGo("reception")} className="text-right"><Kpi label="قادمة اليوم" value={data.today.upcoming} tone="blue" /></button>
+        <Kpi label="مكتملة" value={data.today.completed} tone="emerald" />
+        <button onClick={() => onGo("patients")} className="text-right"><Kpi label="مرضى جدد" value={data.today.newPatients} tone="teal" /></button>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <button onClick={() => onGo("labs")} className="text-right"><Kpi label="طلبات مختبر متأخرة" value={data.ops.labsDue} tone="rose" /></button>
-        <button onClick={() => onGo("inventory")} className="text-right"><Kpi label="أصناف منخفضة" value={data.ops.lowStock} tone="rose" /></button>
-        <button onClick={() => onGo("recall")} className="text-right"><Kpi label="تذكيرات مستحقة" value={data.ops.recallsDue} tone="teal" /></button>
-        <Kpi label="أقساط مستحقة" value={data.ops.installmentsDue} tone="violet" />
+      {/* Secondary: things needing follow-up, muted so they don't compete with the live flow */}
+      <div>
+        <p className="mb-2 text-xs font-bold text-[#94A3B8]">يحتاج متابعة</p>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+          <button onClick={() => onGo("recall")} className="text-right"><MiniStat label="تذكيرات مستحقة" value={data.ops.recallsDue} alert={data.ops.recallsDue > 0} /></button>
+          <button onClick={() => onGo("labs")} className="text-right"><MiniStat label="مختبر متأخر" value={data.ops.labsDue} alert={data.ops.labsDue > 0} /></button>
+          <button onClick={() => onGo("inventory")} className="text-right"><MiniStat label="مخزون منخفض" value={data.ops.lowStock} alert={data.ops.lowStock > 0} /></button>
+          <MiniStat label="أقساط مستحقة" value={data.ops.installmentsDue} alert={data.ops.installmentsDue > 0} />
+          <Kpi label="ملغاة" value={data.today.cancelled} tone="gray" />
+          <Kpi label="لم يحضروا" value={data.today.noShow} tone="rose" />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
@@ -755,6 +762,7 @@ const TONES: Record<string, string> = {
   rose: "text-rose-600",
   gray: "text-gray-500",
   violet: "text-violet-600",
+  amber: "text-amber-600",
 };
 
 function Kpi({ label, value, tone }: { label: string; value: number; tone: string }) {
@@ -762,6 +770,16 @@ function Kpi({ label, value, tone }: { label: string; value: number; tone: strin
     <div className="rounded-[20px] border border-[#EAECEF] bg-white p-4 shadow-sm">
       <p className={`text-3xl font-black ${TONES[tone] || TONES.teal}`}>{value}</p>
       <p className="mt-1 text-xs font-bold text-[#64748B]">{label}</p>
+    </div>
+  );
+}
+
+/** Compact secondary metric — visually lighter than a KPI, highlights only when there's something to act on. */
+function MiniStat({ label, value, alert }: { label: string; value: number; alert?: boolean }) {
+  return (
+    <div className={`rounded-2xl border p-3 shadow-sm ${alert ? "border-rose-200 bg-rose-50/60" : "border-[#EAECEF] bg-white"}`}>
+      <p className={`text-xl font-black ${alert ? "text-rose-600" : "text-[#334155]"}`}>{value}</p>
+      <p className="mt-0.5 text-[11px] font-bold text-[#64748B]">{label}</p>
     </div>
   );
 }

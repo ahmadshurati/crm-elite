@@ -152,12 +152,15 @@ export async function completeTreatment(ctx: Ctx, itemId: number) {
     [itemId, ctx.companyId]
   );
   if (!item) throw new Error("العلاج غير موجود");
+  if (String(item.status) === "completed") return; // idempotent: avoid duplicate chart history/timeline
   const patientId = Number(item.patientId);
   const toothNumber = item.toothNumber != null ? Number(item.toothNumber) : null;
   const chartCondition = item.chartCondition ? String(item.chartCondition) : null;
 
   await withTransaction(async (tx) => {
-    await tx.execute("UPDATE DentalTreatmentItem SET status = 'completed', completedAt = NOW() WHERE id = ?", [itemId]);
+    // Conditional flip guards concurrent double-complete; only the winner runs side-effects.
+    const flip = await tx.execute("UPDATE DentalTreatmentItem SET status = 'completed', completedAt = NOW() WHERE id = ? AND companyId = ? AND status <> 'completed'", [itemId, ctx.companyId]);
+    if (flip.affectedRows === 0) return;
 
     if (toothNumber != null && chartCondition) {
       await tx.execute(

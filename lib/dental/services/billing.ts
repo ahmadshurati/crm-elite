@@ -58,7 +58,7 @@ function adjLabel(type: string, reason: string | null) {
 export async function addAdjustment(ctx: Ctx, patientId: number, input: { type: string; amount: number; reason?: string | null }) {
   const type = ["refund", "credit", "charge"].includes(String(input.type)) ? String(input.type) : "charge";
   let cents = Math.abs(toCents(input.amount));
-  if (cents <= 0) throw new Error("المبلغ يجب أن يكون أكبر من صفر");
+  if (!Number.isFinite(cents) || cents <= 0) throw new Error("المبلغ يجب أن يكون أكبر من صفر");
   // credit reduces balance; refund & extra charge increase balance
   if (type === "credit") cents = -cents;
   const result = await execute(
@@ -72,9 +72,12 @@ export async function addAdjustment(ctx: Ctx, patientId: number, input: { type: 
 }
 
 export async function voidLedgerEntry(ctx: Ctx, id: number, reason: string) {
-  const row = await queryOne<{ patientId: number }>("SELECT patientId FROM DentalLedgerEntry WHERE id = ? AND companyId = ? AND voidedAt IS NULL LIMIT 1", [id, ctx.companyId]);
-  if (!row) throw new Error("القيد غير موجود أو ملغى");
-  await execute("UPDATE DentalLedgerEntry SET voidedAt = NOW(), voidReason = ? WHERE id = ?", [reason || null, id]);
+  // Conditional update is the source of truth (race-safe): only one caller can flip voidedAt.
+  const res = await execute(
+    "UPDATE DentalLedgerEntry SET voidedAt = NOW(), voidReason = ? WHERE id = ? AND companyId = ? AND voidedAt IS NULL",
+    [reason || null, id, ctx.companyId]
+  );
+  if (res.affectedRows === 0) throw new Error("القيد غير موجود أو ملغى مسبقاً");
   await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "void", entityType: "ledger", entityId: id, newValues: { reason } });
 }
 
@@ -113,11 +116,14 @@ export async function payInstallment(ctx: Ctx, id: number, method: string) {
   if (!inst) throw new Error("القسط غير موجود");
   if (inst.status === "paid") throw new Error("القسط مدفوع مسبقاً");
   await withTransaction(async (tx) => {
+    // Flip status first with a conditional update; the row lock serializes concurrent clicks,
+    // so only the winner inserts a payment (prevents double payment on double-submit/race).
+    const flip = await tx.execute("UPDATE DentalInstallment SET status = 'paid', paidAt = NOW() WHERE id = ? AND companyId = ? AND status <> 'paid'", [id, ctx.companyId]);
+    if (flip.affectedRows === 0) throw new Error("القسط مدفوع مسبقاً");
     const pay = await tx.execute(
       "INSERT INTO DentalPayment (companyId, patientId, amount, amountCents, method, reference, notes, createdByUserId, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())",
       [ctx.companyId, inst.patientId, toMoney(inst.amountCents), inst.amountCents, method || "cash", `قسط #${id}`, null, ctx.userId]
     );
-    await tx.execute("UPDATE DentalInstallment SET status = 'paid', paidAt = NOW() WHERE id = ?", [id]);
     await addTimelineEvent({ companyId: ctx.companyId, patientId: Number(inst.patientId), type: "payment", title: `سداد قسط ₪ ${toMoney(inst.amountCents).toLocaleString()}`, refType: "payment", refId: Number(pay.insertId), actorName: ctx.username }, tx);
     await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "payment", entityType: "installment", entityId: id, newValues: { amountCents: inst.amountCents } }, tx);
   });

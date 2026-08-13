@@ -5,12 +5,22 @@ import { Loader2 } from "lucide-react";
 import { apiFetch, fmtDate, fmtMoney, useToast } from "@/components/dental/ui";
 import {
   CONDITION_MAP,
+  PLAN_ITEM_STATUS_MAP,
   PRIMARY_QUADRANTS,
   QUADRANTS,
   TOOTH_CONDITIONS,
   TOOTH_HISTORY_ACTIONS,
   TOOTH_SURFACES,
 } from "@/lib/dental/constants";
+
+const TX_STATUS_STYLE: Record<string, string> = {
+  proposed: "bg-slate-100 text-slate-600",
+  accepted: "bg-emerald-50 text-emerald-700",
+  declined: "bg-rose-50 text-rose-700",
+  in_progress: "bg-amber-50 text-amber-700",
+  completed: "bg-teal-50 text-teal-700",
+  cancelled: "bg-gray-100 text-gray-400",
+};
 
 type Tooth = { toothNumber: number; condition: string };
 type Surface = { toothNumber: number; surface: string; condition: string };
@@ -199,15 +209,19 @@ export function DentalChart({
             <div>
               {panel && panel.treatments.length > 0 && (
                 <div className="mb-4">
-                  <p className="mb-2 text-sm font-bold text-[#334155]">العلاجات المرتبطة</p>
+                  <p className="mb-2 text-sm font-bold text-[#334155]">العلاجات (مخطّطة / منفّذة)</p>
                   <div className="space-y-1.5">
                     {panel.treatments.map((t, i) => (
-                      <div key={i} className="flex items-center justify-between rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
+                      <div key={i} className="flex items-center justify-between gap-2 rounded-lg bg-[#F8FAFC] px-3 py-2 text-xs">
                         <span className="font-bold text-[#1F2937]">{t.treatment}</span>
-                        <span className="text-[#94A3B8]">{fmtMoney(t.price)}</span>
+                        <span className="flex items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 font-bold ${TX_STATUS_STYLE[t.status] || "bg-slate-100 text-slate-600"}`}>{PLAN_ITEM_STATUS_MAP[t.status] || t.status}</span>
+                          <span className="text-[#94A3B8]">{fmtMoney(t.price)}</span>
+                        </span>
                       </div>
                     ))}
                   </div>
+                  <p className="mt-1.5 text-[11px] text-[#94A3B8]">الألوان على الرسم تُمثّل حالة السن الحالية؛ أما العلاجات المخطّطة فتظهر هنا بحالتها.</p>
                 </div>
               )}
 

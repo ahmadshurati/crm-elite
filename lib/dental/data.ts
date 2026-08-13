@@ -5,7 +5,7 @@ import { resolveCompanyId } from "@/lib/tenant";
 import { addTimelineEvent, getTimeline } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { resolveDentalRole, roleCan, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
-import { computeBalance, computeResponsibility, toCents as toCentsPure, toMoney as toMoneyPure } from "@/lib/dental/money";
+import { clampDurationMin, computeBalance, computeResponsibility, toCents as toCentsPure, toMoney as toMoneyPure } from "@/lib/dental/money";
 
 const CHARGEABLE = ["accepted", "in_progress", "completed"];
 
@@ -53,6 +53,8 @@ export function ensure(ctx: DentalContext, permission: DentalPermission): NextRe
 
 const toCents = toCentsPure;
 const toMoney = toMoneyPure;
+
+const clampDuration = clampDurationMin;
 
 function parseJsonArray(value: unknown): string[] {
   if (!value) return [];
@@ -510,7 +512,9 @@ export async function voidPayment(ctx: DentalContext, paymentId: number, reason:
   );
   if (!payment) throw new Error("الدفعة غير موجودة أو ملغاة مسبقاً");
   await withTransaction(async (tx) => {
-    await tx.execute("UPDATE DentalPayment SET voidedAt = NOW(), voidReason = ? WHERE id = ?", [reason || null, paymentId]);
+    // Conditional update guards against a double-void race (two concurrent requests).
+    const res = await tx.execute("UPDATE DentalPayment SET voidedAt = NOW(), voidReason = ? WHERE id = ? AND companyId = ? AND voidedAt IS NULL", [reason || null, paymentId, ctx.companyId]);
+    if (res.affectedRows === 0) throw new Error("الدفعة ملغاة مسبقاً");
     await addTimelineEvent({ companyId: ctx.companyId, patientId: Number(payment.patientId), type: "payment", title: "إلغاء دفعة (Void)", refType: "payment", refId: paymentId, actorName: ctx.username }, tx);
     await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "void", entityType: "payment", entityId: paymentId, oldValues: { amountCents: payment.amountCents }, newValues: { reason } }, tx);
   });
@@ -631,6 +635,9 @@ export async function listAppointmentsRange(companyId: number, from: string, to:
 
 export async function createAppointment(ctx: DentalContext, input: Record<string, unknown>) {
   const patientId = Number(input.patientId);
+  const startAt = new Date(String(input.startAt));
+  if (isNaN(startAt.getTime())) throw new Error("وقت الموعد غير صحيح");
+  const durationMin = clampDuration(input.durationMin);
   const result = await execute(
     `INSERT INTO DentalAppointment (companyId, patientId, doctorName, treatmentType, startAt, durationMin, room, status, notes, createdByUserId, createdAt, updatedAt)
      VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, NOW(), NOW())`,
@@ -639,8 +646,8 @@ export async function createAppointment(ctx: DentalContext, input: Record<string
       patientId,
       input.doctorName ? String(input.doctorName) : null,
       input.treatmentType ? String(input.treatmentType) : null,
-      new Date(String(input.startAt)),
-      Number(input.durationMin) || 30,
+      startAt,
+      durationMin,
       input.room ? String(input.room) : null,
       input.notes ? String(input.notes) : null,
       ctx.userId,
@@ -736,8 +743,11 @@ export async function getDashboard(companyId: number) {
   return {
     today: {
       total: totalToday,
+      waiting: (statusMap.arrived || 0) + (statusMap.waiting || 0),
+      withDoctor: statusMap.in_treatment || 0,
       arrived: (statusMap.arrived || 0) + (statusMap.in_treatment || 0) + (statusMap.waiting || 0),
       upcoming: (statusMap.scheduled || 0) + (statusMap.confirmed || 0),
+      completed: statusMap.completed || 0,
       cancelled: statusMap.cancelled || 0,
       noShow: statusMap.no_show || 0,
       newPatients: Number(newPatients?.count || 0),

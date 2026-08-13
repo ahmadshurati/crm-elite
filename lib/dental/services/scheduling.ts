@@ -1,4 +1,5 @@
 import { execute, query, queryOne } from "@/lib/db";
+import { clampDurationMin } from "@/lib/dental/money";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 
@@ -53,7 +54,8 @@ export async function rescheduleAppointment(ctx: Ctx, id: number, input: { start
   );
   if (!appt) throw new Error("الموعد غير موجود");
   const startAt = new Date(input.startAt);
-  const durationMin = input.durationMin != null ? Number(input.durationMin) : Number(appt.durationMin);
+  if (isNaN(startAt.getTime())) throw new Error("وقت الموعد غير صحيح");
+  const durationMin = clampDurationMin(input.durationMin != null ? input.durationMin : appt.durationMin);
   const doctorName = input.doctorName !== undefined ? (input.doctorName || null) : appt.doctorName;
   const room = input.room !== undefined ? (input.room || null) : appt.room;
 

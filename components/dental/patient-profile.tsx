@@ -965,8 +965,15 @@ function SessionsPanel({ itemId, onChange }: { itemId: number; onChange: () => v
 
 function Billing({ patientId, data, onChange }: { patientId: number; data: Profile; onChange: () => void }) {
   const [form, setForm] = useState({ amount: "", method: "cash", notes: "" });
+  const [finVersion, setFinVersion] = useState(0);
   const { pending, run } = useMutation();
   const confirm = useConfirm();
+
+  // Any money movement must refresh the top summary (profile) AND the ledger/installments panels.
+  function refreshFinancials() {
+    onChange();
+    setFinVersion((v) => v + 1);
+  }
 
   async function pay(e: React.FormEvent) {
     e.preventDefault();
@@ -974,7 +981,7 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
     const ok = await run(`/api/dental/patients/${patientId}/payments`, "POST", form, { success: "تم تسجيل الدفعة" });
     if (ok) {
       setForm({ amount: "", method: "cash", notes: "" });
-      onChange();
+      refreshFinancials();
     }
   }
 
@@ -982,7 +989,7 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
     const yes = await confirm({ title: "إلغاء الدفعة (Void)", message: "لا يمكن التراجع عن هذا الإجراء. سيبقى سجل الدفعة ظاهرًا كملغى للحفاظ على التاريخ المالي.", confirmText: "إلغاء الدفعة", danger: true });
     if (!yes) return;
     const ok = await run(`/api/dental/payments/${id}`, "PATCH", { reason: "إلغاء يدوي" }, { success: "تم إلغاء الدفعة" });
-    if (ok) onChange();
+    if (ok) refreshFinancials();
   }
 
   return (
@@ -1037,19 +1044,19 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
       </Card>
 
       <div className="lg:col-span-2">
-        <LedgerPanel patientId={patientId} onChange={onChange} />
+        <LedgerPanel patientId={patientId} version={finVersion} onChange={refreshFinancials} />
       </div>
-      <Installments patientId={patientId} />
-      <Invoices patientId={patientId} />
+      <Installments patientId={patientId} version={finVersion} onChange={refreshFinancials} />
+      <Invoices patientId={patientId} version={finVersion} />
     </div>
   );
 }
 
-function LedgerPanel({ patientId, onChange }: { patientId: number; onChange: () => void }) {
+function LedgerPanel({ patientId, version, onChange }: { patientId: number; version: number; onChange: () => void }) {
   type Ledger = { entries: { date: string; type: string; label: string; amount: number; balance: number }[]; summary: Record<string, number> };
   const [adj, setAdj] = useState({ type: "credit", amount: "", reason: "" });
   const { pending, run } = useMutation();
-  const { data: ledger, loading, error, reload } = useApi<Ledger>(`/api/dental/patients/${patientId}/ledger`);
+  const { data: ledger, loading, error, reload } = useApi<Ledger>(`/api/dental/patients/${patientId}/ledger?_v=${version}`);
 
   async function addAdjustment(e: React.FormEvent) {
     e.preventDefault();
@@ -1099,11 +1106,11 @@ function LedgerPanel({ patientId, onChange }: { patientId: number; onChange: () 
   );
 }
 
-function Installments({ patientId }: { patientId: number }) {
+function Installments({ patientId, version, onChange }: { patientId: number; version: number; onChange: () => void }) {
   type Inst = { id: number; dueDate: string; amount: number; status: string; note: string | null };
   const [form, setForm] = useState({ count: "3", amountEach: "", startDate: new Date().toISOString().slice(0, 10), note: "" });
   const { pending, run } = useMutation();
-  const { data, loading, error, reload } = useApi<{ installments: Inst[] }>(`/api/dental/patients/${patientId}/installments`);
+  const { data, loading, error, reload } = useApi<{ installments: Inst[] }>(`/api/dental/patients/${patientId}/installments?_v=${version}`);
   const list = data?.installments ?? [];
 
   async function create(e: React.FormEvent) {
@@ -1115,7 +1122,7 @@ function Installments({ patientId }: { patientId: number }) {
 
   async function pay(id: number) {
     const ok = await run(`/api/dental/installments/${id}`, "PATCH", { method: "cash" }, { success: "تم سداد القسط" });
-    if (ok) reload();
+    if (ok) onChange(); // sadad creates a payment → refresh summary/ledger/installments together
   }
 
   const badge: Record<string, string> = { upcoming: "bg-slate-100 text-slate-600", overdue: "bg-rose-50 text-rose-700", paid: "bg-emerald-50 text-emerald-700" };
@@ -1150,11 +1157,11 @@ function Installments({ patientId }: { patientId: number }) {
   );
 }
 
-function Invoices({ patientId }: { patientId: number }) {
+function Invoices({ patientId, version }: { patientId: number; version: number }) {
   type Inv = { id: number; number: string; type: string; total: number; status: string; createdAt: string };
   const [type, setType] = useState("invoice");
   const { pending, run } = useMutation();
-  const { data, loading, error, reload } = useApi<{ invoices: Inv[] }>(`/api/dental/patients/${patientId}/invoices`);
+  const { data, loading, error, reload } = useApi<{ invoices: Inv[] }>(`/api/dental/patients/${patientId}/invoices?_v=${version}`);
   const list = data?.invoices ?? [];
 
   async function issue() {

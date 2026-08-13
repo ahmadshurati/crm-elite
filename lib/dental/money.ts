@@ -32,6 +32,13 @@ export function runningBalance<T extends LedgerInput>(entries: T[]): (T & { bala
   });
 }
 
+/** Clamp an appointment/visit duration to a sane positive number of minutes. */
+export function clampDurationMin(value: unknown, fallback = 30, max = 600): number {
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.min(n, max);
+}
+
 /** Two time ranges overlap when each starts before the other ends. Durations in minutes. */
 export function appointmentsOverlap(aStart: Date, aDurationMin: number, bStart: Date, bDurationMin: number): boolean {
   const aEnd = aStart.getTime() + aDurationMin * 60000;

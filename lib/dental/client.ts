@@ -15,11 +15,16 @@ const DEFAULT_TIMEOUT = 20000;
  */
 export async function apiFetch<T = unknown>(
   url: string,
-  opts: RequestInit & { timeoutMs?: number } = {}
+  opts: RequestInit & { timeoutMs?: number; signal?: AbortSignal } = {}
 ): Promise<ApiResult<T>> {
-  const { timeoutMs = DEFAULT_TIMEOUT, headers, ...init } = opts;
+  const { timeoutMs = DEFAULT_TIMEOUT, headers, signal: externalSignal, ...init } = opts;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // Allow the caller (e.g. useApi cleanup) to cancel this request.
+  if (externalSignal) {
+    if (externalSignal.aborted) controller.abort();
+    else externalSignal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
 
   const finalHeaders: Record<string, string> = { ...(headers as Record<string, string> | undefined) };
   if (init.body && typeof init.body === "string" && !finalHeaders["Content-Type"]) {

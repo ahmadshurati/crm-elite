@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { appointmentsOverlap } from "@/lib/dental/money";
+import { appointmentsOverlap, clampDurationMin } from "@/lib/dental/money";
 
 const at = (h: number, m = 0) => new Date(2026, 7, 20, h, m, 0, 0);
+
+describe("appointment duration validation", () => {
+  it("rejects non-positive / invalid durations with a safe default and caps extremes", () => {
+    expect(clampDurationMin(45)).toBe(45);
+    expect(clampDurationMin(0)).toBe(30);
+    expect(clampDurationMin(-5)).toBe(30);
+    expect(clampDurationMin("abc")).toBe(30);
+    expect(clampDurationMin(null)).toBe(30);
+    expect(clampDurationMin(30.6)).toBe(31);
+    expect(clampDurationMin(99999)).toBe(600);
+  });
+});
 
 describe("appointment conflict detection", () => {
   it("flags overlapping appointments", () => {
