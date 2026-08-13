@@ -130,6 +130,16 @@ export async function createPatient(ctx: DentalContext, input: Record<string, un
   return { id, patientNumber };
 }
 
+/** Run a profile sub-query; on failure log which section broke and return a fallback (graceful degradation). */
+async function section<T>(label: string, patientId: number, promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise;
+  } catch (error) {
+    console.error(`getPatientProfile section "${label}" failed (patient ${patientId}):`, error);
+    return fallback;
+  }
+}
+
 export async function getPatientProfile(companyId: number, patientId: number) {
   const patient = await queryOne<Record<string, unknown>>(
     "SELECT * FROM DentalPatient WHERE id = ? AND companyId = ? AND deletedAt IS NULL LIMIT 1",
@@ -138,25 +148,30 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   if (!patient) return null;
 
   const [teeth, surfaces, visits, planItems, payments, prescriptions, appts, timeline] = await Promise.all([
-    query<Record<string, unknown>>("SELECT toothNumber, condition, notes FROM DentalToothCondition WHERE patientId = ?", [patientId]),
-    query<Record<string, unknown>>("SELECT toothNumber, surface, condition FROM DentalToothSurface WHERE patientId = ?", [patientId]),
-    query<Record<string, unknown>>("SELECT * FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC", [patientId]),
-    query<Record<string, unknown>>(
-      `SELECT i.*, c.code AS catalogCode, c.expectedSessions AS expectedSessions,
-        (SELECT COUNT(*) FROM DentalTreatmentSession s WHERE s.itemId = i.id) AS sessionsDone
-       FROM DentalTreatmentItem i
-       LEFT JOIN DentalTreatmentCatalog c ON c.id = i.catalogId
-       WHERE i.patientId = ? ORDER BY i.createdAt ASC`,
-      [patientId]
+    section("teeth", patientId, query<Record<string, unknown>>("SELECT toothNumber, condition, notes FROM DentalToothCondition WHERE patientId = ?", [patientId]), []),
+    section("surfaces", patientId, query<Record<string, unknown>>("SELECT toothNumber, surface, condition FROM DentalToothSurface WHERE patientId = ?", [patientId]), []),
+    section("visits", patientId, query<Record<string, unknown>>("SELECT * FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC", [patientId]), []),
+    section(
+      "planItems",
+      patientId,
+      query<Record<string, unknown>>(
+        `SELECT i.*, c.code AS catalogCode, c.expectedSessions AS expectedSessions,
+          (SELECT COUNT(*) FROM DentalTreatmentSession s WHERE s.itemId = i.id) AS sessionsDone
+         FROM DentalTreatmentItem i
+         LEFT JOIN DentalTreatmentCatalog c ON c.id = i.catalogId
+         WHERE i.patientId = ? ORDER BY i.createdAt ASC`,
+        [patientId]
+      ),
+      []
     ),
-    query<Record<string, unknown>>("SELECT * FROM DentalPayment WHERE patientId = ? ORDER BY createdAt DESC", [patientId]),
-    query<Record<string, unknown>>("SELECT * FROM DentalPrescription WHERE patientId = ? ORDER BY createdAt DESC", [patientId]),
-    query<Record<string, unknown>>("SELECT * FROM DentalAppointment WHERE patientId = ? ORDER BY startAt DESC LIMIT 20", [patientId]),
-    getTimeline(companyId, patientId),
+    section("payments", patientId, query<Record<string, unknown>>("SELECT * FROM DentalPayment WHERE patientId = ? ORDER BY createdAt DESC", [patientId]), []),
+    section("prescriptions", patientId, query<Record<string, unknown>>("SELECT * FROM DentalPrescription WHERE patientId = ? ORDER BY createdAt DESC", [patientId]), []),
+    section("appointments", patientId, query<Record<string, unknown>>("SELECT * FROM DentalAppointment WHERE patientId = ? ORDER BY startAt DESC LIMIT 20", [patientId]), []),
+    section("timeline", patientId, getTimeline(companyId, patientId), [] as Awaited<ReturnType<typeof getTimeline>>),
   ]);
   const [plan, adjustRow] = await Promise.all([
-    queryOne<Record<string, unknown>>("SELECT * FROM DentalTreatmentPlan WHERE patientId = ? ORDER BY createdAt DESC LIMIT 1", [patientId]),
-    queryOne<{ total: number }>("SELECT COALESCE(SUM(amountCents),0) AS total FROM DentalLedgerEntry WHERE patientId = ? AND voidedAt IS NULL", [patientId]),
+    section("plan", patientId, queryOne<Record<string, unknown>>("SELECT * FROM DentalTreatmentPlan WHERE patientId = ? ORDER BY createdAt DESC LIMIT 1", [patientId]), null),
+    section("adjustments", patientId, queryOne<{ total: number }>("SELECT COALESCE(SUM(amountCents),0) AS total FROM DentalLedgerEntry WHERE patientId = ? AND voidedAt IS NULL", [patientId]), null),
   ]);
 
   const discountCents = Number(plan?.discountCents || 0);
@@ -193,16 +208,16 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   const planCounts = { proposed: 0, accepted: 0, declined: 0, in_progress: 0, completed: 0, cancelled: 0 } as Record<string, number>;
   for (const i of planItems) planCounts[String(i.status)] = (planCounts[String(i.status)] || 0) + 1;
 
-  const nextAppointment = await queryOne<Record<string, unknown>>(
+  const nextAppointment = await section("nextAppointment", patientId, queryOne<Record<string, unknown>>(
     `SELECT id, startAt, treatmentType, doctorName, status FROM DentalAppointment
      WHERE companyId = ? AND patientId = ? AND startAt >= NOW() AND status NOT IN ('cancelled','no_show','completed')
      ORDER BY startAt ASC LIMIT 1`,
     [companyId, patientId]
-  );
-  const lastVisitRow = await queryOne<{ visitDate: string | Date }>(
+  ), null);
+  const lastVisitRow = await section("lastVisit", patientId, queryOne<{ visitDate: string | Date }>(
     "SELECT visitDate FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC LIMIT 1",
     [patientId]
-  );
+  ), null);
 
   return {
     patient: {
