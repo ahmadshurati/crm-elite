@@ -652,6 +652,7 @@ function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [showForm, setShowForm] = useState(false);
   const [patients, setPatients] = useState<PatientRow[]>([]);
+  const [options, setOptions] = useState<{ doctors: string[]; rooms: string[]; treatments: { id: number; name: string; defaultPrice: number }[] }>({ doctors: [], rooms: [], treatments: [] });
   const [form, setForm] = useState({ patientId: "", treatmentType: "", doctorName: "", startAt: "", durationMin: "30", room: "" });
   const { pending, run } = useMutation();
 
@@ -659,8 +660,9 @@ function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string
   const appts = data?.appointments ?? [];
 
   useEffect(() => {
-    if (showForm && patients.length === 0) {
-      apiFetch<{ patients: PatientRow[] }>("/api/dental/patients").then((r) => { if (r.ok) setPatients(r.data.patients || []); });
+    if (showForm) {
+      if (patients.length === 0) apiFetch<{ patients: PatientRow[] }>("/api/dental/patients").then((r) => { if (r.ok) setPatients(r.data.patients || []); });
+      apiFetch<typeof options>("/api/dental/clinic-options").then((r) => { if (r.ok) setOptions(r.data); });
     }
   }, [showForm, patients.length]);
 
@@ -704,11 +706,20 @@ function Reception({ onOpenPatient }: { onOpenPatient: (id: number, tab?: string
             <option value="">اختر المريض</option>
             {patients.map((p) => <option key={p.id} value={p.id}>{p.fullName} — {p.patientNumber}</option>)}
           </select>
-          <input value={form.treatmentType} onChange={(e) => setForm({ ...form, treatmentType: e.target.value })} placeholder="نوع العلاج" className={INP} />
-          <input value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} placeholder="الطبيب" className={INP} />
+          <select value={form.treatmentType} onChange={(e) => setForm({ ...form, treatmentType: e.target.value })} className={INP}>
+            <option value="">نوع العلاج</option>
+            {options.treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+          </select>
+          <select value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} className={INP}>
+            <option value="">الطبيب</option>
+            {options.doctors.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
           <input type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} className={INP} required />
           <input value={form.durationMin} onChange={(e) => setForm({ ...form, durationMin: e.target.value })} placeholder="المدة (دقيقة)" className={INP} inputMode="numeric" />
-          <input value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="الغرفة" className={INP} />
+          <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} className={INP}>
+            <option value="">الغرفة</option>
+            {options.rooms.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
           <button disabled={pending || !form.patientId || !form.startAt} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60 md:col-span-3">{pending ? "جارِ الحفظ…" : "حفظ الموعد"}</button>
         </form>
       )}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Plus, Stethoscope, Wallet, X } from "lucide-react";
-import { apiFetch, fmtDateTime, fmtTime, useToast } from "@/components/dental/ui";
+import { ChevronLeft, ChevronRight, Loader2, Plus, Wallet, X } from "lucide-react";
+import { apiFetch, fmtDateTime, useToast } from "@/components/dental/ui";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP } from "@/lib/dental/constants";
 
 const INP = "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none focus:border-[#0F8B94]";
@@ -177,8 +177,6 @@ export function DentalCalendar({ onOpenPatient }: { onOpenPatient: (id: number, 
 function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; onClose: () => void; onChanged: () => void; onOpenPatient: (id: number, tab?: string) => void }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [resched, setResched] = useState({ startAt: toLocalInput(new Date(appt.startAt)), durationMin: String(appt.durationMin) });
-  const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
 
   async function setStatus(status: string) {
     if (busy) return;
@@ -186,29 +184,6 @@ function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; on
     const r = await apiFetch(`/api/dental/appointments/${appt.id}`, { method: "PATCH", body: JSON.stringify({ status }) });
     setBusy(false);
     if (r.ok) { toast.success("تم تحديث حالة الموعد"); onChanged(); }
-    else toast.error(r.error);
-  }
-
-  async function saveReschedule(override = false) {
-    if (busy) return;
-    setBusy(true);
-    setConflicts(null);
-    const r = await apiFetch<unknown>(`/api/dental/appointments/${appt.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ startAt: new Date(resched.startAt).toISOString(), durationMin: Number(resched.durationMin) || 30, doctorName: appt.doctorName, room: appt.room, override }),
-    });
-    setBusy(false);
-    if (r.ok) { toast.success("تم تحديث الموعد"); onChanged(); return; }
-    if (r.status === 409) { setConflicts(((r.body as { conflicts?: Conflict[] })?.conflicts) || []); return; }
-    toast.error(r.error);
-  }
-
-  async function sendToDoctor() {
-    if (busy) return;
-    setBusy(true);
-    const r = await apiFetch<{ patientId: number }>(`/api/dental/appointments/${appt.id}/start-visit`, { method: "POST" });
-    setBusy(false);
-    if (r.ok) { toast.success("تم إدخال المريض للطبيب"); onOpenPatient(r.data.patientId, "visits"); }
     else toast.error(r.error);
   }
 
@@ -234,34 +209,22 @@ function ApptPanel({ appt, onClose, onChanged, onOpenPatient }: { appt: Appt; on
           </select>
         </div>
 
-        <div className="mt-4 rounded-2xl bg-[#F8FAFC] p-3">
-          <p className="mb-2 text-xs font-bold text-[#334155]">إعادة الجدولة</p>
-          <input type="datetime-local" value={resched.startAt} onChange={(e) => setResched({ ...resched, startAt: e.target.value })} className={`${INP} mb-2`} />
-          <input value={resched.durationMin} onChange={(e) => setResched({ ...resched, durationMin: e.target.value })} placeholder="المدة (دقيقة)" className={`${INP} mb-2`} inputMode="numeric" />
-          <button onClick={() => saveReschedule(false)} disabled={busy} className="w-full rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">حفظ الموعد الجديد</button>
-          {conflicts && conflicts.length > 0 && (
-            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-              <p className="font-bold">تعارض مع:</p>
-              {conflicts.map((c) => <p key={c.id}>{c.patientName} — {fmtTime(c.startAt)}</p>)}
-              <button onClick={() => saveReschedule(true)} className="mt-1 font-bold text-amber-900 underline">احجز رغم التعارض</button>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button onClick={sendToDoctor} disabled={busy} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#F1FBFA] px-3 py-2 text-sm font-bold text-[#0F8B94]"><Stethoscope className="h-4 w-4" /> إدخال للدكتور</button>
-          <button onClick={() => onOpenPatient(appt.patientId, "billing")} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm font-bold text-[#475569]"><Wallet className="h-4 w-4" /> دفع</button>
-          <button onClick={() => onOpenPatient(appt.patientId, "overview")} className="rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm font-bold text-[#475569]">فتح الملف</button>
-          <button onClick={() => setStatus("cancelled")} disabled={busy} className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-600">إلغاء الموعد</button>
+        <div className="mt-5 grid grid-cols-1 gap-2">
+          <button onClick={() => onOpenPatient(appt.patientId, "overview")} className="rounded-xl bg-[#0F8B94] px-3 py-2.5 text-sm font-bold text-white hover:bg-[#0B6E75]">فتح الملف</button>
+          <button onClick={() => onOpenPatient(appt.patientId, "billing")} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#F8FAFC] px-3 py-2.5 text-sm font-bold text-[#475569] hover:bg-[#EEF2F6]"><Wallet className="h-4 w-4" /> دفع</button>
+          <button onClick={() => setStatus("cancelled")} disabled={busy} className="rounded-xl bg-rose-50 px-3 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-100 disabled:opacity-60">إلغاء الموعد</button>
         </div>
       </div>
     </div>
   );
 }
 
+type ClinicOptions = { doctors: string[]; rooms: string[]; treatments: { id: number; name: string; defaultPrice: number }[] };
+
 function NewAppointmentModal({ initialDate, onClose, onCreated }: { initialDate: Date; onClose: () => void; onCreated: () => void }) {
   const toast = useToast();
   const [patients, setPatients] = useState<PatientRow[]>([]);
+  const [options, setOptions] = useState<ClinicOptions>({ doctors: [], rooms: [], treatments: [] });
   const [form, setForm] = useState({ patientId: "", treatmentType: "", doctorName: "", startAt: toLocalInput(initialDate), durationMin: "30", room: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -269,6 +232,7 @@ function NewAppointmentModal({ initialDate, onClose, onCreated }: { initialDate:
 
   useEffect(() => {
     apiFetch<{ patients: PatientRow[] }>("/api/dental/patients").then((r) => { if (r.ok) setPatients(r.data.patients || []); });
+    apiFetch<ClinicOptions>("/api/dental/clinic-options").then((r) => { if (r.ok) setOptions(r.data); });
   }, []);
 
   async function submit(override = false) {
@@ -299,11 +263,20 @@ function NewAppointmentModal({ initialDate, onClose, onCreated }: { initialDate:
             <option value="">اختر المريض</option>
             {patients.map((p) => <option key={p.id} value={p.id}>{p.fullName} — {p.patientNumber}</option>)}
           </select>
-          <input value={form.treatmentType} onChange={(e) => setForm({ ...form, treatmentType: e.target.value })} placeholder="نوع العلاج" className={INP} />
-          <input value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} placeholder="الطبيب" className={INP} />
+          <select value={form.treatmentType} onChange={(e) => setForm({ ...form, treatmentType: e.target.value })} className={INP}>
+            <option value="">نوع العلاج</option>
+            {options.treatments.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+          </select>
+          <select value={form.doctorName} onChange={(e) => setForm({ ...form, doctorName: e.target.value })} className={INP}>
+            <option value="">الطبيب</option>
+            {options.doctors.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
           <input type="datetime-local" value={form.startAt} onChange={(e) => setForm({ ...form, startAt: e.target.value })} className={INP} />
           <input value={form.durationMin} onChange={(e) => setForm({ ...form, durationMin: e.target.value })} placeholder="المدة (دقيقة)" className={INP} inputMode="numeric" />
-          <input value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} placeholder="الغرفة" className={`${INP} md:col-span-2`} />
+          <select value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })} className={`${INP} md:col-span-2`}>
+            <option value="">الغرفة</option>
+            {options.rooms.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
         </div>
         {conflicts && conflicts.length > 0 && (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">

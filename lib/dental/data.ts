@@ -398,23 +398,23 @@ export async function setToothSurface(ctx: DentalContext, patientId: number, too
 
 export async function getToothPanel(companyId: number, patientId: number, toothNumber: number) {
   const [condRow, surfaces, history, treatments, files] = await Promise.all([
-    queryOne<{ condition: string; notes: string | null }>(
+    section("tooth.condition", patientId, queryOne<{ condition: string; notes: string | null }>(
       "SELECT condition, notes FROM DentalToothCondition WHERE patientId = ? AND toothNumber = ? LIMIT 1",
       [patientId, toothNumber]
-    ),
-    query<Record<string, unknown>>("SELECT surface, condition FROM DentalToothSurface WHERE patientId = ? AND toothNumber = ?", [patientId, toothNumber]),
-    query<Record<string, unknown>>(
+    ), null),
+    section("tooth.surfaces", patientId, query<Record<string, unknown>>("SELECT surface, condition FROM DentalToothSurface WHERE patientId = ? AND toothNumber = ?", [patientId, toothNumber]), []),
+    section("tooth.history", patientId, query<Record<string, unknown>>(
       "SELECT action, surface, `condition`, treatment, doctorName, notes, createdAt FROM DentalToothHistory WHERE patientId = ? AND toothNumber = ? ORDER BY createdAt DESC LIMIT 100",
       [patientId, toothNumber]
-    ),
-    query<Record<string, unknown>>(
+    ), []),
+    section("tooth.treatments", patientId, query<Record<string, unknown>>(
       "SELECT treatment, status, priceCents FROM DentalTreatmentItem WHERE patientId = ? AND toothNumber = ? ORDER BY createdAt DESC",
       [patientId, toothNumber]
-    ),
-    query<Record<string, unknown>>(
+    ), []),
+    section("tooth.files", patientId, query<Record<string, unknown>>(
       "SELECT id, category, fileUrl, fileName FROM DentalFile WHERE patientId = ? AND toothNumber = ? AND deletedAt IS NULL ORDER BY createdAt DESC LIMIT 20",
       [patientId, toothNumber]
-    ),
+    ), []),
   ]);
   return {
     toothNumber,

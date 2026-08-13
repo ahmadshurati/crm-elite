@@ -231,7 +231,7 @@ export function DentalChart({
                   <div className="grid grid-cols-3 gap-2">
                     {panel.files.map((f) => (
                       <a key={f.id} href={f.fileUrl} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-[#EAECEF]">
-                        <img src={f.fileUrl} alt={f.fileName} className="h-16 w-full object-cover" />
+                        <img src={f.fileUrl} alt={f.fileName} loading="lazy" decoding="async" className="h-16 w-full object-cover" />
                       </a>
                     ))}
                   </div>

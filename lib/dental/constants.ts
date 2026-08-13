@@ -35,6 +35,11 @@ export const PRIMARY_QUADRANTS: { id: string; label: string; teeth: number[] }[]
   { id: "ll", label: "سفلي أيسر", teeth: [71, 72, 73, 74, 75] },
 ];
 
+// Flat FDI tooth-number lists for dropdowns (avoid free-text tooth entry).
+export const PERMANENT_TEETH: number[] = QUADRANTS.flatMap((q) => q.teeth);
+export const PRIMARY_TEETH: number[] = PRIMARY_QUADRANTS.flatMap((q) => q.teeth);
+export const ALL_TEETH: number[] = [...PERMANENT_TEETH, ...PRIMARY_TEETH];
+
 export const TOOTH_SURFACES: { id: string; label: string; short: string }[] = [
   { id: "mesial", label: "إنسي (Mesial)", short: "M" },
   { id: "distal", label: "وحشي (Distal)", short: "D" },

@@ -910,6 +910,18 @@ model DentalInventoryItem {
   @@index([companyId])
 }
 
+model DentalClinicOption {
+  id              Int      @id @default(autoincrement())
+  companyId       Int
+  kind            String
+  name            String
+  active          Boolean  @default(true)
+  createdByUserId Int?
+  createdAt       DateTime @default(now())
+
+  @@index([companyId, kind])
+}
+
 model DentalRecall {
   id              Int       @id @default(autoincrement())
   companyId       Int

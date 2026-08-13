@@ -9,6 +9,49 @@ const toCents = (v: unknown) => Math.round(Number(v || 0) * 100);
 const toMoney = (c: unknown) => Number(c || 0) / 100;
 const dateOrNull = (v: unknown) => (v ? String(v).slice(0, 10) : null);
 
+/* ---------------- Clinic options (doctors & rooms dropdowns) ---------------- */
+export async function listClinicOptions(companyId: number) {
+  const [defined, apptRows] = await Promise.all([
+    query<{ kind: string; name: string }>("SELECT kind, name FROM DentalClinicOption WHERE companyId = ? AND active = 1 ORDER BY name ASC", [companyId]),
+    // Include any names already used on appointments so nothing silently disappears from the dropdowns.
+    query<{ doctorName: string | null; room: string | null }>("SELECT DISTINCT doctorName, room FROM DentalAppointment WHERE companyId = ?", [companyId]),
+  ]);
+  const doctors = new Set<string>();
+  const rooms = new Set<string>();
+  for (const o of defined) {
+    if (o.kind === "doctor" && o.name) doctors.add(String(o.name));
+    if (o.kind === "room" && o.name) rooms.add(String(o.name));
+  }
+  for (const a of apptRows) {
+    if (a.doctorName) doctors.add(String(a.doctorName));
+    if (a.room) rooms.add(String(a.room));
+  }
+  return { doctors: [...doctors], rooms: [...rooms] };
+}
+
+export async function listClinicOptionsManage(companyId: number) {
+  const rows = await query<Record<string, unknown>>("SELECT id, kind, name, active FROM DentalClinicOption WHERE companyId = ? ORDER BY kind, name ASC", [companyId]);
+  return rows.map((r) => ({ id: Number(r.id), kind: String(r.kind), name: String(r.name), active: Boolean(r.active) }));
+}
+
+export async function createClinicOption(ctx: Ctx, kind: string, name: string) {
+  const k = kind === "doctor" || kind === "room" ? kind : null;
+  const nm = String(name || "").trim().slice(0, 180);
+  if (!k) throw new Error("نوع غير صحيح");
+  if (!nm) throw new Error("الاسم مطلوب");
+  const dup = await queryOne<{ id: number }>("SELECT id FROM DentalClinicOption WHERE companyId = ? AND kind = ? AND name = ? LIMIT 1", [ctx.companyId, k, nm]);
+  if (dup) throw new Error("موجود مسبقاً");
+  const result = await execute("INSERT INTO DentalClinicOption (companyId, kind, name, active, createdByUserId, createdAt) VALUES (?, ?, ?, 1, ?, NOW())", [ctx.companyId, k, nm, ctx.userId]);
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "create", entityType: "clinicOption", entityId: Number(result.insertId), newValues: { kind: k, name: nm } });
+  return Number(result.insertId);
+}
+
+export async function deleteClinicOption(ctx: Ctx, id: number) {
+  const res = await execute("DELETE FROM DentalClinicOption WHERE id = ? AND companyId = ?", [id, ctx.companyId]);
+  if (res.affectedRows === 0) throw new Error("العنصر غير موجود");
+  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "delete", entityType: "clinicOption", entityId: id });
+}
+
 /* ---------------- Lab orders ---------------- */
 export async function listLabOrders(companyId: number) {
   const rows = await query<Record<string, unknown>>(

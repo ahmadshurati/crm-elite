@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, ShieldCheck } from "lucide-react";
-import { fmtDateTime, StateView, useApi, useMutation } from "@/components/dental/ui";
+import { fmtDateTime, StateView, useApi, useConfirm, useMutation } from "@/components/dental/ui";
 import { DENTAL_PERMISSION_LABELS, DENTAL_ROLE_LABELS, DENTAL_ROLES, permissionsForRole, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
 
 const INP = "h-11 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm text-[#1F2937] outline-none focus:border-[#0F8B94]";
@@ -75,17 +75,82 @@ export function StaffDashboard() {
 
 /* ---------------- Settings hub (audit + roles) ---------------- */
 export function SettingsHub() {
-  const [tab, setTab] = useState<"audit" | "roles">("audit");
+  const [tab, setTab] = useState<"clinic" | "audit" | "roles">("clinic");
+  const tabs: { id: typeof tab; label: string }[] = [
+    { id: "clinic", label: "الأطباء والغرف" },
+    { id: "audit", label: "سجل التدقيق" },
+    { id: "roles", label: "الأدوار والصلاحيات" },
+  ];
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-2xl font-bold text-[#1F2937]">الإعدادات والأمان</h2>
         <div className="flex rounded-xl border border-[#E5E7EB] bg-white p-0.5">
-          <button onClick={() => setTab("audit")} className={`rounded-lg px-3 py-1.5 text-sm font-bold ${tab === "audit" ? "bg-[#0F8B94] text-white" : "text-[#475569]"}`}>سجل التدقيق</button>
-          <button onClick={() => setTab("roles")} className={`rounded-lg px-3 py-1.5 text-sm font-bold ${tab === "roles" ? "bg-[#0F8B94] text-white" : "text-[#475569]"}`}>الأدوار والصلاحيات</button>
+          {tabs.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)} className={`rounded-lg px-3 py-1.5 text-sm font-bold ${tab === t.id ? "bg-[#0F8B94] text-white" : "text-[#475569]"}`}>{t.label}</button>
+          ))}
         </div>
       </div>
-      {tab === "audit" ? <AuditLog /> : <RolesReference />}
+      {tab === "clinic" ? <ClinicOptionsManager /> : tab === "audit" ? <AuditLog /> : <RolesReference />}
+    </div>
+  );
+}
+
+type ClinicOption = { id: number; kind: string; name: string; active: boolean };
+
+function ClinicOptionsManager() {
+  const confirm = useConfirm();
+  const { pending, run } = useMutation();
+  const { data, loading, error, reload } = useApi<{ options: ClinicOption[] }>("/api/dental/clinic-options?manage=1");
+  const options = data?.options ?? [];
+  const doctors = options.filter((o) => o.kind === "doctor");
+  const rooms = options.filter((o) => o.kind === "room");
+  const [doctorName, setDoctorName] = useState("");
+  const [roomName, setRoomName] = useState("");
+
+  async function add(kind: "doctor" | "room", name: string, reset: () => void) {
+    if (!name.trim() || pending) return;
+    const ok = await run("/api/dental/clinic-options", "POST", { kind, name }, { success: "تمت الإضافة" });
+    if (ok) { reset(); reload(); }
+  }
+
+  async function remove(o: ClinicOption) {
+    const yes = await confirm({ title: "حذف", message: `حذف «${o.name}»؟`, danger: true, confirmText: "حذف" });
+    if (!yes) return;
+    const ok = await run(`/api/dental/clinic-options/${o.id}`, "DELETE", undefined, { success: "تم الحذف" });
+    if (ok) reload();
+  }
+
+  return (
+    <StateView loading={loading} error={error} onRetry={reload}>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <OptionColumn title="الأطباء" list={doctors} value={doctorName} setValue={setDoctorName} placeholder="اسم الطبيب (مثال: د. أحمد)" pending={pending} onAdd={() => add("doctor", doctorName, () => setDoctorName(""))} onRemove={remove} />
+        <OptionColumn title="الغرف" list={rooms} value={roomName} setValue={setRoomName} placeholder="اسم الغرفة (مثال: غرفة 1)" pending={pending} onAdd={() => add("room", roomName, () => setRoomName(""))} onRemove={remove} />
+      </div>
+    </StateView>
+  );
+}
+
+function OptionColumn({ title, list, value, setValue, placeholder, pending, onAdd, onRemove }: { title: string; list: ClinicOption[]; value: string; setValue: (v: string) => void; placeholder: string; pending: boolean; onAdd: () => void; onRemove: (o: ClinicOption) => void }) {
+  return (
+    <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+      <h3 className="mb-3 text-lg font-bold text-[#1F2937]">{title}</h3>
+      <form onSubmit={(e) => { e.preventDefault(); onAdd(); }} className="mb-4 flex gap-2">
+        <input value={value} onChange={(e) => setValue(e.target.value)} placeholder={placeholder} className={INP} />
+        <button disabled={pending || !value.trim()} className="inline-flex items-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
+      </form>
+      {list.length === 0 ? (
+        <p className="py-4 text-center text-sm text-[#94A3B8]">لا توجد عناصر بعد.</p>
+      ) : (
+        <div className="space-y-2">
+          {list.map((o) => (
+            <div key={o.id} className="flex items-center justify-between rounded-xl bg-[#F8FAFC] px-3 py-2 text-sm">
+              <span className="font-bold text-[#1F2937]">{o.name}</span>
+              <button onClick={() => onRemove(o)} className="rounded-lg border border-[#E5E7EB] px-2 py-0.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50">حذف</button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Plus, Stethoscope, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
 import { apiFetch, EmptyState, fmtDate, fmtDateTime, fmtMoney, StateView, useApi, useConfirm, useMutation, useToast } from "@/components/dental/ui";
-import { FILE_CATEGORIES, FILE_CATEGORY_MAP, PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
+import { ALL_TEETH, FILE_CATEGORIES, FILE_CATEGORY_MAP, PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
 
 const TABS = [
   { id: "overview", label: "نظرة عامة" },
@@ -708,7 +708,10 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
 
       {tab === "tooth" && (
         <div className="mt-3 grid grid-cols-1 gap-2 rounded-2xl bg-[#F8FAFC] p-3 md:grid-cols-[120px_1fr_auto]">
-          <input value={tooth.toothNumber} onChange={(e) => setTooth({ ...tooth, toothNumber: e.target.value })} placeholder="رقم السن" className={INP} inputMode="numeric" />
+          <select value={tooth.toothNumber} onChange={(e) => setTooth({ ...tooth, toothNumber: e.target.value })} className={INP}>
+            <option value="">رقم السن</option>
+            {ALL_TEETH.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
           <select value={tooth.condition} onChange={(e) => setTooth({ ...tooth, condition: e.target.value })} className={INP}>
             {TOOTH_CONDITIONS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
@@ -722,7 +725,10 @@ function VisitActions({ visitId, patientId, doctorName, onDone }: { visitId: num
             <option value="">— اختر علاجاً —</option>
             {catalog.map((c) => <option key={c.id} value={c.id}>{c.name} · ₪{c.defaultPrice.toLocaleString()}</option>)}
           </select>
-          <input value={tx.toothNumber} onChange={(e) => setTx({ ...tx, toothNumber: e.target.value })} placeholder="السن" className={INP} inputMode="numeric" />
+          <select value={tx.toothNumber} onChange={(e) => setTx({ ...tx, toothNumber: e.target.value })} className={INP}>
+            <option value="">السن</option>
+            {ALL_TEETH.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
           <input value={tx.price} onChange={(e) => setTx({ ...tx, price: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
           <button disabled={busy || !tx.catalogId} onClick={() => post(`/api/dental/patients/${patientId}/plan-items`, { catalogId: Number(tx.catalogId), toothNumber: tx.toothNumber, price: tx.price, visitId }, "تمت إضافة العلاج للخطة")} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">أضف للخطة</button>
         </div>
@@ -835,7 +841,10 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
             ))}
           </select>
         )}
-        <input value={form.toothNumber} onChange={(e) => setForm({ ...form, toothNumber: e.target.value })} placeholder={selected?.requiresTooth ? "السن *" : "السن"} className={INP} inputMode="numeric" />
+        <select value={form.toothNumber} onChange={(e) => setForm({ ...form, toothNumber: e.target.value })} className={INP}>
+          <option value="">{selected?.requiresTooth ? "السن *" : "السن"}</option>
+          {ALL_TEETH.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
         <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} placeholder="السعر ₪" className={INP} inputMode="numeric" />
         <button disabled={pending} className="inline-flex items-center justify-center gap-1 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"><Plus className="h-4 w-4" /> إضافة</button>
       </form>
@@ -1356,7 +1365,7 @@ function FilesTab({ patientId, kind }: { patientId: number; kind: "imaging" | "d
           {files.map((f) => (
             <div key={f.id} className="group relative overflow-hidden rounded-xl border border-[#EAECEF]">
               {f.mimeType?.startsWith("image/") ? (
-                <a href={f.fileUrl} target="_blank" rel="noreferrer"><img src={f.fileUrl} alt={f.fileName} className="h-32 w-full object-cover" /></a>
+                <a href={f.fileUrl} target="_blank" rel="noreferrer"><img src={f.fileUrl} alt={f.fileName} loading="lazy" decoding="async" className="h-32 w-full object-cover" /></a>
               ) : (
                 <a href={f.fileUrl} target="_blank" rel="noreferrer" className="flex h-32 w-full items-center justify-center bg-[#F1F5F9] text-xs font-bold text-[#64748B]">PDF</a>
               )}

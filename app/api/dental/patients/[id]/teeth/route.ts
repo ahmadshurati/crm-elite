@@ -21,10 +21,15 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
   }
   const condition = String(body.condition || "healthy");
   const visitId = body.visitId != null && body.visitId !== "" ? Number(body.visitId) : null;
-  if (body.surface) {
-    await setToothSurface(ctx, patientId, toothNumber, String(body.surface), condition, visitId);
-  } else {
-    await setToothCondition(ctx, patientId, toothNumber, condition, body.notes ? String(body.notes) : null, visitId);
+  try {
+    if (body.surface) {
+      await setToothSurface(ctx, patientId, toothNumber, String(body.surface), condition, visitId);
+    } else {
+      await setToothCondition(ctx, patientId, toothNumber, condition, body.notes ? String(body.notes) : null, visitId);
+    }
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("PUT /api/dental/patients/[id]/teeth error:", error);
+    return NextResponse.json({ error: "تعذّر تحديث حالة السن" }, { status: 500 });
   }
-  return NextResponse.json({ ok: true });
 }
