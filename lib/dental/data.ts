@@ -364,36 +364,49 @@ export async function patientBelongs(companyId: number, patientId: number) {
   return Boolean(row);
 }
 
+/** Run a non-critical side-effect (history/timeline/audit) without failing the primary save. */
+async function bestEffort(label: string, fn: () => Promise<unknown>) {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`dental side-effect "${label}" failed:`, error);
+  }
+}
+
 export async function setToothCondition(ctx: DentalContext, patientId: number, toothNumber: number, condition: string, notes?: string | null, visitId?: number | null) {
+  // Primary save (must succeed).
   await execute(
     `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, condition, notes, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE condition = VALUES(condition), notes = VALUES(notes), updatedAt = NOW()`,
     [ctx.companyId, patientId, toothNumber, condition, notes || null]
   );
-  await execute(
+  // Secondary (best-effort: history/timeline/audit must never block the chart update).
+  await bestEffort("toothCondition.history", () => execute(
     `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, notes, visitId, createdByUserId, createdAt)
      VALUES (?, ?, ?, NULL, 'condition', ?, ?, ?, ?, NOW())`,
     [ctx.companyId, patientId, toothNumber, condition, notes || null, visitId != null ? Number(visitId) : null, ctx.userId]
-  );
-  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `تحديث حالة السن ${toothNumber}`, actorName: ctx.username });
-  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "tooth", entityId: `${patientId}:${toothNumber}`, newValues: { condition } });
+  ));
+  await bestEffort("toothCondition.timeline", () => addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `تحديث حالة السن ${toothNumber}`, actorName: ctx.username }));
+  await bestEffort("toothCondition.audit", () => writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "tooth", entityId: `${patientId}:${toothNumber}`, newValues: { condition } }));
 }
 
 export async function setToothSurface(ctx: DentalContext, patientId: number, toothNumber: number, surface: string, condition: string, visitId?: number | null) {
+  // Primary save (must succeed).
   await execute(
     `INSERT INTO DentalToothSurface (companyId, patientId, toothNumber, surface, condition, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
      ON DUPLICATE KEY UPDATE condition = VALUES(condition), updatedAt = NOW()`,
     [ctx.companyId, patientId, toothNumber, surface, condition]
   );
-  await execute(
+  // Secondary (best-effort).
+  await bestEffort("toothSurface.history", () => execute(
     `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, visitId, createdByUserId, createdAt)
      VALUES (?, ?, ?, ?, 'surface', ?, ?, ?, NOW())`,
     [ctx.companyId, patientId, toothNumber, surface, condition, visitId != null ? Number(visitId) : null, ctx.userId]
-  );
-  await addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `سطح ${surface} للسن ${toothNumber}: ${condition}`, actorName: ctx.username });
-  await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "toothSurface", entityId: `${patientId}:${toothNumber}:${surface}`, newValues: { condition } });
+  ));
+  await bestEffort("toothSurface.timeline", () => addTimelineEvent({ companyId: ctx.companyId, patientId, type: "chart", title: `سطح ${surface} للسن ${toothNumber}: ${condition}`, actorName: ctx.username }));
+  await bestEffort("toothSurface.audit", () => writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "update", entityType: "toothSurface", entityId: `${patientId}:${toothNumber}:${surface}`, newValues: { condition } }));
 }
 
 export async function getToothPanel(companyId: number, patientId: number, toothNumber: number) {
