@@ -32,6 +32,37 @@ const ALL: DentalPermission[] = [
 export const DENTAL_ROLES = ["owner", "manager", "dentist", "assistant", "reception", "accountant"] as const;
 export type DentalRole = (typeof DENTAL_ROLES)[number];
 
+export const DENTAL_ROLE_LABELS: Record<DentalRole, string> = {
+  owner: "المالك",
+  manager: "مدير العيادة",
+  dentist: "طبيب أسنان",
+  assistant: "مساعد",
+  reception: "استقبال",
+  accountant: "محاسب",
+};
+
+export const DENTAL_PERMISSION_LABELS: Record<DentalPermission, string> = {
+  "patients.view": "عرض المرضى",
+  "patients.create": "إضافة مرضى",
+  "patients.edit": "تعديل المرضى",
+  "medical.view": "عرض التاريخ الطبي",
+  "medical.edit": "تعديل التاريخ الطبي",
+  "appointments.manage": "إدارة المواعيد",
+  "visits.manage": "إدارة الزيارات",
+  "treatments.create": "إنشاء العلاجات",
+  "treatments.complete": "إنهاء العلاجات",
+  "chart.edit": "تعديل مخطط الأسنان",
+  "billing.view": "عرض الحسابات",
+  "payments.create": "تسجيل الدفعات",
+  "payments.void": "إلغاء الدفعات",
+  "prescriptions.create": "إصدار الوصفات",
+  "reports.view": "عرض التقارير",
+  "inventory.manage": "إدارة المخزون",
+  "audit.view": "عرض سجل التدقيق",
+  "users.manage": "إدارة المستخدمين",
+  "settings.manage": "إدارة الإعدادات",
+};
+
 const ROLE_PERMISSIONS: Record<DentalRole, DentalPermission[]> = {
   owner: ALL,
   manager: ALL.filter((p) => p !== "payments.void" || true), // manager full except nothing for now

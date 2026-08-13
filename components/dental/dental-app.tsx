@@ -21,6 +21,7 @@ import {
 import { PatientProfile } from "@/components/dental/patient-profile";
 import { DentalCalendar } from "@/components/dental/dental-calendar";
 import { InventoryDashboard, LabsDashboard, RecallDashboard, ReportsDashboard } from "@/components/dental/clinic-ops";
+import { SettingsHub, StaffDashboard } from "@/components/dental/admin";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
 type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
@@ -35,13 +36,22 @@ const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "inventory", label: "المخزون", icon: Package, ready: true },
   { id: "recall", label: "التذكير والمتابعة", icon: Bell, ready: true },
   { id: "reports", label: "التقارير", icon: Activity, ready: true },
-  { id: "staff", label: "الأطباء والموظفون", icon: ClipboardList, ready: false },
-  { id: "settings", label: "الإعدادات", icon: ClipboardList, ready: false },
+  { id: "staff", label: "الأطباء والموظفون", icon: ClipboardList, ready: true },
+  { id: "settings", label: "الإعدادات", icon: ClipboardList, ready: true },
 ];
+
+// Nav visibility gated by permission (server still enforces every action)
+const NAV_PERMISSION: Partial<Record<View, string>> = {
+  reception: "appointments.manage",
+  reports: "reports.view",
+  staff: "users.manage",
+  settings: "audit.view",
+};
 
 export function DentalApp() {
   const [ready, setReady] = useState(false);
   const [clinic, setClinic] = useState("");
+  const [permissions, setPermissions] = useState<string[]>([]);
   const [view, setView] = useState<View>("dashboard");
   const [patientId, setPatientId] = useState<number | null>(null);
   const [patientTab, setPatientTab] = useState<string | undefined>(undefined);
@@ -62,11 +72,17 @@ export function DentalApp() {
       .then((data) => {
         if (data) {
           setClinic(data.clinicName || "عيادة");
+          setPermissions(data.permissions || []);
           setReady(true);
         }
       })
       .catch(() => window.location.replace("/login"));
   }, []);
+
+  const visibleNav = NAV.filter((n) => {
+    const req = NAV_PERMISSION[n.id];
+    return !req || permissions.includes(req);
+  });
 
   async function logout() {
     await fetch("/api/logout", { method: "POST" }).catch(() => {});
@@ -105,7 +121,7 @@ export function DentalApp() {
           </div>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {NAV.map((n) => (
+          {visibleNav.map((n) => (
             <button
               key={n.id}
               onClick={() => go(n.id)}
@@ -153,6 +169,10 @@ export function DentalApp() {
             <RecallDashboard onOpenPatient={openPatient} />
           ) : view === "reports" ? (
             <ReportsDashboard />
+          ) : view === "staff" ? (
+            <StaffDashboard />
+          ) : view === "settings" ? (
+            <SettingsHub />
           ) : (
             <ComingSoon label={NAV.find((n) => n.id === view)?.label || ""} />
           )}
