@@ -20,6 +20,7 @@ export async function middleware(req: NextRequest) {
     path.startsWith("/api/referral/") ||
     path.startsWith("/api/cron/") ||
     path.startsWith("/api/webhooks/") ||
+    path.startsWith("/api/dental/whatsapp/webhook") ||
     path.startsWith("/_next") ||
     path.startsWith("/favicon") ||
     path.startsWith("/logo") ||
