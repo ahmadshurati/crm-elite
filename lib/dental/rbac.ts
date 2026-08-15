@@ -15,6 +15,8 @@ export type DentalPermission =
   | "prescriptions.create"
   | "reports.view"
   | "inventory.manage"
+  | "messages.view"
+  | "messages.send"
   | "audit.view"
   | "users.manage"
   | "settings.manage";
@@ -25,7 +27,8 @@ const ALL: DentalPermission[] = [
   "appointments.manage", "visits.manage",
   "treatments.create", "treatments.complete", "chart.edit",
   "billing.view", "payments.create", "payments.void",
-  "prescriptions.create", "reports.view", "inventory.manage", "audit.view",
+  "prescriptions.create", "reports.view", "inventory.manage",
+  "messages.view", "messages.send", "audit.view",
   "users.manage", "settings.manage",
 ];
 
@@ -58,6 +61,8 @@ export const DENTAL_PERMISSION_LABELS: Record<DentalPermission, string> = {
   "prescriptions.create": "إصدار الوصفات",
   "reports.view": "عرض التقارير",
   "inventory.manage": "إدارة المخزون",
+  "messages.view": "عرض محادثات واتساب",
+  "messages.send": "إرسال رسائل واتساب",
   "audit.view": "عرض سجل التدقيق",
   "users.manage": "إدارة المستخدمين",
   "settings.manage": "إدارة الإعدادات",
@@ -72,17 +77,21 @@ const ROLE_PERMISSIONS: Record<DentalRole, DentalPermission[]> = {
     "appointments.manage", "visits.manage",
     "treatments.create", "treatments.complete", "chart.edit",
     "prescriptions.create", "billing.view",
+    "messages.view", "messages.send",
   ],
   assistant: [
     "patients.view", "medical.view",
     "appointments.manage", "visits.manage", "chart.edit", "inventory.manage",
+    "messages.view", "messages.send",
   ],
   reception: [
     "patients.view", "patients.create", "patients.edit",
     "appointments.manage", "billing.view", "payments.create",
+    "messages.view", "messages.send",
   ],
   accountant: [
     "patients.view", "billing.view", "payments.create", "payments.void", "reports.view",
+    "messages.view",
   ],
 };
 

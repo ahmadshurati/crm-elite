@@ -1,8 +1,9 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, Plus, Stethoscope, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, ChevronDown, ClipboardList, Layers, MessageCircle, Plus, Stethoscope, Wallet } from "lucide-react";
 import { DentalChart } from "@/components/dental/dental-chart";
+import { PatientWhatsApp, PatientWhatsAppCard } from "@/components/dental/whatsapp-inbox";
 import { apiFetch, EmptyState, fmtDate, fmtDateTime, fmtMoney, StateView, useApi, useConfirm, useMutation, useToast } from "@/components/dental/ui";
 import { ALL_TEETH, FILE_CATEGORIES, FILE_CATEGORY_MAP, PAYMENT_METHODS, PLAN_ITEM_STATUSES, PLAN_ITEM_STATUS_MAP, TOOTH_CONDITIONS } from "@/lib/dental/constants";
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: "billing", label: "الحساب المالي" },
   { id: "rx", label: "الوصفات" },
   { id: "documents", label: "المستندات" },
+  { id: "messages", label: "واتساب" },
   { id: "timeline", label: "السجل الزمني" },
 ] as const;
 
@@ -121,6 +123,14 @@ export function PatientProfile({ patientId, onBack, initialTab }: { patientId: n
               {p.age != null && <span> · العمر {p.age}</span>}
               {p.phone && <span dir="ltr"> · {p.phone}</span>}
             </p>
+            {(p.whatsapp || p.phone) && (
+              <button
+                onClick={() => setTab("messages")}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-[#25D366]/10 px-3 py-1.5 text-xs font-bold text-[#0F8B94] hover:bg-[#25D366]/20"
+              >
+                <MessageCircle className="h-3.5 w-3.5" /> واتساب
+              </button>
+            )}
           </div>
           <div className="flex flex-wrap gap-6 text-center">
             <div>
@@ -172,6 +182,7 @@ export function PatientProfile({ patientId, onBack, initialTab }: { patientId: n
       {tab === "images" && <FilesTab patientId={patientId} kind="imaging" />}
       {tab === "documents" && <FilesTab patientId={patientId} kind="document" />}
       {tab === "rx" && <Prescriptions patientId={patientId} list={data.prescriptions} patientName={data.patient.fullName} onChange={load} />}
+      {tab === "messages" && <PatientWhatsApp patientId={patientId} />}
       {tab === "timeline" && <Timeline events={data.timeline} />}
     </div>
   );
@@ -283,6 +294,9 @@ function Overview({ data, onGo }: { data: Profile; onGo: (t: (typeof TABS)[numbe
           <Row k="المتبقي" v={fmtMoney(data.finance.balance)} strong />
         </div>
       </Card>
+
+      {/* WhatsApp */}
+      <PatientWhatsAppCard patientId={p.id} onOpen={() => onGo("messages")} />
 
       {/* Personal info */}
       <Card>

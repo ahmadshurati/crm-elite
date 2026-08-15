@@ -910,6 +910,67 @@ model DentalInventoryItem {
   @@index([companyId])
 }
 
+model DentalWhatsAppConfig {
+  id                Int      @id @default(autoincrement())
+  companyId         Int      @unique
+  phoneNumberId     String?
+  businessAccountId String?
+  verifyToken       String?
+  accessToken       String?  @db.Text
+  appSecret         String?
+  defaultCountry    String   @default("972")
+  active            Boolean  @default(true)
+  createdByUserId   Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now())
+
+  @@index([phoneNumberId])
+}
+
+model DentalWhatsAppConversation {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  patientId       Int?
+  phone           String
+  waName          String?
+  lastMessageText String?
+  lastMessageAt   DateTime?
+  lastInboundAt   DateTime?
+  unreadCount     Int       @default(0)
+  status          String    @default("open")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @default(now())
+
+  @@unique([companyId, phone])
+  @@index([companyId, lastMessageAt])
+  @@index([patientId])
+}
+
+model DentalWhatsAppMessage {
+  id             Int      @id @default(autoincrement())
+  companyId      Int
+  conversationId Int
+  patientId      Int?
+  wamid          String?  @unique
+  direction      String
+  type           String   @default("text")
+  body           String?  @db.Text
+  mediaUrl       String?  @db.VarChar(1000)
+  templateName   String?
+  status         String   @default("pending")
+  errorCode      String?
+  errorMessage   String?
+  contextWamid   String?
+  sentByUserId   Int?
+  timestamp      DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now())
+
+  @@index([conversationId, timestamp])
+  @@index([companyId])
+  @@index([patientId])
+}
+
 model DentalClinicOption {
   id              Int      @id @default(autoincrement())
   companyId       Int

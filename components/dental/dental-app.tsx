@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Loader2,
   LogOut,
+  MessageCircle,
   Package,
   Plus,
   Search,
@@ -22,11 +23,12 @@ import { PatientProfile } from "@/components/dental/patient-profile";
 import { DentalCalendar } from "@/components/dental/dental-calendar";
 import { InventoryDashboard, LabsDashboard, RecallDashboard, ReportsDashboard } from "@/components/dental/clinic-ops";
 import { SettingsHub, StaffDashboard } from "@/components/dental/admin";
+import { WhatsAppInbox } from "@/components/dental/whatsapp-inbox";
 import { DentalErrorBoundary } from "@/components/dental/error-boundary";
 import { apiFetch, ConfirmProvider, EmptyState, ErrorState, fmtDate, fmtDateTime, fmtMoney, fmtTime, StateView, ToastProvider, useApi, useMutation } from "@/components/dental/ui";
 import { APPOINTMENT_STATUSES, APPOINTMENT_STATUS_MAP, PAYMENT_METHODS, TREATMENT_CATEGORIES } from "@/lib/dental/constants";
 
-type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "reports" | "staff" | "settings";
+type View = "dashboard" | "reception" | "patients" | "treatments" | "finance" | "labs" | "inventory" | "recall" | "whatsapp" | "reports" | "staff" | "settings";
 
 const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "dashboard", label: "لوحة اليوم", icon: LayoutGrid, ready: true },
@@ -37,6 +39,7 @@ const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
   { id: "labs", label: "المختبرات", icon: FlaskConical, ready: true },
   { id: "inventory", label: "المخزون", icon: Package, ready: true },
   { id: "recall", label: "التذكير والمتابعة", icon: Bell, ready: true },
+  { id: "whatsapp", label: "واتساب", icon: MessageCircle, ready: true },
   { id: "reports", label: "التقارير", icon: Activity, ready: true },
   { id: "staff", label: "الأطباء والموظفون", icon: ClipboardList, ready: true },
   { id: "settings", label: "الإعدادات", icon: ClipboardList, ready: true },
@@ -45,6 +48,7 @@ const NAV: { id: View; label: string; icon: typeof Users; ready: boolean }[] = [
 // Nav visibility gated by permission (server still enforces every action)
 const NAV_PERMISSION: Partial<Record<View, string>> = {
   reception: "appointments.manage",
+  whatsapp: "messages.view",
   reports: "reports.view",
   staff: "users.manage",
   settings: "audit.view",
@@ -185,6 +189,8 @@ function DentalAppInner() {
             <InventoryDashboard />
           ) : view === "recall" ? (
             <RecallDashboard onOpenPatient={openPatient} />
+          ) : view === "whatsapp" ? (
+            <WhatsAppInbox onOpenPatient={openPatient} />
           ) : view === "reports" ? (
             <ReportsDashboard />
           ) : view === "staff" ? (
