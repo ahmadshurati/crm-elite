@@ -160,5 +160,4 @@ export const PAYMENT_METHODS: { id: string; label: string }[] = [
   { id: "card", label: "بطاقة" },
   { id: "transfer", label: "تحويل بنكي" },
   { id: "check", label: "شيك" },
-  { id: "insurance", label: "تأمين" },
 ];

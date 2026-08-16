@@ -27,7 +27,6 @@ export async function getLedger(companyId: number, patientId: number) {
   const insuranceCents = Number(plan?.insuranceCents || 0);
   const planDate = safeIso(plan?.updatedAt) ?? nowIso;
   if (discountCents > 0) raw.push({ date: planDate, type: "discount", label: "خصم", amount: -discountCents });
-  if (insuranceCents > 0) raw.push({ date: planDate, type: "insurance", label: "تغطية تأمين", amount: -insuranceCents });
   for (const p of payments) raw.push({ date: safeIso(p.createdAt) ?? nowIso, type: "payment", label: `دفعة (${String(p.method)})${p.reference ? ` - ${String(p.reference)}` : ""}`, amount: -Number(p.amountCents || 0) });
   for (const a of adjustments) raw.push({ date: safeIso(a.createdAt) ?? nowIso, type: String(a.type), label: adjLabel(String(a.type), a.reason ? String(a.reason) : null), amount: Number(a.amountCents || 0) });
 

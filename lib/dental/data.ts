@@ -730,7 +730,7 @@ export async function getDashboard(companyId: number) {
     totalToday += Number(row.count);
   }
 
-  const methodMap: Record<string, number> = { cash: 0, card: 0, transfer: 0, check: 0, insurance: 0 };
+  const methodMap: Record<string, number> = { cash: 0, card: 0, transfer: 0, check: 0 };
   for (const row of byMethod) methodMap[String(row.method)] = toMoney(row.total);
 
   const chargeableCents = Number(totals?.chargeable || 0);

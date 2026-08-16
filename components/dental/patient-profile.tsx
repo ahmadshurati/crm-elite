@@ -796,7 +796,7 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
   const [err, setErr] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [editFin, setEditFin] = useState(false);
-  const [fin, setFin] = useState({ discount: String(data.finance.discount || ""), insurance: String(data.finance.insurance || "") });
+  const [fin, setFin] = useState({ discount: String(data.finance.discount || "") });
 
   useEffect(() => {
     apiFetch<{ items: CatalogItem[] }>("/api/dental/treatments/catalog").then((r) => { if (r.ok) setCatalog(r.data.items || []); });
@@ -831,7 +831,7 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
   }
 
   async function saveFinance() {
-    const ok = await run(`/api/dental/patients/${patientId}/plan`, "PATCH", { discount: Number(fin.discount) || 0, insurance: Number(fin.insurance) || 0 }, { success: "تم تحديث الخصم/التأمين" });
+    const ok = await run(`/api/dental/patients/${patientId}/plan`, "PATCH", { discount: Number(fin.discount) || 0 }, { success: "تم تحديث الخصم" });
     if (!ok) return;
     setEditFin(false);
     onChange();
@@ -920,8 +920,7 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
       <div className="mt-4 border-t border-[#F1F5F9] pt-4">
         {editFin ? (
           <div className="flex flex-wrap items-end justify-end gap-3">
-            <label className="text-xs font-semibold text-[#64748B]">الخصم ₪<input value={fin.discount} onChange={(e) => setFin({ ...fin, discount: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
-            <label className="text-xs font-semibold text-[#64748B]">تغطية التأمين ₪<input value={fin.insurance} onChange={(e) => setFin({ ...fin, insurance: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
+            <label className="text-xs font-semibold text-[#64748B]">الخصم ₪<input value={fin.discount} onChange={(e) => setFin({ discount: e.target.value })} className={`${INP} mt-1 w-28`} inputMode="numeric" /></label>
             <button onClick={saveFinance} disabled={pending} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white disabled:opacity-60">{pending ? "جارِ الحفظ…" : "حفظ"}</button>
             <button onClick={() => setEditFin(false)} className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#64748B]">إلغاء</button>
           </div>
@@ -929,10 +928,9 @@ function TreatmentPlan({ patientId, data, onChange }: { patientId: number; data:
           <div className="flex flex-wrap items-center justify-end gap-x-6 gap-y-2 text-sm">
             <span className="text-[#707A84]">الإجمالي: <b className="text-[#1F2937]">{fmtMoney(data.finance.subtotal)}</b></span>
             <span className="text-[#707A84]">الخصم: <b className="text-[#1F2937]">{fmtMoney(data.finance.discount)}</b></span>
-            <span className="text-[#707A84]">تأمين: <b className="text-[#1F2937]">{fmtMoney(data.finance.insurance)}</b></span>
             <span className="text-[#707A84]">مسؤولية المريض: <b className="text-[#0F8B94]">{fmtMoney(data.finance.responsibility)}</b></span>
             <span className="text-[#707A84]">المتبقي: <b className="text-rose-600">{fmtMoney(data.finance.balance)}</b></span>
-            <button onClick={() => { setFin({ discount: String(data.finance.discount || ""), insurance: String(data.finance.insurance || "") }); setEditFin(true); }} className="rounded-lg border border-[#E5E7EB] px-3 py-1 text-xs font-bold text-[#0F8B94]">تعديل الخصم/التأمين</button>
+            <button onClick={() => { setFin({ discount: String(data.finance.discount || "") }); setEditFin(true); }} className="rounded-lg border border-[#E5E7EB] px-3 py-1 text-xs font-bold text-[#0F8B94]">تعديل الخصم</button>
           </div>
         )}
       </div>
@@ -1022,7 +1020,6 @@ function Billing({ patientId, data, onChange }: { patientId: number; data: Profi
         <div className="space-y-2 text-sm">
           <Row k="إجمالي العلاجات" v={fmtMoney(data.finance.subtotal)} />
           <Row k="الخصم" v={fmtMoney(data.finance.discount)} />
-          <Row k="تغطية التأمين" v={fmtMoney(data.finance.insurance)} />
           <Row k="مسؤولية المريض" v={fmtMoney(data.finance.responsibility)} />
           <Row k="المدفوع" v={fmtMoney(data.finance.paid)} />
           <div className="border-t border-[#F1F5F9] pt-2">
@@ -1245,7 +1242,6 @@ async function printInvoice(id: number) {
     <div class="tot">
       <p>المجموع الفرعي: ₪ ${Number(inv.subtotal).toLocaleString()}</p>
       ${inv.discount ? `<p>الخصم: ₪ ${Number(inv.discount).toLocaleString()}</p>` : ""}
-      ${inv.insurance ? `<p>تغطية التأمين: ₪ ${Number(inv.insurance).toLocaleString()}</p>` : ""}
       ${inv.tax ? `<p>الضريبة: ₪ ${Number(inv.tax).toLocaleString()}</p>` : ""}
       <p style="font-size:18px"><b>الإجمالي: ₪ ${Number(inv.total).toLocaleString()}</b></p>
     </div>
