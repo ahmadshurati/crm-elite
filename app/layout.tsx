@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Elite Insurance CRM",
-  description: "Elite Insurance CRM",
+  title: "Gosol CRM",
+  description: "Gosol CRM",
 };
 
 export default function RootLayout({

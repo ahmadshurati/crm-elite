@@ -611,7 +611,7 @@ export async function seedDemoCompanyData(companyId = DEMO_COMPANY_ID) {
 
   await execute(
     `INSERT INTO CrmNotification (userId, type, title, body, entityType, entityId, isRead, createdAt)
-     VALUES (?, 'demo_welcome', 'مرحباً في Gosol CRM', 'هذه بيانات تجريبية لعرض CRM شامل — لا علاقة لها ببيانات Elite', NULL, NULL, 0, NOW())`,
+     VALUES (?, 'demo_welcome', 'مرحباً في Gosol CRM', 'هذه بيانات تجريبية لعرض إمكانيات النظام الكاملة', NULL, NULL, 0, NOW())`,
     [demoUserId]
   );
 

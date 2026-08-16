@@ -261,7 +261,7 @@ model RoleTemplate {
 model SystemSetting {
   id             Int      @id @default(autoincrement())
   companyId      Int?     @unique
-  companyName    String   @default("Elite Insurance")
+  companyName    String   @default("Gosol CRM")
   logoUrl        String?
   address        String?
   taxNumber      String?

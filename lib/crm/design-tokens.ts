@@ -1,4 +1,4 @@
-/** Shared CRM design tokens (Elite Insurance theme). */
+/** Shared CRM design tokens (Gosol CRM theme). */
 export const crmColors = {
   primary: "#0F8B94",
   primaryLight: "#F1FBFA",

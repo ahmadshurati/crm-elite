@@ -99,7 +99,7 @@ export async function draftCustomerEmail(input: {
 
   if (!integration.ai.configured) {
     const subject = `متابعة — ${input.purpose}`;
-    const bodyText = `مرحباً ${input.customerName}،\n\n${input.context || "نود متابعتك بخصوص " + input.purpose + "."}\n\nمع التحية،\nElite Insurance`;
+    const bodyText = `مرحباً ${input.customerName}،\n\n${input.context || "نود متابعتك بخصوص " + input.purpose + "."}\n\nمع التحية،\nGosol CRM`;
     return {
       source: "template",
       subject,
@@ -129,7 +129,7 @@ export async function draftCustomerEmail(input: {
     };
   } catch {
     const subject = `متابعة — ${input.purpose}`;
-    const bodyText = `مرحباً ${input.customerName}،\n\n${input.context || "نود متابعتك بخصوص " + input.purpose + "."}\n\nمع التحية،\nElite Insurance`;
+    const bodyText = `مرحباً ${input.customerName}،\n\n${input.context || "نود متابعتك بخصوص " + input.purpose + "."}\n\nمع التحية،\nGosol CRM`;
     return {
       source: "template",
       subject,

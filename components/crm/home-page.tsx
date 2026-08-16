@@ -4013,7 +4013,7 @@ export function HomePage() {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [branding, setBranding] = useState<TenantBranding>(() =>
-    resolveBranding({ companyName: "Elite Insurance", isDemo: false })
+    resolveBranding({ companyName: "Gosol CRM", isDemo: false })
   );
   const notificationCount = useNotificationCount();
   const isDemoTenant =

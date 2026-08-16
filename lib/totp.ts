@@ -4,7 +4,7 @@ export function generateTotpSecret() {
   return generateSecret();
 }
 
-export function buildTotpUri(username: string, secret: string, issuer = "Elite CRM") {
+export function buildTotpUri(username: string, secret: string, issuer = "Gosol CRM") {
   return generateURI({ issuer, label: username, secret });
 }
 

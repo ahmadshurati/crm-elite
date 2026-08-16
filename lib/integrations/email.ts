@@ -21,7 +21,7 @@ export type SendEmailResult = {
 
 async function sendViaResend(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.EMAIL_FROM?.trim() || "CRM Elite <onboarding@resend.dev>";
+  const from = process.env.EMAIL_FROM?.trim() || "Gosol CRM <onboarding@resend.dev>";
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

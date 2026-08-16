@@ -587,8 +587,8 @@ export function PlatformOwnerDashboard() {
             <h3 className="text-lg font-bold text-white">كيف يعمل النظام</h3>
             <ol className="mt-4 list-decimal space-y-3 ps-5 text-sm leading-7 text-slate-400">
               <li>أنت تدير العملاء من <span dir="ltr">/admin</span>.</li>
-              <li>موظفو Elite يدخلون من <span dir="ltr">/login</span> ويرون بيانات Elite فقط.</li>
-              <li>موظفو Demo يرون بيانات Demo فقط — نفس صفحة الدخول.</li>
+              <li>موظفو الشركة يدخلون من <span dir="ltr">/login</span> ويرون بيانات شركتهم فقط.</li>
+              <li>موظفو النسخة التجريبية يرون بيانات تجريبية فقط — نفس صفحة الدخول.</li>
               <li>عند توقيع عميل جديد، أنشئ شركته من تبويب الشركات.</li>
             </ol>
           </div>

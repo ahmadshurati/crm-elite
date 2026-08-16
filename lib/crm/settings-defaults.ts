@@ -1,5 +1,5 @@
 export const DEFAULT_SETTINGS = {
-  companyName: "Elite Insurance",
+  companyName: "Gosol CRM",
   currency: "ILS",
   language: "ar",
   timezone: "Asia/Hebron",

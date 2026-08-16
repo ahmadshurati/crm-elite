@@ -287,7 +287,7 @@ export function resolveBranding(input: {
   return {
     isDemo,
     companyType: String(input.companyType || "insurance"),
-    companyName: String(input.companyName || (isDemo ? "Gosol CRM" : "Elite Insurance")),
+    companyName: String(input.companyName || "Gosol CRM"),
     logoUrl: input.logoUrl || (isDemo ? DEMO_LOGO_URL : DEFAULT_LOGO_URL),
     tagline: vocabulary.tagline,
   };

@@ -41,7 +41,7 @@ async function handleGet() {
   return NextResponse.json({
     openapi: "3.0.3",
     info: {
-      title: "Elite Insurance CRM API",
+      title: "Gosol CRM API",
       version: "1.0.0",
       description:
         "REST API for CRM integrations. Use session cookie (browser) or X-API-Key header for external apps.",
