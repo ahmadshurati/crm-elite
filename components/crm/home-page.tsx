@@ -147,11 +147,13 @@ function DashboardInsights({
   mode,
   insightsData,
   totalRecords,
+  isDemo = false,
 }: {
   subscribers: Subscriber[];
   allSubscribers?: Subscriber[];
   title?: string;
   mode: MenuKey;
+  isDemo?: boolean;
   insightsData?: {
     eyebrow: string;
     description: string;
@@ -291,18 +293,20 @@ function DashboardInsights({
     if (mode === "active-subscribers") {
       return {
         eyebrow: "",
-        description: "تحليل خاص بالتأمينات الفعالة: شركات التأمين، أنواع التغطية، وقرب الانتهاء.",
+        description: isDemo
+          ? "تحليل شامل للحسابات النشطة: العملاء، أنواع الخدمة، وقرب التجديد."
+          : "تحليل خاص بالتأمينات الفعالة: شركات التأمين، أنواع التغطية، وقرب الانتهاء.",
         cards: [
-          { label: "تأمينات فعالة", value: safeSubscribers.length, helper: "سجل تأمين" },
-          { label: "زبائن", value: uniqueCustomers, helper: "زبون" },
-          { label: "شركات تأمين", value: companyData.length, helper: "شركة" },
-          { label: "أنواع تغطية", value: typeData.length, helper: "نوع" },
+          { label: isDemo ? "حسابات نشطة" : "تأمينات فعالة", value: safeSubscribers.length, helper: isDemo ? "حساب" : "سجل تأمين" },
+          { label: isDemo ? "عملاء" : "زبائن", value: uniqueCustomers, helper: isDemo ? "عميل" : "زبون" },
+          { label: isDemo ? "الجهات" : "شركات تأمين", value: companyData.length, helper: isDemo ? "جهة" : "شركة" },
+          { label: isDemo ? "أنواع الخدمة" : "أنواع تغطية", value: typeData.length, helper: "نوع" },
           { label: "تنتهي هذا الشهر", value: safeSubscribers.filter((item) => isExpiringThisMonth(item.endDate)).length, helper: "تنبيه" },
         ],
         charts: [
-          { kind: "pie", title: "توزيع التأمينات حسب الشركة", badge: "Companies", data: companyData },
-          { kind: "bar", title: "أنواع التأمين الفعالة", badge: "Coverage", data: typeData },
-          { kind: "area", title: "مواعيد الانتهاء القادمة", badge: "Expiry", data: endMonthData },
+          { kind: "pie", title: isDemo ? "توزيع الحسابات حسب الجهة" : "توزيع التأمينات حسب الشركة", badge: "Companies", data: companyData },
+          { kind: "bar", title: isDemo ? "أنواع الخدمة" : "أنواع التأمين الفعالة", badge: "Coverage", data: typeData },
+          { kind: "area", title: isDemo ? "مواعيد التجديد القادمة" : "مواعيد الانتهاء القادمة", badge: "Expiry", data: endMonthData },
         ],
       };
     }
@@ -310,18 +314,20 @@ function DashboardInsights({
     if (mode === "active-customers") {
       return {
         eyebrow: "",
-        description: "تحليل خاص بالمشتركين الفعالين: كل زبون مرة واحدة مع ثقل التأمينات والسيارات المرتبطة به.",
+        description: isDemo
+          ? "تحليل شامل للعملاء النشطين: كل عميل مرة واحدة مع عدد حساباته وخدماته."
+          : "تحليل خاص بالمشتركين الفعالين: كل زبون مرة واحدة مع ثقل التأمينات والسيارات المرتبطة به.",
         cards: [
-          { label: "مشتركين فعالين", value: uniqueCustomers, helper: "زبون" },
-          { label: "تأمينات فعالة", value: safeSubscribers.length, helper: "تأمين" },
-          { label: "متوسط التأمينات", value: uniqueCustomers ? Number((safeSubscribers.length / uniqueCustomers).toFixed(1)) : 0, helper: "لكل زبون" },
-          { label: "أكثر زبون", value: customerLoadData[0]?.value || 0, helper: "تأمينات" },
-          { label: "سيارات فعالة", value: new Set(safeSubscribers.map((item) => item.carId)).size, helper: "سيارة" },
+          { label: isDemo ? "عملاء نشطون" : "مشتركين فعالين", value: uniqueCustomers, helper: isDemo ? "عميل" : "زبون" },
+          { label: isDemo ? "حسابات نشطة" : "تأمينات فعالة", value: safeSubscribers.length, helper: isDemo ? "حساب" : "تأمين" },
+          { label: isDemo ? "متوسط الحسابات" : "متوسط التأمينات", value: uniqueCustomers ? Number((safeSubscribers.length / uniqueCustomers).toFixed(1)) : 0, helper: isDemo ? "لكل عميل" : "لكل زبون" },
+          { label: isDemo ? "أكثر عميل" : "أكثر زبون", value: customerLoadData[0]?.value || 0, helper: isDemo ? "حسابات" : "تأمينات" },
+          { label: isDemo ? "خدمات فعّالة" : "سيارات فعالة", value: new Set(safeSubscribers.map((item) => item.carId)).size, helper: isDemo ? "خدمة" : "سيارة" },
         ],
         charts: [
-          { kind: "bar", title: "أكثر الزبائن لديهم تأمينات", badge: "Clients", data: customerLoadData },
-          { kind: "pie", title: "توزيع شركات زبائن فعالين", badge: "Companies", data: companyData },
-          { kind: "area", title: "عدد السيارات لكل زبون", badge: "Vehicles", data: carsPerCustomerData },
+          { kind: "bar", title: isDemo ? "أكثر العملاء لديهم حسابات" : "أكثر الزبائن لديهم تأمينات", badge: "Clients", data: customerLoadData },
+          { kind: "pie", title: isDemo ? "توزيع جهات العملاء النشطين" : "توزيع شركات زبائن فعالين", badge: "Companies", data: companyData },
+          { kind: "area", title: isDemo ? "عدد الحسابات لكل عميل" : "عدد السيارات لكل زبون", badge: "Vehicles", data: carsPerCustomerData },
         ],
       };
     }
@@ -329,18 +335,20 @@ function DashboardInsights({
     if (mode === "inactive-subscribers") {
       return {
         eyebrow: "",
-        description: "تحليل خاص بالمنتهية وغير الفعالة: أين تتراكم الانتهاءات ومن أي شركات تأتي.",
+        description: isDemo
+          ? "تحليل شامل للحسابات غير النشطة/المغلقة وتوزيعها."
+          : "تحليل خاص بالمنتهية وغير الفعالة: أين تتراكم الانتهاءات ومن أي شركات تأتي.",
         cards: [
-          { label: "سجلات غير فعالة", value: safeSubscribers.length, helper: "سجل" },
+          { label: isDemo ? "حسابات غير نشطة" : "سجلات غير فعالة", value: safeSubscribers.length, helper: isDemo ? "حساب" : "سجل" },
           { label: "منتهية", value: safeSubscribers.filter((item) => item.insuranceStatus === "منتهي").length, helper: "منتهي" },
           { label: "غير فعالة", value: safeSubscribers.filter((item) => item.insuranceStatus === "غير فعال").length, helper: "غير فعال" },
-          { label: "زبائن متأثرين", value: uniqueCustomers, helper: "زبون" },
-          { label: "شركات", value: companyData.length, helper: "شركة" },
+          { label: isDemo ? "عملاء متأثرون" : "زبائن متأثرين", value: uniqueCustomers, helper: isDemo ? "عميل" : "زبون" },
+          { label: isDemo ? "الجهات" : "شركات", value: companyData.length, helper: isDemo ? "جهة" : "شركة" },
         ],
         charts: [
-          { kind: "pie", title: "توزيع حالات الإيقاف والانتهاء", badge: "Status", data: statusData },
-          { kind: "bar", title: "شركات لديها سجلات منتهية", badge: "Companies", data: companyData },
-          { kind: "area", title: "الانتهاء حسب الأشهر", badge: "Timeline", data: endMonthData },
+          { kind: "pie", title: isDemo ? "توزيع الحالات المغلقة وغير النشطة" : "توزيع حالات الإيقاف والانتهاء", badge: "Status", data: statusData },
+          { kind: "bar", title: isDemo ? "جهات لديها حسابات منتهية" : "شركات لديها سجلات منتهية", badge: "Companies", data: companyData },
+          { kind: "area", title: isDemo ? "الإغلاق حسب الأشهر" : "الانتهاء حسب الأشهر", badge: "Timeline", data: endMonthData },
         ],
       };
     }
@@ -348,18 +356,20 @@ function DashboardInsights({
     if (mode === "subscriber-history") {
       return {
         eyebrow: "",
-        description: "تحليل خاص بالسجل: كثافة التأمينات لكل زبون، النشاط التاريخي، والحالات المتراكمة.",
+        description: isDemo
+          ? "تحليل شامل للسجل: عدد الحسابات لكل عميل، النشاط التاريخي، والحالات المتراكمة."
+          : "تحليل خاص بالسجل: كثافة التأمينات لكل زبون، النشاط التاريخي، والحالات المتراكمة.",
         cards: [
-          { label: "زبائن بالسجل", value: uniqueCustomers, helper: "زبون" },
-          { label: "كل التأمينات", value: safeSubscribers.length, helper: "سجل" },
+          { label: isDemo ? "عملاء بالسجل" : "زبائن بالسجل", value: uniqueCustomers, helper: isDemo ? "عميل" : "زبون" },
+          { label: isDemo ? "كل الحسابات" : "كل التأمينات", value: safeSubscribers.length, helper: "سجل" },
           { label: "فعالة", value: activePolicies, helper: "Active" },
           { label: "منتهية/غير فعالة", value: expiredPolicies, helper: "Closed" },
-          { label: "أعلى سجل", value: customerLoadData[0]?.value || 0, helper: "تأمينات" },
+          { label: "أعلى سجل", value: customerLoadData[0]?.value || 0, helper: isDemo ? "حسابات" : "تأمينات" },
         ],
         charts: [
-          { kind: "bar", title: "عدد التأمينات لكل زبون", badge: "Customer Depth", data: customerLoadData },
-          { kind: "pie", title: "حالات التأمين داخل السجل", badge: "Status", data: statusData },
-          { kind: "area", title: "الحركة التاريخية حسب بداية التأمين", badge: "Activity", data: startMonthData },
+          { kind: "bar", title: isDemo ? "عدد الحسابات لكل عميل" : "عدد التأمينات لكل زبون", badge: "Customer Depth", data: customerLoadData },
+          { kind: "pie", title: isDemo ? "الحالات داخل السجل" : "حالات التأمين داخل السجل", badge: "Status", data: statusData },
+          { kind: "area", title: isDemo ? "الحركة التاريخية حسب بداية الحساب" : "الحركة التاريخية حسب بداية التأمين", badge: "Activity", data: startMonthData },
         ],
       };
     }
@@ -372,18 +382,20 @@ function DashboardInsights({
 
       return {
         eyebrow: "",
-        description: "تحليل خاص بتجديدات الشهر: من تم تجديده ومن بقي للتواصل معه، مع توزيع الشركات والمواعيد.",
+        description: isDemo
+          ? "تحليل شامل لمتابعات وتجديدات الشهر: من تمّ ومن بقي للتواصل معه، مع توزيع الجهات والمواعيد."
+          : "تحليل خاص بتجديدات الشهر: من تم تجديده ومن بقي للتواصل معه، مع توزيع الشركات والمواعيد.",
         cards: [
-          { label: "مطلوب تجديد", value: safeSubscribers.length, helper: "هذا الشهر" },
-          { label: "تم تجديده", value: renewalDone, helper: "Done" },
-          { label: "باقي للتجديد", value: renewalPending, helper: "Pending" },
-          { label: "زبائن", value: uniqueCustomers, helper: "زبون" },
-          { label: "شركات", value: companyData.length, helper: "شركة" },
+          { label: isDemo ? "مطلوب متابعة" : "مطلوب تجديد", value: safeSubscribers.length, helper: "هذا الشهر" },
+          { label: isDemo ? "تمّت" : "تم تجديده", value: renewalDone, helper: "Done" },
+          { label: isDemo ? "باقية" : "باقي للتجديد", value: renewalPending, helper: "Pending" },
+          { label: isDemo ? "عملاء" : "زبائن", value: uniqueCustomers, helper: isDemo ? "عميل" : "زبون" },
+          { label: isDemo ? "الجهات" : "شركات", value: companyData.length, helper: isDemo ? "جهة" : "شركة" },
         ],
         charts: [
-          { kind: "pie", title: "حالة التجديد لهذا الشهر", badge: "Progress", data: renewalStateData },
-          { kind: "bar", title: "التجديدات حسب شركة التأمين", badge: "Companies", data: companyData },
-          { kind: "area", title: "توزيع تواريخ انتهاء التجديدات", badge: "Due Dates", data: endMonthData },
+          { kind: "pie", title: isDemo ? "حالة المتابعة لهذا الشهر" : "حالة التجديد لهذا الشهر", badge: "Progress", data: renewalStateData },
+          { kind: "bar", title: isDemo ? "المتابعات حسب الجهة" : "التجديدات حسب شركة التأمين", badge: "Companies", data: companyData },
+          { kind: "area", title: isDemo ? "توزيع مواعيد التجديد" : "توزيع تواريخ انتهاء التجديدات", badge: "Due Dates", data: endMonthData },
         ],
       };
     }
@@ -401,7 +413,7 @@ function DashboardInsights({
       charts: [
         { kind: "area", title: "المدفوع مقابل المتبقي", badge: "Collection", data: collectionData, money: true },
         { kind: "pie", title: "توزيع طرق الدفع", badge: "Payment Mix", data: paymentMethodData.length ? paymentMethodData : [{ name: "لا يوجد", value: 1 }], money: true },
-        { kind: "bar", title: "التحصيل حسب شهر بداية التأمين", badge: "Monthly", data: startMonthData },
+        { kind: "bar", title: isDemo ? "التحصيل حسب شهر بداية الحساب" : "التحصيل حسب شهر بداية التأمين", badge: "Monthly", data: startMonthData },
       ],
     };
   };
@@ -5104,6 +5116,7 @@ export function HomePage() {
             {INSIGHT_MENUS.includes(activeMenu) && (
               <DashboardInsights
                 mode={activeMenu}
+                isDemo={isDemoTenant}
                 allSubscribers={filteredSubscribers(subscribers)}
                 insightsData={menuInsights}
                 totalRecords={menuInsights?.totalRecords ?? customersPagination?.total ?? null}
