@@ -30,8 +30,6 @@ export async function PUT(req: Request, context: { params: Promise<{ id: string 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("PUT /api/dental/patients/[id]/teeth error:", error);
-    // Temporary diagnostic: surface the DB error text so the exact cause is visible in the UI.
-    const detail = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: `تعذّر تحديث حالة السن: ${detail}` }, { status: 500 });
+    return NextResponse.json({ error: "تعذّر تحديث حالة السن، حاول لاحقاً" }, { status: 500 });
   }
 }

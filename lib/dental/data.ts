@@ -148,8 +148,8 @@ export async function getPatientProfile(companyId: number, patientId: number) {
   if (!patient) return null;
 
   const [teeth, surfaces, visits, planItems, payments, prescriptions, appts, timeline] = await Promise.all([
-    section("teeth", patientId, query<Record<string, unknown>>("SELECT toothNumber, condition, notes FROM DentalToothCondition WHERE patientId = ?", [patientId]), []),
-    section("surfaces", patientId, query<Record<string, unknown>>("SELECT toothNumber, surface, condition FROM DentalToothSurface WHERE patientId = ?", [patientId]), []),
+    section("teeth", patientId, query<Record<string, unknown>>("SELECT toothNumber, `condition`, notes FROM DentalToothCondition WHERE patientId = ?", [patientId]), []),
+    section("surfaces", patientId, query<Record<string, unknown>>("SELECT toothNumber, surface, `condition` FROM DentalToothSurface WHERE patientId = ?", [patientId]), []),
     section("visits", patientId, query<Record<string, unknown>>("SELECT * FROM DentalVisit WHERE patientId = ? ORDER BY visitDate DESC", [patientId]), []),
     section(
       "planItems",
@@ -376,14 +376,14 @@ async function bestEffort(label: string, fn: () => Promise<unknown>) {
 export async function setToothCondition(ctx: DentalContext, patientId: number, toothNumber: number, condition: string, notes?: string | null, visitId?: number | null) {
   // Primary save (must succeed).
   await execute(
-    `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, condition, notes, updatedAt)
+    `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, \`condition\`, notes, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE condition = VALUES(condition), notes = VALUES(notes), updatedAt = NOW()`,
+     ON DUPLICATE KEY UPDATE \`condition\` = VALUES(\`condition\`), notes = VALUES(notes), updatedAt = NOW()`,
     [ctx.companyId, patientId, toothNumber, condition, notes || null]
   );
   // Secondary (best-effort: history/timeline/audit must never block the chart update).
   await bestEffort("toothCondition.history", () => execute(
-    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, notes, visitId, createdByUserId, createdAt)
+    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, \`condition\`, notes, visitId, createdByUserId, createdAt)
      VALUES (?, ?, ?, NULL, 'condition', ?, ?, ?, ?, NOW())`,
     [ctx.companyId, patientId, toothNumber, condition, notes || null, visitId != null ? Number(visitId) : null, ctx.userId]
   ));
@@ -394,14 +394,14 @@ export async function setToothCondition(ctx: DentalContext, patientId: number, t
 export async function setToothSurface(ctx: DentalContext, patientId: number, toothNumber: number, surface: string, condition: string, visitId?: number | null) {
   // Primary save (must succeed).
   await execute(
-    `INSERT INTO DentalToothSurface (companyId, patientId, toothNumber, surface, condition, updatedAt)
+    `INSERT INTO DentalToothSurface (companyId, patientId, toothNumber, surface, \`condition\`, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW())
-     ON DUPLICATE KEY UPDATE condition = VALUES(condition), updatedAt = NOW()`,
+     ON DUPLICATE KEY UPDATE \`condition\` = VALUES(\`condition\`), updatedAt = NOW()`,
     [ctx.companyId, patientId, toothNumber, surface, condition]
   );
   // Secondary (best-effort).
   await bestEffort("toothSurface.history", () => execute(
-    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, condition, visitId, createdByUserId, createdAt)
+    `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, surface, action, \`condition\`, visitId, createdByUserId, createdAt)
      VALUES (?, ?, ?, ?, 'surface', ?, ?, ?, NOW())`,
     [ctx.companyId, patientId, toothNumber, surface, condition, visitId != null ? Number(visitId) : null, ctx.userId]
   ));
@@ -412,10 +412,10 @@ export async function setToothSurface(ctx: DentalContext, patientId: number, too
 export async function getToothPanel(companyId: number, patientId: number, toothNumber: number) {
   const [condRow, surfaces, history, treatments, files] = await Promise.all([
     section("tooth.condition", patientId, queryOne<{ condition: string; notes: string | null }>(
-      "SELECT condition, notes FROM DentalToothCondition WHERE patientId = ? AND toothNumber = ? LIMIT 1",
+      "SELECT `condition`, notes FROM DentalToothCondition WHERE patientId = ? AND toothNumber = ? LIMIT 1",
       [patientId, toothNumber]
     ), null),
-    section("tooth.surfaces", patientId, query<Record<string, unknown>>("SELECT surface, condition FROM DentalToothSurface WHERE patientId = ? AND toothNumber = ?", [patientId, toothNumber]), []),
+    section("tooth.surfaces", patientId, query<Record<string, unknown>>("SELECT surface, `condition` FROM DentalToothSurface WHERE patientId = ? AND toothNumber = ?", [patientId, toothNumber]), []),
     section("tooth.history", patientId, query<Record<string, unknown>>(
       "SELECT action, surface, `condition`, treatment, doctorName, notes, createdAt FROM DentalToothHistory WHERE patientId = ? AND toothNumber = ? ORDER BY createdAt DESC LIMIT 100",
       [patientId, toothNumber]

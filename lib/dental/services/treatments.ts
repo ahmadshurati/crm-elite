@@ -165,13 +165,13 @@ export async function completeTreatment(ctx: Ctx, itemId: number) {
 
     if (toothNumber != null && chartCondition) {
       await tx.execute(
-        `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, condition, updatedAt)
+        `INSERT INTO DentalToothCondition (companyId, patientId, toothNumber, \`condition\`, updatedAt)
          VALUES (?, ?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE condition = VALUES(condition), updatedAt = NOW()`,
+         ON DUPLICATE KEY UPDATE \`condition\` = VALUES(\`condition\`), updatedAt = NOW()`,
         [ctx.companyId, patientId, toothNumber, chartCondition]
       );
       await tx.execute(
-        `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, action, condition, treatment, doctorName, createdByUserId, createdAt)
+        `INSERT INTO DentalToothHistory (companyId, patientId, toothNumber, action, \`condition\`, treatment, doctorName, createdByUserId, createdAt)
          VALUES (?, ?, ?, 'treatment', ?, ?, ?, ?, NOW())`,
         [ctx.companyId, patientId, toothNumber, chartCondition, `${String(item.treatment)} - اكتمل`, ctx.username, ctx.userId]
       );
