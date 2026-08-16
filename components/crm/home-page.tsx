@@ -8,6 +8,7 @@ import {
   Car,
   Eye,
   Loader2,
+  Menu,
   Pencil,
   Plus,
   Search,
@@ -4023,6 +4024,7 @@ export function HomePage() {
   const [sheetError, setSheetError] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [branding, setBranding] = useState<TenantBranding>(() =>
     resolveBranding({ companyName: "Gosol CRM", isDemo: false })
@@ -4993,6 +4995,8 @@ export function HomePage() {
         <CrmSidebar
           activeMenu={activeMenu}
           onNavigate={sidebarNavigate}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           branding={{ ...branding, isDemo: isDemoTenant }}
           canCreateSubscribers={canCreateSubscribers}
           canViewSubscribers={canViewSubscribers}
@@ -5006,10 +5010,18 @@ export function HomePage() {
           isMaster={isMaster}
         />
 
-        <main className="min-w-0 flex-1 overflow-hidden">
-          <div className="sticky top-0 z-40 border-b border-[#EAECEF] bg-white px-6 py-5 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+        <main className="min-w-0 flex-1">
+          <div className="sticky top-0 z-40 border-b border-[#EAECEF] bg-white px-4 py-4 shadow-sm sm:px-6 sm:py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  aria-label="القائمة"
+                  className="rounded-xl p-2 text-[#475569] hover:bg-gray-100 lg:hidden"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
                 <ProfileDropdown user={currentUser} />
 
                 <div className="relative">
@@ -5040,7 +5052,7 @@ export function HomePage() {
                 </div>
               </div>
 
-              <div className="relative w-[340px]">
+              <div className="relative order-last w-full sm:order-none sm:w-[340px]">
                 <Search className="absolute right-3 top-3 h-4 w-4 text-gray-400" />
                 <input
                   value={search}
@@ -5069,7 +5081,7 @@ export function HomePage() {
             </div>
           </div>
 
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {activeMenu !== "dashboard" && (
               <div className="flex flex-wrap items-start justify-between gap-5">
                 <div className="text-right">

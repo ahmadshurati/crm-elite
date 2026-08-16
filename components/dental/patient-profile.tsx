@@ -160,12 +160,12 @@ export function PatientProfile({ patientId, onBack, initialTab }: { patientId: n
           </div>
         )}
 
-        <div className="mt-5 flex flex-wrap gap-1.5 border-t border-[#F1F5F9] pt-4">
+        <div className="mt-5 flex gap-1.5 overflow-x-auto border-t border-[#F1F5F9] pt-4 lg:flex-wrap lg:overflow-visible">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${tab === t.id ? "bg-[#0F8B94] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"}`}
+              className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-bold transition ${tab === t.id ? "bg-[#0F8B94] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#E7F6F5]"}`}
             >
               {t.label}
             </button>

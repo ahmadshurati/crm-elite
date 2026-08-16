@@ -12,6 +12,7 @@ import {
   Shield,
   Sparkles,
   Wallet,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { MenuKey } from "@/lib/menu-navigation";
@@ -60,9 +61,13 @@ export function CrmSidebar({
   canViewActivityLog,
   renewalsThisMonthCount,
   isMaster,
+  open = false,
+  onClose,
 }: {
   activeMenu: MenuKey;
   onNavigate: (key: MenuKey) => void;
+  open?: boolean;
+  onClose?: () => void;
   branding: TenantBranding;
   canCreateSubscribers: boolean;
   canViewSubscribers: boolean;
@@ -135,9 +140,23 @@ export function CrmSidebar({
     });
   }
 
+  function go(key: MenuKey) {
+    onNavigate(key);
+    onClose?.();
+  }
+
   return (
-    <aside className="sticky top-0 flex h-screen w-[272px] shrink-0 flex-col border-l border-[#E5E9EF] bg-[#FAFBFC]">
-      <div className="flex h-[76px] items-center justify-center border-b border-[#E9EDF1] bg-white px-5">
+    <>
+      {open && (
+        <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40 lg:hidden" aria-hidden="true" />
+      )}
+      <aside
+        className={`fixed inset-y-0 right-0 z-50 flex h-screen w-[272px] max-w-[85vw] shrink-0 flex-col border-l border-[#E5E9EF] bg-[#FAFBFC] transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:max-w-none lg:translate-x-0 ${open ? "translate-x-0" : "translate-x-full"}`}
+      >
+      <div className="relative flex h-[76px] items-center justify-center border-b border-[#E9EDF1] bg-white px-5">
+        <button type="button" onClick={onClose} aria-label="إغلاق القائمة" className="absolute left-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#64748B] hover:bg-[#F1F5F9] lg:hidden">
+          <X className="h-5 w-5" />
+        </button>
         {branding.isDemo ? (
           <span className="text-[22px] font-extrabold tracking-tight text-[#0F8B94]">
             {demoBrandName}
@@ -168,7 +187,7 @@ export function CrmSidebar({
               <button
                 key={section.id}
                 type="button"
-                onClick={() => onNavigate(item.key)}
+                onClick={() => go(item.key)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-right transition ${
                   active
                     ? "bg-white font-bold text-[#0F8B94] shadow-sm ring-1 ring-[#D7ECEB]"
@@ -219,7 +238,7 @@ export function CrmSidebar({
                       <button
                         key={item.key}
                         type="button"
-                        onClick={() => onNavigate(item.key)}
+                        onClick={() => go(item.key)}
                         className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-right text-[13px] transition ${
                           active
                             ? "bg-white font-bold text-[#0F8B94] shadow-sm ring-1 ring-[#D7ECEB]"
@@ -246,7 +265,7 @@ export function CrmSidebar({
         <div className="border-t border-[#EEF1F4] p-3">
           <button
             type="button"
-            onClick={() => onNavigate("add-new-subscriber")}
+            onClick={() => go("add-new-subscriber")}
             className={`flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition ${
               activeMenu === "add-new-subscriber"
                 ? "bg-[#0B6E75] text-white shadow-md"
@@ -258,6 +277,7 @@ export function CrmSidebar({
           </button>
         </div>
       )}
-    </aside>
+      </aside>
+    </>
   );
 }

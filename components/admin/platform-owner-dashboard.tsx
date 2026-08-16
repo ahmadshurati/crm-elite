@@ -370,8 +370,8 @@ export function PlatformOwnerDashboard() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#111827]">
-            <table className="w-full text-right text-sm text-slate-200">
+          <div className="overflow-x-auto rounded-[28px] border border-white/10 bg-[#111827]">
+            <table className="w-full min-w-[640px] text-right text-sm text-slate-200">
               <thead className="bg-white/5 text-slate-400">
                 <tr>
                   <th className="px-5 py-4">الشركة</th>
@@ -491,8 +491,8 @@ export function PlatformOwnerDashboard() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-[28px] border border-white/10 bg-[#111827]">
-            <table className="w-full text-right text-sm text-slate-200">
+          <div className="overflow-x-auto rounded-[28px] border border-white/10 bg-[#111827]">
+            <table className="w-full min-w-[640px] text-right text-sm text-slate-200">
               <thead className="bg-white/5 text-slate-400">
                 <tr>
                   <th className="px-5 py-4">المستخدم</th>

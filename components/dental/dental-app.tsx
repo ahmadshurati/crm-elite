@@ -18,6 +18,8 @@ import {
   Stethoscope,
   UserPlus,
   Users,
+  Menu,
+  X,
 } from "lucide-react";
 import { PatientProfile } from "@/components/dental/patient-profile";
 import { DentalCalendar } from "@/components/dental/dental-calendar";
@@ -72,6 +74,7 @@ function DentalAppInner() {
   const [view, setView] = useState<View>("dashboard");
   const [patientId, setPatientId] = useState<number | null>(null);
   const [patientTab, setPatientTab] = useState<string | undefined>(undefined);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const boot = useCallback(async () => {
     setBootError(null);
@@ -122,17 +125,25 @@ function DentalAppInner() {
     setPatientId(null);
     setPatientTab(undefined);
     setView(v);
+    setSidebarOpen(false);
   }
 
   function openPatient(id: number, tab?: string) {
     setPatientTab(tab);
     setPatientId(id);
+    setSidebarOpen(false);
   }
 
   return (
     <div dir="rtl" className="flex min-h-screen bg-[#F5F8FB] text-[#1F2937]">
-      <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col border-l border-[#E5E9EF] bg-white">
-        <div className="flex items-center gap-2.5 border-b border-[#EEF1F4] px-5 py-5">
+      {sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden" aria-hidden="true" />
+      )}
+      <aside className={`fixed inset-y-0 right-0 z-50 flex h-screen w-[248px] max-w-[85vw] shrink-0 flex-col border-l border-[#E5E9EF] bg-white transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:max-w-none lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="relative flex items-center gap-2.5 border-b border-[#EEF1F4] px-5 py-5">
+          <button type="button" onClick={() => setSidebarOpen(false)} aria-label="إغلاق القائمة" className="absolute left-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#64748B] hover:bg-[#F1F5F9] lg:hidden">
+            <X className="h-5 w-5" />
+          </button>
           <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#0F8B94] text-white">
             <Stethoscope className="h-5 w-5" />
           </div>
@@ -165,10 +176,15 @@ function DentalAppInner() {
       </aside>
 
       <main className="min-w-0 flex-1">
-        <div className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-[#EAECEF] bg-white px-6 py-4">
-          <h1 className="shrink-0 text-lg font-bold text-[#1F2937]">{clinic}</h1>
+        <div className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-3 border-b border-[#EAECEF] bg-white px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setSidebarOpen(true)} aria-label="القائمة" className="rounded-xl p-2 text-[#475569] hover:bg-gray-100 lg:hidden">
+              <Menu className="h-5 w-5" />
+            </button>
+            <h1 className="shrink-0 text-base font-bold text-[#1F2937] sm:text-lg">{clinic}</h1>
+          </div>
           <GlobalSearch onOpenPatient={openPatient} />
-          <span className="shrink-0 rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94]">عيادة أسنان</span>
+          <span className="hidden shrink-0 rounded-full bg-[#E7F6F5] px-3 py-1 text-xs font-bold text-[#0F8B94] sm:inline">عيادة أسنان</span>
         </div>
 
         <div className="p-4 sm:p-6">
