@@ -62,6 +62,12 @@ function tsToDate(ts: unknown): Date {
 
 function extractText(msg: Record<string, any>, type: WaType): string | null {
   if (type === "text") return msg.text?.body ?? null;
+  if (type === "interactive") {
+    const it = msg.interactive || {};
+    return it.button_reply?.title || it.list_reply?.title || it.nfm_reply?.name || null;
+  }
+  // Template quick-reply buttons arrive as type "button" (mapped to text)
+  if (msg.button?.text) return String(msg.button.text);
   if (type === "location") {
     const loc = msg.location || {};
     return loc.name || loc.address || `${loc.latitude ?? ""},${loc.longitude ?? ""}` || null;

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensure, requireDental } from "@/lib/dental/data";
-import { getConfigStatus, saveConfig, disableConfig } from "@/lib/dental/whatsapp/config";
+import { getConfigStatus, saveConfig, saveAutoReply, disableConfig } from "@/lib/dental/whatsapp/config";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 
 export const runtime = "nodejs";
@@ -28,15 +28,33 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const body = await req.json().catch(() => ({}));
   try {
-    await saveConfig(ctx.companyId, ctx.userId, {
-      phoneNumberId: body.phoneNumberId,
-      businessAccountId: body.businessAccountId,
-      verifyToken: body.verifyToken,
-      accessToken: body.accessToken,
-      appSecret: body.appSecret,
-      defaultCountry: body.defaultCountry,
-      active: body.active !== false,
-    });
+    // Auto-reply settings can be saved on their own (autoReply-only POST) or alongside connection.
+    if (body.autoReply && typeof body.autoReply === "object") {
+      await saveAutoReply(ctx.companyId, {
+        enabled: !!body.autoReply.enabled,
+        text: body.autoReply.text ?? null,
+        options: Array.isArray(body.autoReply.options) ? body.autoReply.options : [],
+        cooldownMin: Number(body.autoReply.cooldownMin) || 120,
+      });
+    }
+    const hasConnectionFields =
+      body.phoneNumberId !== undefined ||
+      body.businessAccountId !== undefined ||
+      body.verifyToken !== undefined ||
+      body.accessToken !== undefined ||
+      body.appSecret !== undefined ||
+      body.defaultCountry !== undefined;
+    if (hasConnectionFields) {
+      await saveConfig(ctx.companyId, ctx.userId, {
+        phoneNumberId: body.phoneNumberId,
+        businessAccountId: body.businessAccountId,
+        verifyToken: body.verifyToken,
+        accessToken: body.accessToken,
+        appSecret: body.appSecret,
+        defaultCountry: body.defaultCountry,
+        active: body.active !== false,
+      });
+    }
     await writeDentalAudit({
       companyId: ctx.companyId,
       userId: ctx.userId,

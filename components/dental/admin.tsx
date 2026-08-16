@@ -109,6 +109,10 @@ type WaStatus = {
   defaultCountry: string;
   active: boolean;
   webhookPath: string;
+  autoReplyEnabled: boolean;
+  autoReplyText: string;
+  autoReplyOptions: string[];
+  autoReplyCooldownMin: number;
 };
 
 function IntegrationsSettings() {
@@ -192,9 +196,82 @@ function IntegrationsSettings() {
         </form>
       )}
 
+      {s && <AutoReplyEditor status={s} onSaved={(st) => setData({ status: st })} />}
+
       <div className="rounded-[24px] border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#94A3B8]">
         قنوات أخرى (SMS / Instagram / البريد) — <span className="font-bold text-[#64748B]">قريبًا</span>.
       </div>
+    </div>
+  );
+}
+
+function AutoReplyEditor({ status, onSaved }: { status: WaStatus; onSaved: (s: WaStatus) => void }) {
+  const { pending, run } = useMutation();
+  const [enabled, setEnabled] = useState(status.autoReplyEnabled);
+  const [text, setText] = useState(status.autoReplyText || "");
+  const [options, setOptions] = useState<string[]>(() => {
+    const o = [...(status.autoReplyOptions || [])];
+    while (o.length < 3) o.push("");
+    return o.slice(0, 3);
+  });
+  const [cooldown, setCooldown] = useState(String(status.autoReplyCooldownMin || 120));
+
+  async function save() {
+    if (pending) return;
+    const res = await run<{ status: WaStatus }>("/api/dental/whatsapp/config", "POST", {
+      autoReply: {
+        enabled,
+        text,
+        options: options.map((o) => o.trim()).filter(Boolean),
+        cooldownMin: Number(cooldown) || 120,
+      },
+    }, { success: "تم حفظ الرد التلقائي" });
+    if (res) onSaved(res.status);
+  }
+
+  return (
+    <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-bold text-[#1F2937]">الرد التلقائي (قائمة خيارات)</h3>
+          <p className="mt-1 text-sm text-[#94A3B8]">يُرسَل تلقائيًا لأي مريض يراسل العيادة، ويتوقف عند ردّ أحد الموظفين على المحادثة.</p>
+        </div>
+        <label className="inline-flex cursor-pointer items-center gap-2">
+          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} className="h-4 w-4" />
+          <span className="text-sm font-bold text-[#475569]">{enabled ? "مُفعّل" : "متوقف"}</span>
+        </label>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-bold text-[#64748B]">نص الترحيب</label>
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder="أهلاً بك في العيادة… كيف يمكننا مساعدتك؟" className="w-full rounded-xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#0F8B94]" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-bold text-[#64748B]">الخيارات (حتى 3 أزرار، كل زر بحد أقصى 20 حرفًا)</label>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+            {options.map((o, i) => (
+              <input
+                key={i}
+                value={o}
+                maxLength={20}
+                onChange={(e) => setOptions((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))}
+                placeholder={`الخيار ${i + 1}`}
+                className={INP}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="max-w-xs">
+          <label className="mb-1 block text-xs font-bold text-[#64748B]">فترة عدم التكرار (دقائق)</label>
+          <input value={cooldown} onChange={(e) => setCooldown(e.target.value)} inputMode="numeric" className={INP} />
+          <p className="mt-1 text-[11px] text-[#94A3B8]">لا يُعاد إرسال الرد لنفس المحادثة قبل مرور هذه المدة.</p>
+        </div>
+      </div>
+
+      <button onClick={save} disabled={pending} className="mt-4 rounded-xl bg-[#0F8B94] px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
+        {pending ? "جارِ الحفظ…" : "حفظ الرد التلقائي"}
+      </button>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { shouldApplyStatus, mapMetaMessageType, WA_STATUS_RANK } from "@/lib/den
 import { verifySignature, extractChanges } from "@/lib/dental/whatsapp/webhook";
 import { buildTextPayload, buildTemplatePayload, findTemplate } from "@/lib/dental/whatsapp/templates";
 import { isWithinServiceWindow, serviceWindowHours } from "@/lib/dental/whatsapp/config";
+import { shouldAutoReply, buildButtonsPayload, normalizeOptions, autoReplyStoredBody } from "@/lib/dental/whatsapp/autoreply";
 
 describe("whatsapp phone normalization", () => {
   it("normalizes local, plus, 00 and bare numbers to E.164 digits (default IL/PS 972)", () => {
@@ -64,8 +65,83 @@ describe("whatsapp message status progression", () => {
     expect(mapMetaMessageType("text")).toBe("text");
     expect(mapMetaMessageType("image")).toBe("image");
     expect(mapMetaMessageType("voice")).toBe("audio");
+    expect(mapMetaMessageType("interactive")).toBe("interactive");
+    expect(mapMetaMessageType("button")).toBe("text");
     expect(mapMetaMessageType("sticker")).toBe("unknown");
     expect(mapMetaMessageType(undefined)).toBe("unknown");
+  });
+});
+
+describe("whatsapp inbound interactive (button tap) extraction", () => {
+  it("reads the tapped button/list title as the message body", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "PN_1" },
+                messages: [
+                  {
+                    id: "wamid.BTN1",
+                    from: "972501234567",
+                    type: "interactive",
+                    timestamp: "1723700000",
+                    interactive: { type: "button_reply", button_reply: { id: "opt_3", title: "التحدث مع مندوب" } },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const changes = extractChanges(payload);
+    expect(changes[0].inbound[0]).toMatchObject({ type: "interactive", text: "التحدث مع مندوب" });
+  });
+});
+
+describe("whatsapp auto-reply (menu with options)", () => {
+  it("replies when enabled, no human has replied, and no recent auto-reply", () => {
+    expect(shouldAutoReply({ enabled: true, hasHumanReply: false, lastAutoReplyAt: null, cooldownMin: 120 })).toBe(true);
+  });
+
+  it("does NOT reply when disabled", () => {
+    expect(shouldAutoReply({ enabled: false, hasHumanReply: false, lastAutoReplyAt: null, cooldownMin: 120 })).toBe(false);
+  });
+
+  it("stops once a representative (human) has replied", () => {
+    expect(shouldAutoReply({ enabled: true, hasHumanReply: true, lastAutoReplyAt: null, cooldownMin: 120 })).toBe(false);
+  });
+
+  it("respects the cooldown between auto-replies", () => {
+    const now = Date.now();
+    const tenMinAgo = new Date(now - 10 * 60 * 1000);
+    const threeHoursAgo = new Date(now - 3 * 60 * 60 * 1000);
+    expect(shouldAutoReply({ enabled: true, hasHumanReply: false, lastAutoReplyAt: tenMinAgo, cooldownMin: 120, now })).toBe(false);
+    expect(shouldAutoReply({ enabled: true, hasHumanReply: false, lastAutoReplyAt: threeHoursAgo, cooldownMin: 120, now })).toBe(true);
+  });
+
+  it("normalizes options: trims, drops empties, caps to 3 and 20 chars", () => {
+    expect(normalizeOptions(["  حجز موعد  ", "", "أسعار", "رابع", "خامس"])).toEqual(["حجز موعد", "أسعار", "رابع"]);
+    expect(normalizeOptions("nope")).toEqual([]);
+    expect(normalizeOptions(["x".repeat(30)])[0]).toHaveLength(20);
+  });
+
+  it("builds an interactive buttons payload (max 3 reply buttons)", () => {
+    const p = buildButtonsPayload("972501234567", "مرحبا", ["حجز موعد", "أسعار", "مندوب", "زائد"]) as {
+      type: string;
+      interactive: { type: string; body: { text: string }; action: { buttons: { reply: { id: string; title: string } }[] } };
+    };
+    expect(p.type).toBe("interactive");
+    expect(p.interactive.type).toBe("button");
+    expect(p.interactive.body.text).toBe("مرحبا");
+    expect(p.interactive.action.buttons).toHaveLength(3);
+    expect(p.interactive.action.buttons[0].reply).toMatchObject({ id: "opt_1", title: "حجز موعد" });
+  });
+
+  it("renders a text version of the menu for the thread history", () => {
+    expect(autoReplyStoredBody("مرحبا", ["حجز موعد", "أسعار"])).toBe("مرحبا\n1. حجز موعد\n2. أسعار");
   });
 });
 

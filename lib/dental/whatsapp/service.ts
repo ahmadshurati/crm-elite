@@ -6,11 +6,18 @@ import { safeIso } from "@/lib/dental/format";
 import { writeDentalAudit } from "@/lib/dental/services/audit";
 import { addTimelineEvent } from "@/lib/dental/services/timeline";
 import type { DentalContext } from "@/lib/dental/data";
-import { getConfig, getCompanyIdByPhoneNumberId, isWithinServiceWindow, defaultCountryCode } from "./config";
+import { getConfig, getCompanyIdByPhoneNumberId, isWithinServiceWindow, defaultCountryCode, type WaConfig } from "./config";
 import { graphSend } from "./client";
 import { normalizePhone, phoneMatchKey } from "./phone";
 import { buildTextPayload, buildTemplatePayload, findTemplate } from "./templates";
 import { extractChanges } from "./webhook";
+import {
+  shouldAutoReply,
+  buildButtonsPayload,
+  autoReplyStoredBody,
+  DEFAULT_AUTO_REPLY_TEXT,
+  DEFAULT_AUTO_REPLY_OPTIONS,
+} from "./autoreply";
 import { shouldApplyStatus, isWaStatus, type WaConversation, type WaMessage, type WaStatus, type WaType } from "./types";
 
 const MAX_TEXT_LEN = 4096;
@@ -398,6 +405,61 @@ function inboundDisplayBody(text: string | null, type: WaType): string | null {
   return labels[type] || null;
 }
 
+/**
+ * Auto-reply (menu with options) — sent when a patient messages the clinic, and kept up until a
+ * human agent replies. An inbound message opens the 24h window, so an interactive message is allowed.
+ */
+async function maybeAutoReply(
+  config: WaConfig,
+  conversationId: number,
+  to: string,
+  patientId: number | null
+): Promise<void> {
+  if (!config.autoReplyEnabled) return;
+
+  // A representative (human) already replied -> stop auto-replying.
+  const human = await queryOne<{ id: number }>(
+    "SELECT id FROM DentalWhatsAppMessage WHERE conversationId = ? AND companyId = ? AND direction = 'outbound' AND sentByUserId IS NOT NULL LIMIT 1",
+    [conversationId, config.companyId]
+  );
+  const hasHumanReply = !!human;
+
+  // Cooldown is measured from the last automated (system) outbound.
+  const last = await queryOne<{ ts: Date | null }>(
+    "SELECT MAX(timestamp) AS ts FROM DentalWhatsAppMessage WHERE conversationId = ? AND companyId = ? AND direction = 'outbound' AND sentByUserId IS NULL",
+    [conversationId, config.companyId]
+  );
+
+  if (!shouldAutoReply({ enabled: true, hasHumanReply, lastAutoReplyAt: last?.ts ?? null, cooldownMin: config.autoReplyCooldownMin })) {
+    return;
+  }
+
+  const text = config.autoReplyText || DEFAULT_AUTO_REPLY_TEXT;
+  const options = config.autoReplyOptions.length ? config.autoReplyOptions : DEFAULT_AUTO_REPLY_OPTIONS;
+  const result = await graphSend(config, buildButtonsPayload(to, text, options));
+
+  const storedBody = autoReplyStoredBody(text, options);
+  await execute(
+    `INSERT INTO DentalWhatsAppMessage
+       (companyId, conversationId, patientId, wamid, direction, type, body, status, errorCode, errorMessage, sentByUserId, timestamp, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, 'outbound', 'interactive', ?, ?, ?, ?, NULL, NOW(3), NOW(3), NOW(3))`,
+    [
+      config.companyId,
+      conversationId,
+      patientId,
+      result.ok ? result.wamid : null,
+      storedBody,
+      result.ok ? "sent" : "failed",
+      result.ok ? null : result.errorCode,
+      result.ok ? null : result.error,
+    ]
+  );
+  await execute(
+    "UPDATE DentalWhatsAppConversation SET lastMessageText = ?, lastMessageAt = NOW(3), updatedAt = NOW(3) WHERE id = ? AND companyId = ?",
+    [storedBody.slice(0, 500), conversationId, config.companyId]
+  );
+}
+
 /** Ingest a verified webhook payload. Idempotent by wamid. Returns count of processed items. */
 export async function ingestWebhook(payload: unknown): Promise<{ inbound: number; statuses: number }> {
   const changes = extractChanges(payload);
@@ -411,7 +473,8 @@ export async function ingestWebhook(payload: unknown): Promise<{ inbound: number
       console.warn("whatsapp webhook: no dental company for phone_number_id");
       continue;
     }
-    const country = defaultCountryCode();
+    const config = await getConfig(companyId);
+    const country = config?.defaultCountry || defaultCountryCode();
 
     for (const m of change.inbound) {
       // Idempotency guard (wamid is globally unique).
@@ -450,6 +513,15 @@ export async function ingestWebhook(payload: unknown): Promise<{ inbound: number
         [body?.slice(0, 500) ?? null, m.timestamp, m.timestamp, m.name, conversationId, companyId]
       );
       inboundCount++;
+
+      // Best-effort auto-reply (never blocks webhook processing).
+      if (config) {
+        try {
+          await maybeAutoReply(config, conversationId, normalized, matched?.patientId ?? null);
+        } catch (e) {
+          console.error("whatsapp auto-reply failed", e);
+        }
+      }
     }
 
     for (const s of change.statuses) {

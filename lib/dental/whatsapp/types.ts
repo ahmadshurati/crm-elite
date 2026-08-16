@@ -5,6 +5,7 @@ export type WaStatus = "pending" | "sent" | "delivered" | "read" | "failed";
 export type WaType =
   | "text"
   | "template"
+  | "interactive"
   | "image"
   | "document"
   | "audio"
@@ -42,6 +43,10 @@ export function mapMetaMessageType(t: unknown): WaType {
       return "text";
     case "template":
       return "template";
+    case "interactive":
+      return "interactive";
+    case "button":
+      return "text";
     case "image":
       return "image";
     case "document":

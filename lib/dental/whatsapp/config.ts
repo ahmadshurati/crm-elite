@@ -15,6 +15,10 @@ export type WaConfig = {
   accessToken: string;
   appSecret: string | null;
   defaultCountry: string;
+  autoReplyEnabled: boolean;
+  autoReplyText: string | null;
+  autoReplyOptions: string[];
+  autoReplyCooldownMin: number;
 };
 
 type ConfigRow = {
@@ -26,7 +30,21 @@ type ConfigRow = {
   appSecret: string | null;
   defaultCountry: string | null;
   active: number | boolean;
+  autoReplyEnabled: number | boolean | null;
+  autoReplyText: string | null;
+  autoReplyOptions: string | null;
+  autoReplyCooldownMin: number | null;
 };
+
+function parseOptions(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.map((o) => String(o)) : [];
+  } catch {
+    return [];
+  }
+}
 
 function env(name: string): string | null {
   const v = process.env[name];
@@ -76,6 +94,10 @@ export async function getConfig(companyId: number): Promise<WaConfig | null> {
     accessToken,
     appSecret: row?.appSecret || env("WHATSAPP_APP_SECRET"),
     defaultCountry: row?.defaultCountry || defaultCountryCode(),
+    autoReplyEnabled: row ? row.autoReplyEnabled === true || row.autoReplyEnabled === 1 : false,
+    autoReplyText: row?.autoReplyText || null,
+    autoReplyOptions: parseOptions(row?.autoReplyOptions ?? null),
+    autoReplyCooldownMin: Number(row?.autoReplyCooldownMin ?? 120) || 120,
   };
 }
 
@@ -91,6 +113,10 @@ export type WaConfigStatus = {
   defaultCountry: string;
   active: boolean;
   webhookPath: string;
+  autoReplyEnabled: boolean;
+  autoReplyText: string;
+  autoReplyOptions: string[];
+  autoReplyCooldownMin: number;
 };
 
 export async function getConfigStatus(companyId: number): Promise<WaConfigStatus> {
@@ -119,7 +145,33 @@ export async function getConfigStatus(companyId: number): Promise<WaConfigStatus
     defaultCountry: row?.defaultCountry || defaultCountryCode(),
     active,
     webhookPath: "/api/dental/whatsapp/webhook",
+    autoReplyEnabled: row ? row.autoReplyEnabled === true || row.autoReplyEnabled === 1 : false,
+    autoReplyText: row?.autoReplyText || "",
+    autoReplyOptions: parseOptions(row?.autoReplyOptions ?? null),
+    autoReplyCooldownMin: Number(row?.autoReplyCooldownMin ?? 120) || 120,
   };
+}
+
+/** Save the auto-reply (menu) settings for a company. */
+export async function saveAutoReply(
+  companyId: number,
+  input: { enabled: boolean; text: string | null; options: string[]; cooldownMin: number }
+): Promise<void> {
+  const optionsJson = JSON.stringify(
+    (Array.isArray(input.options) ? input.options : []).map((o) => String(o ?? "").trim()).filter(Boolean).slice(0, 3)
+  );
+  const cooldown = Number.isFinite(input.cooldownMin) && input.cooldownMin > 0 ? Math.floor(input.cooldownMin) : 120;
+  await execute(
+    `INSERT INTO DentalWhatsAppConfig (companyId, autoReplyEnabled, autoReplyText, autoReplyOptions, autoReplyCooldownMin, active, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, 1, NOW(3), NOW(3))
+     ON DUPLICATE KEY UPDATE
+       autoReplyEnabled = VALUES(autoReplyEnabled),
+       autoReplyText = VALUES(autoReplyText),
+       autoReplyOptions = VALUES(autoReplyOptions),
+       autoReplyCooldownMin = VALUES(autoReplyCooldownMin),
+       updatedAt = NOW(3)`,
+    [companyId, input.enabled ? 1 : 0, (input.text || "").trim() || null, optionsJson, cooldown]
+  );
 }
 
 /** Webhook routing: which company owns this Meta phone_number_id? (isolation-critical) */

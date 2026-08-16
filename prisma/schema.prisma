@@ -920,6 +920,10 @@ model DentalWhatsAppConfig {
   appSecret         String?
   defaultCountry    String   @default("972")
   active            Boolean  @default(true)
+  autoReplyEnabled     Boolean @default(false)
+  autoReplyText        String? @db.Text
+  autoReplyOptions     String? @db.Text
+  autoReplyCooldownMin Int     @default(120)
   createdByUserId   Int?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @default(now())
