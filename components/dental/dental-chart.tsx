@@ -113,13 +113,13 @@ export function DentalChart({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[#EAECEF] bg-white p-5">
-        <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+      <div className="rounded-2xl border border-[#EAECEF] bg-white p-4 sm:p-5">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
           {quadrants.map((q) => (
             <div key={q.id}>
               <p className="mb-2 text-center text-[11px] font-bold text-[#94A3B8]">{q.label}</p>
-              <div className="flex flex-wrap justify-center gap-1">
-                {q.teeth.map((n) => {
+              <div dir="ltr" className="flex flex-nowrap justify-center gap-1 overflow-x-auto">
+                {[...q.teeth].reverse().map((n) => {
                   const cond = condMap.get(n) || "healthy";
                   const info = CONDITION_MAP[cond] || CONDITION_MAP.healthy;
                   const active = selected === n;
