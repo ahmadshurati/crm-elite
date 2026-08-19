@@ -107,7 +107,7 @@ export function SettingsDashboard({ canEdit }: { canEdit: boolean }) {
         </div>
 
         {canEdit && (
-          <button type="submit" disabled={saving} className="mt-6 rounded-xl bg-[#0F8B94] px-5 py-2 text-sm font-bold text-white">
+          <button type="submit" disabled={saving} className="mt-6 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white">
             {saving ? "جاري الحفظ..." : "حفظ الإعدادات"}
           </button>
         )}

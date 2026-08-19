@@ -144,7 +144,7 @@ export function QrDashboard() {
 
   return (
     <main dir="rtl" className="min-h-screen bg-[#F5F8FB] text-[#1F2937]">
-      <div className="border-b border-[#E7ECF1] bg-gradient-to-l from-[#0F8B94] to-[#0B6E75]">
+      <div className="border-b border-[#E7ECF1] bg-gradient-to-l from-[#2563EB] to-[#1D4ED8]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 text-white">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-base font-black">G</div>
@@ -165,7 +165,7 @@ export function QrDashboard() {
               setShowForm((v) => !v);
               setCreated(null);
             }}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#0B6E75]"
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#2563EB] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#1D4ED8]"
           >
             <Plus className="h-4 w-4" />
             زبون جديد
@@ -225,7 +225,7 @@ export function QrDashboard() {
             </div>
             {formError && <p className="mt-3 rounded-xl bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700">{formError}</p>}
             <div className="mt-4 flex gap-2">
-              <button type="submit" disabled={creating} className="inline-flex items-center gap-2 rounded-2xl bg-[#0F8B94] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#0B6E75] disabled:opacity-60">
+              <button type="submit" disabled={creating} className="inline-flex items-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-60">
                 {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 إنشاء الزبون
               </button>
@@ -257,10 +257,10 @@ export function QrDashboard() {
                 </thead>
                 <tbody>
                   {shops.map((s) => (
-                    <tr key={s.code} onClick={() => openDetail(s.code)} className="cursor-pointer border-b border-[#F5F7FA] transition last:border-none hover:bg-[#F1FBFA]">
+                    <tr key={s.code} onClick={() => openDetail(s.code)} className="cursor-pointer border-b border-[#F5F7FA] transition last:border-none hover:bg-[#EFF4FF]">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#E7F6F5] text-[#0F8B94]"><Store className="h-4 w-4" /></div>
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EFF4FF] text-[#2563EB]"><Store className="h-4 w-4" /></div>
                           <div>
                             <p className="font-bold text-[#1F2937]">{s.name}</p>
                             {s.ownerName && <p className="text-xs text-[#94A3B8]">{s.ownerName}</p>}
@@ -430,7 +430,7 @@ function QrBox({ link, download }: { link: string; download: string }) {
   const [dataUrl, setDataUrl] = useState("");
   useEffect(() => {
     let active = true;
-    QRCode.toDataURL(link, { width: 220, margin: 1, color: { dark: "#0B4A50", light: "#FFFFFF" } })
+    QRCode.toDataURL(link, { width: 220, margin: 1, color: { dark: "#0B2A4A", light: "#FFFFFF" } })
       .then((url) => {
         if (active) setDataUrl(url);
       })
@@ -451,7 +451,7 @@ function QrBox({ link, download }: { link: string; download: string }) {
         )}
       </div>
       {dataUrl && (
-        <a href={dataUrl} download={download} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0F8B94] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#0B6E75]">
+        <a href={dataUrl} download={download} className="inline-flex items-center gap-1.5 rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1D4ED8]">
           <Download className="h-3.5 w-3.5" />
           تنزيل QR
         </a>
@@ -475,7 +475,7 @@ function CredLine({ label, value }: { label: string; value: string }) {
             setTimeout(() => setCopied(false), 1500);
           });
         }}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#0F8B94] ring-1 ring-[#E5E7EB] hover:bg-[#E7F6F5]"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-[#2563EB] ring-1 ring-[#E5E7EB] hover:bg-[#EFF4FF]"
       >
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
@@ -552,7 +552,7 @@ function ShopEditor({
       </div>
       {error && <p className="mt-2 text-xs font-bold text-rose-600">{error}</p>}
       {saved && !error && <p className="mt-2 text-xs font-bold text-emerald-600">تم حفظ التعديلات ✓</p>}
-      <button disabled={saving} className="mt-3 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75] disabled:opacity-60">
+      <button disabled={saving} className="mt-3 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-60">
         {saving ? "جارِ الحفظ…" : "حفظ التعديلات"}
       </button>
     </form>
@@ -580,14 +580,14 @@ function EditField({
         onChange={(e) => onChange(e.target.value)}
         dir={dir}
         type={type || "text"}
-        className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm outline-none focus:border-[#0F8B94]"
+        className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm outline-none focus:border-[#2563EB]"
       />
     </label>
   );
 }
 
 const MINI_ACCENTS: Record<string, string> = {
-  teal: "bg-[#E7F6F5] text-[#0F8B94]",
+  teal: "bg-[#EFF4FF] text-[#2563EB]",
   blue: "bg-blue-50 text-blue-600",
   violet: "bg-violet-50 text-violet-600",
   amber: "bg-amber-50 text-amber-600",
@@ -606,14 +606,14 @@ function MiniKpi({ icon: Icon, label, value, accent }: { icon: typeof Users; lab
 }
 
 const INPUT =
-  "h-11 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-3 text-sm text-[#1F2937] outline-none transition focus:border-[#0F8B94] focus:bg-white";
+  "h-11 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-3 text-sm text-[#1F2937] outline-none transition focus:border-[#2563EB] focus:bg-white";
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-sm font-semibold text-[#374151]">
         {label}
-        {required && <span className="text-[#0F8B94]"> *</span>}
+        {required && <span className="text-[#2563EB]"> *</span>}
       </span>
       {children}
     </label>

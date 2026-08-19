@@ -273,8 +273,8 @@ function getLegacyPageDescription(menu: MenuKey): string {
   }
 }
 
-export const DEFAULT_LOGO_URL = "/loag.png";
-export const DEMO_LOGO_URL = "/gosol-crm-logo.svg";
+export const DEFAULT_LOGO_URL = "/gosol-logo.png";
+export const DEMO_LOGO_URL = "/gosol-logo.png";
 
 export function resolveBranding(input: {
   companyName?: string | null;

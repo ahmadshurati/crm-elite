@@ -84,7 +84,7 @@ export function ContractsDashboard({
     <section className="mt-8 space-y-5">
       <div className="rounded-[28px] border border-[#EAECEF] bg-white px-6 py-5 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="rounded-full bg-[#F1FBFA] p-2 text-[#0F8B94]">
+          <div className="rounded-full bg-[#EFF4FF] p-2 text-[#2563EB]">
             <FileText className="h-5 w-5" />
           </div>
           <div>
@@ -138,7 +138,7 @@ export function ContractsDashboard({
           <button
             type="submit"
             disabled={saving}
-            className="mt-4 rounded-xl bg-[#0F8B94] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+            className="mt-4 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
             {saving ? "جاري الحفظ..." : "إضافة عقد"}
           </button>

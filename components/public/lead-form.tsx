@@ -174,8 +174,8 @@ export function LeadForm() {
           >
             {done ? (
               <div className="flex flex-col items-center py-10 text-center">
-                <div className="gosol-pop flex h-16 w-16 items-center justify-center rounded-full bg-[#E7F6F5]">
-                  <CheckCircle2 className="h-9 w-9 text-[#0F8B94]" />
+                <div className="gosol-pop flex h-16 w-16 items-center justify-center rounded-full bg-[#EFF4FF]">
+                  <CheckCircle2 className="h-9 w-9 text-[#2563EB]" />
                 </div>
                 <h2 className="mt-5 text-2xl font-bold text-[#1F2937]">تمّ استلام بياناتك</h2>
                 <p className="mt-2 max-w-xs text-sm leading-7 text-[#707A84]">
@@ -250,7 +250,7 @@ export function LeadForm() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0F8B94] px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-[#0F8B94]/30 transition duration-200 hover:-translate-y-0.5 hover:bg-[#0B6E75] hover:shadow-xl active:translate-y-0 disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3.5 text-base font-bold text-white shadow-lg shadow-[#2563EB]/30 transition duration-200 hover:-translate-y-0.5 hover:bg-[#1D4ED8] hover:shadow-xl active:translate-y-0 disabled:opacity-60"
                   >
                     {submitting ? (
                       <>
@@ -280,7 +280,7 @@ export function LeadForm() {
 }
 
 const inputClass =
-  "h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm text-[#1F2937] outline-none transition focus:border-[#0F8B94] focus:bg-white focus:ring-2 focus:ring-[#0F8B94]/15";
+  "h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm text-[#1F2937] outline-none transition focus:border-[#2563EB] focus:bg-white focus:ring-2 focus:ring-[#2563EB]/15";
 
 function Field({
   label,
@@ -295,7 +295,7 @@ function Field({
     <label className="block">
       <span className="mb-1.5 block text-sm font-semibold text-[#374151]">
         {label}
-        {required && <span className="text-[#0F8B94]"> *</span>}
+        {required && <span className="text-[#2563EB]"> *</span>}
       </span>
       {children}
     </label>

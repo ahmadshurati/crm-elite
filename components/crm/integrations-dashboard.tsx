@@ -116,7 +116,7 @@ export function IntegrationsDashboard({ canEdit }: { canEdit: boolean }) {
     <section className="mt-8 space-y-5">
       <div className="rounded-[28px] border border-[#EAECEF] bg-white px-6 py-5 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="rounded-full bg-[#F1FBFA] p-2 text-[#0F8B94]">
+          <div className="rounded-full bg-[#EFF4FF] p-2 text-[#2563EB]">
             <Plug className="h-5 w-5" />
           </div>
           <div>
@@ -128,7 +128,7 @@ export function IntegrationsDashboard({ canEdit }: { canEdit: boolean }) {
               href={OPENAPI_API_URL}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-block text-sm font-bold text-[#0F8B94] hover:underline"
+              className="mt-2 inline-block text-sm font-bold text-[#2563EB] hover:underline"
             >
               فتح مواصفات OpenAPI (/api/openapi)
             </a>
@@ -181,7 +181,7 @@ export function IntegrationsDashboard({ canEdit }: { canEdit: boolean }) {
           })}
           <div className="rounded-[24px] border border-[#EAECEF] bg-white p-5 shadow-sm">
             <p className="font-bold text-[#1F2937]">قوالب البريد</p>
-            <p className="mt-2 text-2xl font-bold text-[#0F8B94]">{status.emailTemplates}</p>
+            <p className="mt-2 text-2xl font-bold text-[#2563EB]">{status.emailTemplates}</p>
             <p className="text-xs text-[#707A84]">قالب جاهز للاستخدام</p>
           </div>
         </div>
@@ -202,7 +202,7 @@ export function IntegrationsDashboard({ canEdit }: { canEdit: boolean }) {
             <button
               type="button"
               onClick={createApiKey}
-              className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white"
+              className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white"
             >
               إنشاء مفتاح
             </button>

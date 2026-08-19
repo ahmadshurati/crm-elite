@@ -18,7 +18,7 @@ const timelineKindLabels: Record<TimelineItem["kind"], string> = {
 };
 
 const timelineKindColors: Record<TimelineItem["kind"], string> = {
-  communication: "bg-[#E7F6F5] text-[#0F8B94]",
+  communication: "bg-[#EFF4FF] text-[#2563EB]",
   insurance: "bg-blue-50 text-blue-700",
   accident: "bg-amber-50 text-amber-700",
   document: "bg-violet-50 text-violet-700",
@@ -119,7 +119,7 @@ export function CustomerTimelinePanel({
           <button
             type="button"
             onClick={() => setFormOpen((value) => !value)}
-            className="flex items-center gap-2 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white"
+            className="flex items-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" />
             {formOpen ? "إخفاء النموذج" : "إضافة تواصل"}
@@ -175,7 +175,7 @@ export function CustomerTimelinePanel({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-[#0F8B94] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+              className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
             >
               {saving ? "جاري الحفظ..." : "حفظ التواصل"}
             </button>
@@ -194,7 +194,7 @@ export function CustomerTimelinePanel({
         ) : (
           items.map((item) => (
             <div key={item.id} className="flex gap-4 rounded-2xl border border-[#F1F5F9] p-4">
-              <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#0F8B94]" />
+              <div className="mt-1 h-3 w-3 shrink-0 rounded-full bg-[#2563EB]" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${timelineKindColors[item.kind]}`}>
@@ -212,7 +212,7 @@ export function CustomerTimelinePanel({
                     href={item.attachmentUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-2 inline-block text-xs font-bold text-[#0F8B94]"
+                    className="mt-2 inline-block text-xs font-bold text-[#2563EB]"
                   >
                     عرض المرفق
                   </a>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import {
   AlertTriangle,
   ChevronLeft,
@@ -81,10 +80,6 @@ export function CrmSidebar({
   isMaster: boolean;
 }) {
   const vocabulary = getCrmVocabulary(branding.isDemo);
-  const demoBrandName =
-    branding.companyName && !/elite/i.test(branding.companyName)
-      ? branding.companyName
-      : "Gosol CRM";
   const sections = useMemo(
     () =>
       buildSidebarSections({
@@ -157,20 +152,10 @@ export function CrmSidebar({
         <button type="button" onClick={onClose} aria-label="إغلاق القائمة" className="absolute left-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#64748B] hover:bg-[#F1F5F9] lg:hidden">
           <X className="h-5 w-5" />
         </button>
-        {branding.isDemo ? (
-          <span className="text-[22px] font-extrabold tracking-tight text-[#0F8B94]">
-            {demoBrandName}
-          </span>
-        ) : (
-          <Image
-            src={branding.logoUrl || "/loag.png"}
-            alt={branding.companyName}
-            width={150}
-            height={34}
-            className="max-h-[40px] w-auto object-contain"
-            priority
-          />
-        )}
+        <span className="text-[22px] font-extrabold tracking-tight">
+          <span className="text-[#0B2A4A]">Gosol</span>
+          <span className="text-[#2563EB]"> CRM</span>
+        </span>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="القائمة الرئيسية">
@@ -190,13 +175,13 @@ export function CrmSidebar({
                 onClick={() => go(item.key)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-right transition ${
                   active
-                    ? "bg-white font-bold text-[#0F8B94] shadow-sm ring-1 ring-[#D7ECEB]"
+                    ? "bg-white font-bold text-[#2563EB] shadow-sm ring-1 ring-[#C7DBFF]"
                     : "text-[#475569] hover:bg-white/80"
                 }`}
               >
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                    active ? "bg-[#E7F6F5] text-[#0F8B94]" : "bg-[#F1F5F9] text-[#64748B]"
+                    active ? "bg-[#EFF4FF] text-[#2563EB]" : "bg-[#F1F5F9] text-[#64748B]"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -212,12 +197,12 @@ export function CrmSidebar({
                 type="button"
                 onClick={() => toggleSection(section.id)}
                 className={`flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-right transition hover:bg-white/70 ${
-                  sectionActive ? "text-[#0F8B94]" : "text-[#334155]"
+                  sectionActive ? "text-[#2563EB]" : "text-[#334155]"
                 }`}
               >
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                    sectionActive ? "bg-[#E7F6F5] text-[#0F8B94]" : "bg-[#F1F5F9] text-[#64748B]"
+                    sectionActive ? "bg-[#EFF4FF] text-[#2563EB]" : "bg-[#F1F5F9] text-[#64748B]"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -241,7 +226,7 @@ export function CrmSidebar({
                         onClick={() => go(item.key)}
                         className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-right text-[13px] transition ${
                           active
-                            ? "bg-white font-bold text-[#0F8B94] shadow-sm ring-1 ring-[#D7ECEB]"
+                            ? "bg-white font-bold text-[#2563EB] shadow-sm ring-1 ring-[#C7DBFF]"
                             : "text-[#64748B] hover:bg-white/90 hover:text-[#334155]"
                         }`}
                       >
@@ -268,8 +253,8 @@ export function CrmSidebar({
             onClick={() => go("add-new-subscriber")}
             className={`flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition ${
               activeMenu === "add-new-subscriber"
-                ? "bg-[#0B6E75] text-white shadow-md"
-                : "bg-[#0F8B94] text-white hover:bg-[#0B6E75]"
+                ? "bg-[#1D4ED8] text-white shadow-md"
+                : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
             }`}
           >
             <Plus className="h-4 w-4" />

@@ -109,10 +109,10 @@ export function ExecutiveDashboard({
 
   return (
     <section className="space-y-6">
-      <div className="rounded-[28px] border border-[#EAECEF] bg-gradient-to-l from-[#F1FBFA] via-white to-white p-6 shadow-sm md:p-8">
+      <div className="rounded-[28px] border border-[#EAECEF] bg-gradient-to-l from-[#EFF4FF] via-white to-white p-6 shadow-sm md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-[#0F8B94]">لوحة التحكم التنفيذية</p>
+            <p className="text-sm font-semibold text-[#2563EB]">لوحة التحكم التنفيذية</p>
             <h2 className="mt-1 text-2xl font-bold text-[#1F2937] md:text-3xl">
               مرحباً{username ? `، ${username}` : ""}
             </h2>
@@ -125,7 +125,7 @@ export function ExecutiveDashboard({
               <button
                 type="button"
                 onClick={() => onNavigate("add-new-subscriber")}
-                className="inline-flex items-center gap-2 rounded-2xl bg-[#0F8B94] px-4 py-2.5 text-sm font-bold text-white shadow-sm"
+                className="inline-flex items-center gap-2 rounded-2xl bg-[#2563EB] px-4 py-2.5 text-sm font-bold text-white shadow-sm"
               >
                 <Plus className="h-4 w-4" />
                 {vocabulary.addCustomer}
@@ -263,7 +263,7 @@ export function ExecutiveDashboard({
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
                     <Tooltip formatter={(v) => formatMoney(Number(v))} />
-                    <Bar dataKey="revenue" fill="#0F8B94" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#2563EB" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -306,9 +306,9 @@ export function ExecutiveDashboard({
               key={action.key}
               type="button"
               onClick={() => onNavigate(action.key)}
-              className="flex flex-col items-center gap-2 rounded-2xl border border-[#F1F5F9] bg-[#FAFBFC] px-3 py-4 text-sm font-bold text-[#334155] transition hover:border-[#0F8B94]/20 hover:bg-[#F1FBFA]"
+              className="flex flex-col items-center gap-2 rounded-2xl border border-[#F1F5F9] bg-[#FAFBFC] px-3 py-4 text-sm font-bold text-[#334155] transition hover:border-[#2563EB]/20 hover:bg-[#EFF4FF]"
             >
-              <action.icon className="h-5 w-5 text-[#0F8B94]" />
+              <action.icon className="h-5 w-5 text-[#2563EB]" />
               {action.label}
             </button>
           ))}

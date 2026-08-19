@@ -59,7 +59,7 @@ export function AutomationDashboard({ canEdit }: { canEdit: boolean }) {
             {rules.map((rule) => (
               <div key={rule.id} className="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
                 <div className="flex items-start gap-3">
-                  <div className="rounded-full bg-[#F1FBFA] p-2 text-[#0F8B94]">
+                  <div className="rounded-full bg-[#EFF4FF] p-2 text-[#2563EB]">
                     <Zap className="h-4 w-4" />
                   </div>
                   <div>

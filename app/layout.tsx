@@ -13,8 +13,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://gosol.io"),
   title: "Gosol CRM",
-  description: "Gosol CRM",
+  description: "Gosol CRM — منصّة إدارة العملاء والمبيعات",
+  openGraph: {
+    title: "Gosol CRM",
+    description: "Gosol CRM — منصّة إدارة العملاء والمبيعات",
+    siteName: "Gosol CRM",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

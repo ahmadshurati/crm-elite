@@ -64,7 +64,7 @@ export function CrmNotificationsPanel({
           </div>
           <div className="mt-2 flex items-center justify-between">
             <p className="text-[13px] text-[#707A84]">{items.filter((item) => !item.isRead).length} غير مقروء</p>
-            <button type="button" onClick={markAllRead} className="text-xs font-bold text-[#0F8B94]">تعليم الكل كمقروء</button>
+            <button type="button" onClick={markAllRead} className="text-xs font-bold text-[#2563EB]">تعليم الكل كمقروء</button>
           </div>
         </div>
         <div className="max-h-[420px] overflow-y-auto">
@@ -72,8 +72,8 @@ export function CrmNotificationsPanel({
             <p className="px-5 py-10 text-center text-sm text-[#707A84]">جاري التحميل...</p>
           ) : items.length === 0 ? (
             <div className="px-5 py-10 text-center">
-              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F1FBFA]">
-                <Bell className="h-6 w-6 text-[#0F8B94]" />
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#EFF4FF]">
+                <Bell className="h-6 w-6 text-[#2563EB]" />
               </div>
               <p className="text-[14px] font-semibold text-[#1F2937]">لا توجد تنبيهات حالياً</p>
             </div>

@@ -20,7 +20,7 @@ export function KpiCard({
   accent?: "teal" | "blue" | "amber" | "rose" | "violet";
 }) {
   const accents = {
-    teal: "bg-[#E7F6F5] text-[#0F8B94]",
+    teal: "bg-[#EFF4FF] text-[#2563EB]",
     blue: "bg-blue-50 text-blue-600",
     amber: "bg-amber-50 text-amber-600",
     rose: "bg-rose-50 text-rose-600",
@@ -34,7 +34,7 @@ export function KpiCard({
       type={onClick ? "button" : undefined}
       onClick={onClick}
       className={`group w-full rounded-[24px] border border-[#EAECEF] bg-white p-5 text-right shadow-sm transition ${
-        onClick ? "hover:border-[#0F8B94]/30 hover:shadow-md" : ""
+        onClick ? "hover:border-[#2563EB]/30 hover:shadow-md" : ""
       }`}
     >
       <div className="flex items-start justify-between gap-3">

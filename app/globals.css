@@ -1,8 +1,26 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f8fa;
-  --foreground: #1f2937;
+  /* Gosol design tokens (derived from the Gosol CRM logo: deep navy + blue accent) */
+  --gosol-primary: #0b2a4a; /* deep navy — headings, dark surfaces */
+  --gosol-primary-600: #12325a;
+  --gosol-accent: #2563eb; /* brand blue — primary actions, active states, links */
+  --gosol-accent-600: #1d4ed8; /* accent hover/pressed */
+  --gosol-accent-050: #eff4ff; /* very light accent background */
+  --gosol-accent-100: #dbeafe; /* light accent surface */
+  --gosol-accent-200: #c7dbff; /* accent ring/border */
+  --gosol-background: #f6f8fb; /* app background (cool light gray) */
+  --gosol-surface: #ffffff; /* cards / panels */
+  --gosol-border: #e6eaf0; /* subtle borders */
+  --gosol-text: #0f1e33; /* primary text (near-navy) */
+  --gosol-text-muted: #64748b; /* secondary text */
+  --gosol-success: #16a34a;
+  --gosol-warning: #d97706;
+  --gosol-danger: #dc2626;
+  --gosol-info: #2563eb;
+
+  --background: var(--gosol-background);
+  --foreground: var(--gosol-text);
 }
 
 html,

@@ -1,15 +1,17 @@
-/** Shared CRM design tokens (Gosol CRM theme). */
+/** Shared CRM design tokens (Gosol CRM theme — deep navy + blue accent from the Gosol logo). */
 export const crmColors = {
-  primary: "#0F8B94",
-  primaryLight: "#F1FBFA",
-  primaryMuted: "#E7F6F5",
-  border: "#EAECEF",
+  primary: "#2563EB", // Gosol brand blue — primary actions / active states
+  primaryDark: "#1D4ED8", // hover / pressed
+  navy: "#0B2A4A", // deep navy — headings, dark surfaces
+  primaryLight: "#EFF4FF",
+  primaryMuted: "#DBEAFE",
+  border: "#E6EAF0",
   borderLight: "#EEF1F4",
-  text: "#1F2937",
-  textMuted: "#707A84",
+  text: "#0F1E33",
+  textMuted: "#64748B",
   textSubtle: "#8B95A1",
   surface: "#FFFFFF",
-  background: "#F7F8FA",
+  background: "#F6F8FB",
   sidebarBg: "#FFFFFF",
 } as const;
 
@@ -21,13 +23,14 @@ export const crmRadii = {
   pill: "rounded-full",
 } as const;
 
+/** Restrained Gosol chart palette (blue-family, harmonized with the brand). */
 export const chartColors = [
-  "#0F8B94",
   "#2563EB",
-  "#7C3AED",
-  "#10B981",
-  "#F59E0B",
-  "#EF4444",
-  "#14B8A6",
+  "#0B2A4A",
+  "#60A5FA",
   "#0EA5E9",
+  "#1D4ED8",
+  "#38BDF8",
+  "#93C5FD",
+  "#64748B",
 ] as const;
