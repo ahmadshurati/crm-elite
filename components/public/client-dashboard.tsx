@@ -209,7 +209,7 @@ export function ClientDashboard() {
           className="w-full max-w-sm rounded-[28px] border border-[#E7ECF1] bg-white p-8 text-center shadow-xl"
         >
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#EFF4FF]">
-            <QrCode className="h-7 w-7 text-[#2563EB]" />
+            <QrCode className="h-7 w-7 text-[#3B82F6]" />
           </div>
           <h1 className="mt-5 text-xl font-bold text-[#1F2937]">لوحة الشريك</h1>
           <p className="mt-2 text-sm text-[#707A84]">سجّل الدخول لعرض إحصائيات محلك.</p>
@@ -219,7 +219,7 @@ export function ClientDashboard() {
             onChange={(e) => setLogin({ ...login, username: e.target.value })}
             placeholder="اسم المستخدم"
             dir="ltr"
-            className="mt-5 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm outline-none focus:border-[#2563EB]"
+            className="mt-5 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm outline-none focus:border-[#3B82F6]"
             required
           />
           <input
@@ -228,7 +228,7 @@ export function ClientDashboard() {
             placeholder="كلمة المرور"
             type="password"
             dir="ltr"
-            className="mt-3 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm outline-none focus:border-[#2563EB]"
+            className="mt-3 h-12 w-full rounded-xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 text-sm outline-none focus:border-[#3B82F6]"
             required
           />
           {loginError && (
@@ -237,7 +237,7 @@ export function ClientDashboard() {
           <button
             type="submit"
             disabled={submitting}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white hover:bg-[#1D4ED8] disabled:opacity-60"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#3B82F6] px-5 py-3 text-sm font-bold text-white hover:bg-[#2563EB] disabled:opacity-60"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
             تسجيل الدخول
@@ -258,7 +258,7 @@ export function ClientDashboard() {
 
   return (
     <main dir="rtl" className="min-h-screen bg-[#F5F8FB] text-[#1F2937]">
-      <div className="border-b border-[#E7ECF1] bg-gradient-to-l from-[#2563EB] to-[#1D4ED8]">
+      <div className="border-b border-[#E7ECF1] bg-gradient-to-l from-[#3B82F6] to-[#2563EB]">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5 text-white">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-base font-black">G</div>
@@ -280,7 +280,7 @@ export function ClientDashboard() {
       <div className="mx-auto max-w-6xl px-5 py-8">
         <div className="gosol-fade-up flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-[#2563EB]">مرحباً</p>
+            <p className="text-sm font-semibold text-[#3B82F6]">مرحباً</p>
             <h1 className="mt-1 text-2xl font-bold text-[#1F2937] md:text-3xl">{shopName}</h1>
             {stats?.shop?.ownerName && <p className="mt-1 text-sm text-[#707A84]">{stats.shop.ownerName}</p>}
           </div>
@@ -299,7 +299,7 @@ export function ClientDashboard() {
                 key={p.id}
                 onClick={() => applyPreset(p.id)}
                 className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
-                  preset === p.id ? "bg-[#2563EB] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#EFF4FF]"
+                  preset === p.id ? "bg-[#3B82F6] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#EFF4FF]"
                 }`}
               >
                 {p.label}
@@ -307,9 +307,9 @@ export function ClientDashboard() {
             ))}
             <div className="mx-1 hidden h-6 w-px bg-[#E5E7EB] sm:block" />
             <div className="flex items-center gap-2">
-              <input type="date" value={from} onChange={(e) => { setPreset("custom"); setFrom(e.target.value); }} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#2563EB]" />
+              <input type="date" value={from} onChange={(e) => { setPreset("custom"); setFrom(e.target.value); }} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#3B82F6]" />
               <span className="text-xs text-[#94A3B8]">إلى</span>
-              <input type="date" value={to} onChange={(e) => { setPreset("custom"); setTo(e.target.value); }} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#2563EB]" />
+              <input type="date" value={to} onChange={(e) => { setPreset("custom"); setTo(e.target.value); }} className="h-9 rounded-lg border border-[#E5E7EB] bg-white px-2 text-sm text-[#334155] outline-none focus:border-[#3B82F6]" />
             </div>
           </div>
         </div>
@@ -330,7 +330,7 @@ export function ClientDashboard() {
                     onClick={k.clickable ? () => setView(k.key as ViewKey) : undefined}
                     className={`gosol-fade-up rounded-[24px] border bg-white p-5 text-right shadow-sm transition ${
                       k.clickable ? "cursor-pointer hover:-translate-y-1 hover:shadow-md" : ""
-                    } ${active ? "border-[#2563EB] ring-2 ring-[#2563EB]/20" : "border-[#EAECEF]"}`}
+                    } ${active ? "border-[#3B82F6] ring-2 ring-[#3B82F6]/20" : "border-[#EAECEF]"}`}
                     style={{ animationDelay: `${0.08 + i * 0.06}s` }}
                   >
                     <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${ACCENTS[k.accent] || ACCENTS.teal}`}>
@@ -339,7 +339,7 @@ export function ClientDashboard() {
                     <p className="mt-4 text-3xl font-black text-[#1F2937]">{k.value}</p>
                     <p className="mt-1 text-sm font-bold text-[#334155]">{k.label}</p>
                     <p className="mt-0.5 text-xs text-[#94A3B8]">{k.helper}</p>
-                    {k.clickable && <p className="mt-2 text-[11px] font-bold text-[#2563EB]">اضغط لعرض التفاصيل ←</p>}
+                    {k.clickable && <p className="mt-2 text-[11px] font-bold text-[#3B82F6]">اضغط لعرض التفاصيل ←</p>}
                   </Comp>
                 );
               })}
@@ -348,17 +348,17 @@ export function ClientDashboard() {
             <div className="gosol-fade-up mt-5 rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm" style={{ animationDelay: "0.12s" }}>
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EFF4FF] text-[#2563EB]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EFF4FF] text-[#3B82F6]">
                     <QrCode className="h-6 w-6" />
                   </div>
                   <div>
                     <p className="text-xs font-bold text-[#707A84]">رمز الإحالة الخاص بك</p>
-                    <p className="text-2xl font-black tracking-wider text-[#2563EB]" dir="ltr">{code}</p>
+                    <p className="text-2xl font-black tracking-wider text-[#3B82F6]" dir="ltr">{code}</p>
                   </div>
                 </div>
                 <div className="flex min-w-[260px] flex-1 items-center gap-2">
                   <code className="flex-1 truncate rounded-lg bg-[#F5F8FB] px-3 py-2.5 text-xs text-[#334155] ring-1 ring-[#E5E7EB]" dir="ltr">{referralLink}</code>
-                  <button onClick={copyLink} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[#2563EB] px-3.5 text-sm font-bold text-white hover:bg-[#1D4ED8]">
+                  <button onClick={copyLink} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-[#3B82F6] px-3.5 text-sm font-bold text-white hover:bg-[#2563EB]">
                     {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                     {copied ? "تم النسخ" : "نسخ الرابط"}
                   </button>
@@ -441,7 +441,7 @@ export function ClientDashboard() {
 }
 
 const ACCENTS: Record<string, string> = {
-  teal: "bg-[#EFF4FF] text-[#2563EB]",
+  teal: "bg-[#EFF4FF] text-[#3B82F6]",
   blue: "bg-blue-50 text-blue-600",
   violet: "bg-violet-50 text-violet-600",
   amber: "bg-amber-50 text-amber-600",
@@ -451,7 +451,7 @@ function Tab({ active, onClick, children }: { active: boolean; onClick: () => vo
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${active ? "bg-[#2563EB] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#EFF4FF]"}`}
+      className={`rounded-full px-3.5 py-1.5 text-sm font-bold transition ${active ? "bg-[#3B82F6] text-white" : "bg-[#F1F5F9] text-[#475569] hover:bg-[#EFF4FF]"}`}
     >
       {children}
     </button>

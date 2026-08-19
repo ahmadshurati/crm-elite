@@ -2,10 +2,10 @@
 
 :root {
   /* Gosol design tokens (derived from the Gosol CRM logo: deep navy + blue accent) */
-  --gosol-primary: #0b2a4a; /* deep navy — headings, dark surfaces */
-  --gosol-primary-600: #12325a;
-  --gosol-accent: #2563eb; /* brand blue — primary actions, active states, links */
-  --gosol-accent-600: #1d4ed8; /* accent hover/pressed */
+  --gosol-primary: #0b1e4d; /* deep navy (from logo) — headings, dark surfaces */
+  --gosol-primary-600: #12327a;
+  --gosol-accent: #3b82f6; /* brand blue (from logo) — primary actions, active states, links */
+  --gosol-accent-600: #2563eb; /* accent hover/pressed */
   --gosol-accent-050: #eff4ff; /* very light accent background */
   --gosol-accent-100: #dbeafe; /* light accent surface */
   --gosol-accent-200: #c7dbff; /* accent ring/border */
@@ -17,7 +17,7 @@
   --gosol-success: #16a34a;
   --gosol-warning: #d97706;
   --gosol-danger: #dc2626;
-  --gosol-info: #2563eb;
+  --gosol-info: #3b82f6;
 
   --background: var(--gosol-background);
   --foreground: var(--gosol-text);

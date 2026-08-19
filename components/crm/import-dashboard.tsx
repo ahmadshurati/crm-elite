@@ -40,7 +40,7 @@ export function ImportDashboard({ canImport }: { canImport: boolean }) {
         <p className="mt-1 text-sm text-[#707A84]">ارفع ملف CSV لإضافة عملاء وتأمينات دفعة واحدة — بدون حذف البيانات الحالية</p>
         <a
           href={CUSTOMERS_IMPORT_API_URL}
-          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#2563EB]"
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#3B82F6]"
         >
           <Download className="h-4 w-4" />
           تحميل قالب CSV
@@ -63,7 +63,7 @@ export function ImportDashboard({ canImport }: { canImport: boolean }) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             {loading ? "جاري الاستيراد..." : "استيراد"}

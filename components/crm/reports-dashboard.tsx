@@ -78,7 +78,7 @@ export function ReportsDashboard() {
             <a
               key={item.type}
               href={`${REPORTS_EXPORT_API_URL}?type=${item.type}`}
-              className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#2563EB]"
+              className="rounded-xl border border-[#E5E7EB] px-4 py-2 text-sm font-bold text-[#3B82F6]"
             >
               {item.label}
             </a>
@@ -114,7 +114,7 @@ export function ReportsDashboard() {
                 <XAxis dataKey="month" />
                 <YAxis />
                 <Tooltip formatter={(value) => formatMoney(Number(value))} />
-                <Bar dataKey="revenue" fill="#2563EB" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="revenue" fill="#3B82F6" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

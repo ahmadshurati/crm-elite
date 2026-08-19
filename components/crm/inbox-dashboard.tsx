@@ -198,7 +198,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
                 setComposeOpen((v) => !v);
                 setReplyOpen(false);
               }}
-              className="inline-flex items-center gap-2 rounded-2xl bg-[#2563EB] px-4 py-2.5 text-sm font-bold text-white"
+              className="inline-flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-4 py-2.5 text-sm font-bold text-white"
             >
               <Send className="h-4 w-4" />
               رسالة جديدة
@@ -259,7 +259,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
           <button
             type="submit"
             disabled={sending}
-            className="mt-4 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+            className="mt-4 rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
           >
             {sending ? "جاري الإرسال..." : "إرسال"}
           </button>
@@ -283,7 +283,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
               onClick={() => setActiveTab(tab.id)}
               className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition ${
                 activeTab === tab.id
-                  ? "bg-[#2563EB] text-white"
+                  ? "bg-[#3B82F6] text-white"
                   : "bg-white text-[#64748B] ring-1 ring-[#E2E8F0] hover:bg-[#F8FAFC]"
               }`}
             >
@@ -325,7 +325,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
                       <span className="truncate text-sm font-bold text-[#1F2937]">
                         {msg.contactName || msg.contact}
                       </span>
-                      {!msg.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-[#2563EB]" />}
+                      {!msg.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-[#3B82F6]" />}
                     </div>
                     <div className="mt-1 flex items-center gap-2 text-xs text-[#707A84]">
                       <span className="rounded bg-[#F1F5F9] px-1.5 py-0.5">
@@ -360,7 +360,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
                     <button
                       type="button"
                       onClick={() => openReplyComposer(selected)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-bold text-white"
                     >
                       <Reply className="h-4 w-4" />
                       رد
@@ -368,7 +368,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-full bg-[#EFF4FF] px-2 py-1 font-bold text-[#2563EB]">
+                  <span className="rounded-full bg-[#EFF4FF] px-2 py-1 font-bold text-[#3B82F6]">
                     {channelLabels[selected.channel] || selected.channel}
                   </span>
                   <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">
@@ -389,7 +389,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
 
               {replyOpen && canSend && (
                 <form onSubmit={sendMessage} className="mt-6 rounded-2xl border border-[#EFF4FF] bg-[#EFF4FF] p-4">
-                  <p className="mb-3 text-sm font-bold text-[#2563EB]">
+                  <p className="mb-3 text-sm font-bold text-[#3B82F6]">
                     الرد عبر {channelLabels[compose.channel] || compose.channel} — {compose.to}
                   </p>
                   {compose.channel === "email" && (
@@ -412,7 +412,7 @@ export function InboxDashboard({ canSend }: { canSend: boolean }) {
                     <button
                       type="submit"
                       disabled={sending}
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                     >
                       <Send className="h-4 w-4" />
                       {sending ? "جاري الإرسال..." : "إرسال الرد"}

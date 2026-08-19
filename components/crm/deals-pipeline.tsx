@@ -160,14 +160,14 @@ export function DealsPipeline({
         <div>
           <h3 className="text-[22px] font-bold text-[#1F2937]">مسار الصفقات</h3>
           <p className="mt-1 text-sm text-[#707A84]">
-            إجمالي قيمة الأنبوب: <span className="font-bold text-[#2563EB]">{formatMoney(pipelineValue)}</span>
+            إجمالي قيمة الأنبوب: <span className="font-bold text-[#3B82F6]">{formatMoney(pipelineValue)}</span>
           </p>
         </div>
         {canEdit && (
           <button
             type="button"
             onClick={() => setFormOpen((value) => !value)}
-            className="flex items-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white"
+            className="flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-5 py-3 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" />
             {formOpen ? "إخفاء" : "صفقة جديدة"}
@@ -248,7 +248,7 @@ export function DealsPipeline({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+              className="rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
             >
               {saving ? "جاري الحفظ..." : "حفظ الصفقة"}
             </button>
@@ -280,7 +280,7 @@ export function DealsPipeline({
                     <div key={deal.id} className="rounded-2xl border border-white/70 bg-white p-3 shadow-sm">
                       <p className="font-bold text-[#1F2937]">{deal.title}</p>
                       <p className="mt-1 text-xs text-[#707A84]">{deal.customerName || "-"}</p>
-                      <p className="mt-2 text-sm font-bold text-[#2563EB]">{formatMoney(deal.value)}</p>
+                      <p className="mt-2 text-sm font-bold text-[#3B82F6]">{formatMoney(deal.value)}</p>
                       <p className="mt-1 text-xs text-[#8B95A1]">احتمال {deal.probability}%</p>
                       {canEdit && (
                         <div className="mt-3 flex flex-wrap gap-1">

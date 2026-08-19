@@ -78,7 +78,7 @@ export function RoleTemplatesDashboard({ canEdit }: { canEdit: boolean }) {
           <p className="mt-1 text-sm text-[#707A84]">تطبيق صلاحيات جاهزة على المستخدمين بسرعة</p>
         </div>
         {canEdit && (
-          <button type="button" onClick={() => setFormOpen((v) => !v)} className="flex items-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white">
+          <button type="button" onClick={() => setFormOpen((v) => !v)} className="flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-5 py-3 text-sm font-bold text-white">
             <Plus className="h-4 w-4" />{formOpen ? "إخفاء" : "قالب جديد"}
           </button>
         )}
@@ -104,7 +104,7 @@ export function RoleTemplatesDashboard({ canEdit }: { canEdit: boolean }) {
               </label>
             ))}
           </div>
-          <button type="submit" disabled={saving} className="mt-4 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white">{saving ? "جاري الحفظ..." : "حفظ القالب"}</button>
+          <button type="submit" disabled={saving} className="mt-4 rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white">{saving ? "جاري الحفظ..." : "حفظ القالب"}</button>
         </form>
       )}
 

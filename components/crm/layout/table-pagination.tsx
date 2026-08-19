@@ -23,7 +23,7 @@ export function TablePagination({
           type="button"
           disabled={loading || pagination.page <= 1}
           onClick={() => onPageChange(pagination.page - 1)}
-          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 font-bold text-[#2563EB] transition hover:bg-[#EFF4FF] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 font-bold text-[#3B82F6] transition hover:bg-[#EFF4FF] disabled:cursor-not-allowed disabled:opacity-50"
         >
           السابق
         </button>
@@ -31,7 +31,7 @@ export function TablePagination({
           type="button"
           disabled={loading || pagination.page >= pagination.totalPages}
           onClick={() => onPageChange(pagination.page + 1)}
-          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 font-bold text-[#2563EB] transition hover:bg-[#EFF4FF] disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 font-bold text-[#3B82F6] transition hover:bg-[#EFF4FF] disabled:cursor-not-allowed disabled:opacity-50"
         >
           التالي
         </button>

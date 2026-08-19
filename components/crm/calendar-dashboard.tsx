@@ -128,7 +128,7 @@ export function CalendarDashboard() {
                       onClick={() => setSelectedDay(key)}
                       className={`min-h-[88px] rounded-2xl border p-2 text-right transition ${
                         isSelected
-                          ? "border-[#2563EB] bg-[#EFF4FF]"
+                          ? "border-[#3B82F6] bg-[#EFF4FF]"
                           : "border-[#F1F5F9] bg-[#FAFAFA] hover:border-[#D1D5DB]"
                       }`}
                     >
@@ -136,7 +136,7 @@ export function CalendarDashboard() {
                       {dayTasks.length > 0 && (
                         <div className="mt-2 space-y-1">
                           {dayTasks.slice(0, 2).map((task) => (
-                            <div key={task.id} className="truncate rounded-lg bg-white px-2 py-1 text-[10px] font-semibold text-[#2563EB]">
+                            <div key={task.id} className="truncate rounded-lg bg-white px-2 py-1 text-[10px] font-semibold text-[#3B82F6]">
                               {task.title}
                             </div>
                           ))}

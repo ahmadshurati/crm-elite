@@ -120,7 +120,7 @@ export function QuotesDashboard({
           <p className="mt-1 text-sm text-[#707A84]">إنشاء وإدارة عروض الأسعار للعملاء</p>
         </div>
         {canEdit && (
-          <button type="button" onClick={() => setFormOpen((v) => !v)} className="flex items-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white">
+          <button type="button" onClick={() => setFormOpen((v) => !v)} className="flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-5 py-3 text-sm font-bold text-white">
             <Plus className="h-4 w-4" />{formOpen ? "إخفاء" : "عرض جديد"}
           </button>
         )}
@@ -152,7 +152,7 @@ export function QuotesDashboard({
               <input type="number" placeholder="السعر" value={item.unitPrice} onChange={(e) => updateLineItem(index, { unitPrice: Number(e.target.value) })} className="rounded-xl border border-[#E5E7EB] px-3 py-2" />
             </div>
           ))}
-          <button type="submit" disabled={saving} className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white">{saving ? "جاري الحفظ..." : "حفظ العرض"}</button>
+          <button type="submit" disabled={saving} className="rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white">{saving ? "جاري الحفظ..." : "حفظ العرض"}</button>
         </form>
       )}
 
@@ -179,7 +179,7 @@ export function QuotesDashboard({
                     <td className="px-4 py-4">{quoteStatusLabels[quote.status as keyof typeof quoteStatusLabels] || quote.status}</td>
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-2">
-                        <a href={`${QUOTES_API_URL}/${quote.id}?format=print`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#EFF4FF] px-3 py-1 text-xs font-bold text-[#2563EB]"><FileText className="h-3.5 w-3.5" />PDF</a>
+                        <a href={`${QUOTES_API_URL}/${quote.id}?format=print`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#EFF4FF] px-3 py-1 text-xs font-bold text-[#3B82F6]"><FileText className="h-3.5 w-3.5" />PDF</a>
                         {canEdit && QUOTE_STATUSES.filter((s) => s !== quote.status).slice(0, 2).map((status) => (
                           <button key={status} type="button" onClick={() => updateStatus(quote, status)} className="rounded-lg bg-[#F3F4F6] px-2 py-1 text-[10px] font-bold">{quoteStatusLabels[status]}</button>
                         ))}

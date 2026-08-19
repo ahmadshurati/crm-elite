@@ -120,7 +120,7 @@ export function InvoicesDashboard({
           <p className="mt-1 text-sm text-[#707A84]">إنشاء ومتابعة الفواتير والمدفوعات</p>
         </div>
         {canEdit && (
-          <button type="button" onClick={() => setFormOpen((v) => !v)} className="flex items-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white">
+          <button type="button" onClick={() => setFormOpen((v) => !v)} className="flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-5 py-3 text-sm font-bold text-white">
             <Plus className="h-4 w-4" />{formOpen ? "إخفاء" : "فاتورة جديدة"}
           </button>
         )}
@@ -152,7 +152,7 @@ export function InvoicesDashboard({
               <input type="number" placeholder="السعر" value={item.unitPrice} onChange={(e) => updateLineItem(index, { unitPrice: Number(e.target.value) })} className="rounded-xl border border-[#E5E7EB] px-3 py-2" />
             </div>
           ))}
-          <button type="submit" disabled={saving} className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white">{saving ? "جاري الحفظ..." : "حفظ الفاتورة"}</button>
+          <button type="submit" disabled={saving} className="rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white">{saving ? "جاري الحفظ..." : "حفظ الفاتورة"}</button>
         </form>
       )}
 
@@ -180,7 +180,7 @@ export function InvoicesDashboard({
                     <td className="px-4 py-4">{invoiceStatusLabels[invoice.status as keyof typeof invoiceStatusLabels] || invoice.status}</td>
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-2">
-                        <a href={`${INVOICES_API_URL}/${invoice.id}?format=print`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#EFF4FF] px-3 py-1 text-xs font-bold text-[#2563EB]"><FileText className="h-3.5 w-3.5" />PDF</a>
+                        <a href={`${INVOICES_API_URL}/${invoice.id}?format=print`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-[#EFF4FF] px-3 py-1 text-xs font-bold text-[#3B82F6]"><FileText className="h-3.5 w-3.5" />PDF</a>
                         {canEdit && invoice.status !== "paid" && (
                           <button type="button" onClick={() => markPaid(invoice)} className="rounded-lg bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">تسديد</button>
                         )}

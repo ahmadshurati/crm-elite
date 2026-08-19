@@ -26,7 +26,7 @@ export function CustomerSummaryPanel({ customerId }: { customerId: number }) {
   return (
     <div className="mt-5 rounded-3xl border border-[#E5E7EB] bg-white p-6">
       <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-[#2563EB]" />
+        <Sparkles className="h-5 w-5 text-[#3B82F6]" />
         <h4 className="text-xl font-bold text-[#1F2937]">ملخص ذكي للعميل</h4>
       </div>
 
@@ -49,7 +49,7 @@ export function CustomerSummaryPanel({ customerId }: { customerId: number }) {
           </div>
           <div>
             <p className="mb-2 text-sm font-bold text-[#4B5563]">توصيات المتابعة</p>
-            <ul className="space-y-2 text-sm text-[#2563EB]">
+            <ul className="space-y-2 text-sm text-[#3B82F6]">
               {summary.recommendations.map((item) => (
                 <li key={item} className="rounded-xl bg-[#EFF4FF] px-3 py-2">{item}</li>
               ))}

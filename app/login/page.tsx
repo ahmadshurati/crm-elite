@@ -53,8 +53,8 @@ export default function LoginPage() {
       >
         <div className="text-center">
           <div className="text-2xl font-extrabold tracking-tight">
-            <span className="text-[#0B2A4A]">Gosol</span>
-            <span className="text-[#2563EB]"> CRM</span>
+            <span className="text-[#0B1E4D]">Gosol</span>
+            <span className="text-[#3B82F6]"> CRM</span>
           </div>
           <h1 className="mt-3 text-2xl font-bold text-[#0F1E33]">تسجيل الدخول</h1>
           <p className="mt-1 text-sm text-[#64748B]">أدخل بياناتك للمتابعة</p>
@@ -63,7 +63,7 @@ export default function LoginPage() {
         <div className="mt-8 space-y-4">
           <div>
             <label className="mb-2 block text-sm font-bold text-[#374151]">اسم المستخدم</label>
-            <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 focus-within:border-[#2563EB]">
+            <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 focus-within:border-[#3B82F6]">
               <User className="h-5 w-5 text-[#9AA3AF]" />
               <input
                 value={username}
@@ -78,7 +78,7 @@ export default function LoginPage() {
 
           <div>
             <label className="mb-2 block text-sm font-bold text-[#374151]">كلمة المرور</label>
-            <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 focus-within:border-[#2563EB]">
+            <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 focus-within:border-[#3B82F6]">
               <Lock className="h-5 w-5 text-[#9AA3AF]" />
               <input
                 type="password"
@@ -94,7 +94,7 @@ export default function LoginPage() {
           {requires2fa && (
             <div>
               <label className="mb-2 block text-sm font-bold text-[#374151]">رمز المصادقة الثنائية</label>
-              <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 focus-within:border-[#2563EB]">
+              <div className="flex h-12 items-center gap-3 rounded-2xl border border-[#E5E7EB] bg-[#FAFBFC] px-4 focus-within:border-[#3B82F6]">
                 <Shield className="h-5 w-5 text-[#9AA3AF]" />
                 <input
                   value={totpCode}
@@ -117,7 +117,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="mt-7 h-12 w-full rounded-2xl bg-[#2563EB] text-base font-bold text-white transition hover:opacity-90"
+          className="mt-7 h-12 w-full rounded-2xl bg-[#3B82F6] text-base font-bold text-white transition hover:opacity-90"
         >
           {requires2fa ? "تأكيد الدخول" : "دخول"}
         </button>

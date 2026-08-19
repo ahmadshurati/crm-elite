@@ -132,7 +132,7 @@ function StatCard({
       <p className="text-sm text-[#707A84]">{label}</p>
       <div className="mt-3 flex items-end justify-between">
         <span className="text-4xl font-semibold text-[#1F2937]">{value}</span>
-        <span className="rounded-full bg-[#EFF4FF] px-3 py-1 text-xs font-semibold text-[#2563EB]">
+        <span className="rounded-full bg-[#EFF4FF] px-3 py-1 text-xs font-semibold text-[#3B82F6]">
           {helper}
         </span>
       </div>
@@ -173,7 +173,7 @@ function DashboardInsights({
   const fullSubscribers = Array.isArray(allSubscribers) ? allSubscribers : safeSubscribers;
   const useServerInsights = Boolean(insightsData);
 
-  const COLORS = ["#2563EB", "#2563EB", "#7C3AED", "#10B981", "#F59E0B", "#EF4444", "#14B8A6", "#0EA5E9"];
+  const COLORS = ["#3B82F6", "#3B82F6", "#7C3AED", "#10B981", "#F59E0B", "#EF4444", "#14B8A6", "#0EA5E9"];
 
   const money = (value: number) => formatMoney(numberValue(value));
 
@@ -454,7 +454,7 @@ function DashboardInsights({
     return (
       <div className="rounded-2xl border border-white/70 bg-white/95 px-4 py-3 text-right shadow-2xl backdrop-blur-xl">
         <p className="text-[12px] font-black text-[#1F2937]">{name}</p>
-        <p className="mt-1 text-[15px] font-black text-[#2563EB]">
+        <p className="mt-1 text-[15px] font-black text-[#3B82F6]">
           {renderTooltipValue(chart, value)}
         </p>
       </div>
@@ -517,7 +517,7 @@ function DashboardInsights({
         <BarChart data={data} margin={{ top: 18, right: 8, left: 8, bottom: 0 }}>
           <defs>
             <linearGradient id={barGradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563EB" stopOpacity="1" />
+              <stop offset="0%" stopColor="#3B82F6" stopOpacity="1" />
               <stop offset="55%" stopColor="#14B8A6" stopOpacity="0.88" />
               <stop offset="100%" stopColor="#CCFBF1" stopOpacity="0.8" />
             </linearGradient>
@@ -549,26 +549,26 @@ function DashboardInsights({
       <AreaChart data={data} margin={{ top: 20, right: 8, left: 8, bottom: 0 }}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2563EB" stopOpacity={0.44} />
+            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.44} />
             <stop offset="45%" stopColor="#14B8A6" stopOpacity={0.18} />
             <stop offset="100%" stopColor="#FFFFFF" stopOpacity={0.02} />
           </linearGradient>
           <filter id={shadowId} x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#2563EB" floodOpacity="0.18" />
+            <feDropShadow dx="0" dy="8" stdDeviation="8" floodColor="#3B82F6" floodOpacity="0.18" />
           </filter>
         </defs>
         <CartesianGrid vertical={false} stroke="#EEF2F6" strokeDasharray="4 8" />
         <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} tickMargin={12} />
         <YAxis hide />
-        <Tooltip cursor={{ stroke: "#2563EB", strokeWidth: 1, strokeDasharray: "5 5" }} content={<ProTooltip chart={chart} />} />
+        <Tooltip cursor={{ stroke: "#3B82F6", strokeWidth: 1, strokeDasharray: "5 5" }} content={<ProTooltip chart={chart} />} />
         <Area
           type="monotone"
           dataKey="value"
-          stroke="#2563EB"
+          stroke="#3B82F6"
           strokeWidth={4}
           fill={`url(#${gradientId})`}
           dot={false}
-          activeDot={{ r: 7, strokeWidth: 4, stroke: "#FFFFFF", fill: "#2563EB" }}
+          activeDot={{ r: 7, strokeWidth: 4, stroke: "#FFFFFF", fill: "#3B82F6" }}
           filter={`url(#${shadowId})`}
         />
       </AreaChart>
@@ -581,7 +581,7 @@ function DashboardInsights({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="text-right">
             {config.eyebrow ? (
-              <p className="text-[13px] font-bold text-[#2563EB]">{config.eyebrow}</p>
+              <p className="text-[13px] font-bold text-[#3B82F6]">{config.eyebrow}</p>
             ) : null}
             <h2 className="mt-1 text-3xl font-bold text-[#1F2937]">{title}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-[#707A84]">{config.description}</p>
@@ -589,7 +589,7 @@ function DashboardInsights({
 
           <div className="rounded-2xl border border-[#D9EFEE] bg-white px-5 py-4 text-right shadow-sm">
             <p className="text-[11px] font-bold text-[#8B95A1]">إجمالي السجلات</p>
-            <p className="mt-1 text-2xl font-bold text-[#2563EB]">
+            <p className="mt-1 text-2xl font-bold text-[#3B82F6]">
               {displayedTotal.toLocaleString("he-IL")}
             </p>
           </div>
@@ -602,10 +602,10 @@ function DashboardInsights({
             key={`${mode}-card-${index}`}
             className="group relative overflow-hidden rounded-[30px] border border-white/80 bg-white p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)] ring-1 ring-[#EEF2F6] transition hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(15,23,42,0.10)]"
           >
-            <div className="absolute -left-8 -top-8 h-20 w-20 rounded-full bg-[#2563EB]/10 blur-2xl" />
+            <div className="absolute -left-8 -top-8 h-20 w-20 rounded-full bg-[#3B82F6]/10 blur-2xl" />
             <p className="relative text-xs font-extrabold text-[#8B95A1]">{card.label}</p>
             <p className="relative mt-3 truncate text-3xl font-black tracking-tight text-[#1F2937]">{renderValue(card.value)}</p>
-            <span className="relative mt-3 inline-flex rounded-full bg-[#EFF4FF] px-3 py-1 text-[11px] font-bold text-[#2563EB]">
+            <span className="relative mt-3 inline-flex rounded-full bg-[#EFF4FF] px-3 py-1 text-[11px] font-bold text-[#3B82F6]">
               {card.helper}
             </span>
           </div>
@@ -621,7 +621,7 @@ function DashboardInsights({
               key={`${mode}-chart-${index}`}
               className="group relative overflow-hidden rounded-[34px] border border-white/80 bg-white p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] ring-1 ring-[#E8EEF2] transition hover:-translate-y-1 hover:shadow-[0_28px_75px_rgba(15,23,42,0.12)]"
             >
-              <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-[#2563EB]/10 blur-3xl" />
+              <div className="pointer-events-none absolute -left-16 -top-16 h-36 w-36 rounded-full bg-[#3B82F6]/10 blur-3xl" />
               <div className="pointer-events-none absolute -right-16 bottom-0 h-32 w-32 rounded-full bg-[#7C3AED]/10 blur-3xl" />
 
               <div className="relative mb-4 flex items-center justify-between gap-3">
@@ -629,7 +629,7 @@ function DashboardInsights({
                   <h3 className="text-[15px] font-black text-[#1F2937]">{chart.title}</h3>
                   <p className="mt-1 text-[11px] font-bold text-[#8B95A1]">Live data visualization</p>
                 </div>
-                <span className="rounded-full border border-[#D8F3F1] bg-[#EFF4FF] px-3 py-1 text-[11px] font-extrabold text-[#2563EB] shadow-sm">
+                <span className="rounded-full border border-[#D8F3F1] bg-[#EFF4FF] px-3 py-1 text-[11px] font-extrabold text-[#3B82F6] shadow-sm">
                   {chart.badge}
                 </span>
               </div>
@@ -773,7 +773,7 @@ function SubscribersTable({
                     <button
                       type="button"
                       onClick={() => onOpenHistory(row)}
-                      className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-[10px] font-bold text-[#2563EB] transition hover:bg-[#EFF4FF]"
+                      className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-2 text-[10px] font-bold text-[#3B82F6] transition hover:bg-[#EFF4FF]"
                       title={labels.tableHistory}
                     >
                       عرض السجل
@@ -787,7 +787,7 @@ function SubscribersTable({
                       className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white transition hover:bg-[#EFF4FF]"
                       title="عرض المستندات"
                     >
-                      <Eye className="h-4 w-4 text-[#2563EB]" />
+                      <Eye className="h-4 w-4 text-[#3B82F6]" />
                     </button>
                   </td>
 
@@ -937,7 +937,7 @@ function AddAccidentModal({
     selectedCustomer?.cars.find((car) => String(car.id) === selectedCarId) || null;
 
   const inputClass =
-    "h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[15px] text-[#1F2937] outline-none focus:border-[#2563EB]";
+    "h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[15px] text-[#1F2937] outline-none focus:border-[#3B82F6]";
   const labelClass = "mb-2 block text-[14px] font-medium text-[#374151]";
 
   const handleSave = () => {
@@ -1090,7 +1090,7 @@ function AddAccidentModal({
               id="add-accident-details"
               value={details}
               onChange={(e) => setDetails(e.target.value)}
-              className="min-h-[140px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#2563EB]"
+              className="min-h-[140px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#3B82F6]"
               placeholder="اكتب تفاصيل الحادث..."
             />
           </div>
@@ -1099,7 +1099,7 @@ function AddAccidentModal({
             <button
               type="button"
               onClick={handleSave}
-              className="rounded-2xl bg-[#2563EB] px-8 py-3 font-bold text-white"
+              className="rounded-2xl bg-[#3B82F6] px-8 py-3 font-bold text-white"
             >
               حفظ
             </button>
@@ -1197,7 +1197,7 @@ function AccidentDetailsModal({
                   status: e.target.value as AccidentStatus,
                 }))
               }
-              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold outline-none focus:border-[#2563EB]"
+              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold outline-none focus:border-[#3B82F6]"
             >
               <option value="مفتوح">مفتوح</option>
               <option value="مغلق">مغلق</option>
@@ -1243,7 +1243,7 @@ function AccidentDetailsModal({
                   details: e.target.value,
                 }))
               }
-              className="min-h-[130px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#2563EB]"
+              className="min-h-[130px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#3B82F6]"
             />
           </div>
         </div>
@@ -1262,7 +1262,7 @@ function AccidentDetailsModal({
                   key={update.id}
                   className="rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] p-4"
                 >
-                  <div className="mb-2 text-xs font-bold text-[#2563EB]">
+                  <div className="mb-2 text-xs font-bold text-[#3B82F6]">
                     {update.date}
                   </div>
                   <p className="whitespace-pre-wrap text-sm leading-7 text-[#374151]">
@@ -1282,7 +1282,7 @@ function AccidentDetailsModal({
               id="accident-new-update"
               value={newUpdate}
               onChange={(e) => setNewUpdate(e.target.value)}
-              className="min-h-[110px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#2563EB]"
+              className="min-h-[110px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#3B82F6]"
               placeholder="اكتب التحديث الجديد..."
             />
 
@@ -1290,7 +1290,7 @@ function AccidentDetailsModal({
               <button
                 type="button"
                 onClick={addUpdate}
-                className="rounded-2xl bg-[#2563EB] px-6 py-3 font-bold text-white"
+                className="rounded-2xl bg-[#3B82F6] px-6 py-3 font-bold text-white"
               >
                 إضافة التحديث
               </button>
@@ -1378,7 +1378,7 @@ function NotificationPanel({
           {renewals.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#EFF4FF]">
-                <Bell className="h-6 w-6 text-[#2563EB]" />
+                <Bell className="h-6 w-6 text-[#3B82F6]" />
               </div>
               <p className="text-[14px] font-semibold text-[#1F2937]">
                 لا يوجد تأمينات للتجديد هذا الشهر
@@ -1419,7 +1419,7 @@ function NotificationPanel({
             <button
               type="button"
               onClick={onOpenRenewals}
-              className="w-full rounded-2xl bg-[#2563EB] px-4 py-3 text-[14px] font-bold text-white transition hover:opacity-90"
+              className="w-full rounded-2xl bg-[#3B82F6] px-4 py-3 text-[14px] font-bold text-white transition hover:opacity-90"
             >
               عرض كل تجديدات هذا الشهر
             </button>
@@ -1444,7 +1444,7 @@ function DocumentPreviewBox({ label, url }: { label: string; url: string }) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="rounded-xl bg-[#2563EB] px-4 py-2 text-[13px] font-semibold text-white"
+          className="rounded-xl bg-[#3B82F6] px-4 py-2 text-[13px] font-semibold text-white"
         >
           فتح
         </a>
@@ -1643,7 +1643,7 @@ function CustomerHistoryModal({
                         <button
                           type="button"
                           onClick={() => onViewDocuments(item)}
-                          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#2563EB] hover:bg-[#EFF4FF]"
+                          className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#3B82F6] hover:bg-[#EFF4FF]"
                         >
                           عرض الوثائق
                         </button>
@@ -1731,7 +1731,7 @@ function SubscriberHistoryDashboard({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-[14px] outline-none focus:border-[#2563EB]"
+            className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-[14px] outline-none focus:border-[#3B82F6]"
             placeholder="بحث باسم الزبون، الهاتف، رقم السيارة..."
           />
         </div>
@@ -1778,7 +1778,7 @@ function SubscriberHistoryDashboard({
                     <button
                       type="button"
                       onClick={() => onOpenHistory(row.latest)}
-                      className="rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                      className="rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                     >
                       عرض السجل
                     </button>
@@ -1869,7 +1869,7 @@ function ActiveCustomersDashboard({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-[14px] outline-none focus:border-[#2563EB]"
+            className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-[14px] outline-none focus:border-[#3B82F6]"
             placeholder={labels.activeCustomersSearch}
           />
         </div>
@@ -1913,7 +1913,7 @@ function ActiveCustomersDashboard({
                     <button
                       type="button"
                       onClick={() => onOpenHistory(row.latest)}
-                      className="rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                      className="rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                     >
                       عرض السجل
                     </button>
@@ -2002,7 +2002,7 @@ function RenewalsTable({
                     <button
                       type="button"
                       onClick={() => onOpenHistory(row)}
-                      className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#2563EB] hover:bg-[#EFF4FF]"
+                      className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#3B82F6] hover:bg-[#EFF4FF]"
                     >
                       عرض السجل
                     </button>
@@ -2011,7 +2011,7 @@ function RenewalsTable({
                     <button
                       type="button"
                       onClick={() => onViewDocuments(row)}
-                      className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#2563EB] hover:bg-[#EFF4FF]"
+                      className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#3B82F6] hover:bg-[#EFF4FF]"
                     >
                       عرض الوثائق
                     </button>
@@ -2026,7 +2026,7 @@ function RenewalsTable({
                         <button
                           type="button"
                           onClick={() => onRenew(row)}
-                          className="rounded-xl bg-[#2563EB] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
+                          className="rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white hover:opacity-90"
                         >
                           تجديد
                         </button>
@@ -2064,7 +2064,7 @@ function AccountingCard({
     <div className="rounded-[26px] border border-[#EAECEF] bg-white p-5 shadow-sm">
       <p className="text-sm text-[#707A84]">{label}</p>
       <p className="mt-3 text-3xl font-bold text-[#1F2937]">{value}</p>
-      <p className="mt-2 text-xs font-semibold text-[#2563EB]">{helper}</p>
+      <p className="mt-2 text-xs font-semibold text-[#3B82F6]">{helper}</p>
     </div>
   );
 }
@@ -2158,7 +2158,7 @@ function AccountingDashboard({
   });
 
   const inputClass =
-    "h-12 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[14px] text-[#1F2937] outline-none focus:border-[#2563EB]";
+    "h-12 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[14px] text-[#1F2937] outline-none focus:border-[#3B82F6]";
 
   return (
     <section className="mt-8 space-y-6">
@@ -2180,12 +2180,12 @@ function AccountingDashboard({
                 onClick={() => {
                   window.location.href = "/api/customers/export";
                 }}
-                className="rounded-2xl border border-[#2563EB] bg-white px-4 py-2 text-[13px] font-bold text-[#2563EB] hover:bg-[#EFF4FF]"
+                className="rounded-2xl border border-[#3B82F6] bg-white px-4 py-2 text-[13px] font-bold text-[#3B82F6] hover:bg-[#EFF4FF]"
               >
                 تصدير CSV
               </button>
             )}
-            <span className="rounded-full bg-[#EFF4FF] px-4 py-2 text-[13px] font-bold text-[#2563EB]">
+            <span className="rounded-full bg-[#EFF4FF] px-4 py-2 text-[13px] font-bold text-[#3B82F6]">
               {subscribers.length} مشترك
             </span>
           </div>
@@ -2400,7 +2400,7 @@ function AccountingDashboard({
                                 {check.bankName || "بدون بنك"} -{" "}
                                 {check.dueDate || "بدون تاريخ"}
                               </p>
-                              <p className="mt-1 text-[12px] font-bold text-[#2563EB]">
+                              <p className="mt-1 text-[12px] font-bold text-[#3B82F6]">
                                 {formatMoney(check.amount)}
                               </p>
                             </div>
@@ -2557,7 +2557,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                 {displayName}
               </p>
               {user?.role === "master" && (
-                <span className="mt-3 inline-block rounded-full bg-[#EFF4FF] px-3 py-1 text-xs font-bold text-[#2563EB]">
+                <span className="mt-3 inline-block rounded-full bg-[#EFF4FF] px-3 py-1 text-xs font-bold text-[#3B82F6]">
                   Master User
                 </span>
               )}
@@ -2571,7 +2571,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                   setPasswordMessage("");
                   setPasswordError("");
                 }}
-                className="block w-full px-0 py-1 text-right text-sm font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+                className="block w-full px-0 py-1 text-right text-sm font-bold text-[#3B82F6] hover:text-[#2563EB]"
               >
                 {showPasswordForm ? "إخفاء تغيير كلمة المرور" : "تغيير كلمة المرور"}
               </button>
@@ -2587,7 +2587,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                       type="password"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#2563EB]"
+                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#3B82F6]"
                       autoComplete="current-password"
                     />
                   </div>
@@ -2600,7 +2600,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#2563EB]"
+                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#3B82F6]"
                       autoComplete="new-password"
                     />
                   </div>
@@ -2613,7 +2613,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                       type="password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#2563EB]"
+                      className="h-10 w-full rounded-xl border border-[#E5E7EB] px-3 text-sm outline-none focus:border-[#3B82F6]"
                       autoComplete="new-password"
                     />
                   </div>
@@ -2621,12 +2621,12 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                     <p className="text-xs font-bold text-rose-600">{passwordError}</p>
                   )}
                   {passwordMessage && (
-                    <p className="text-xs font-bold text-[#2563EB]">{passwordMessage}</p>
+                    <p className="text-xs font-bold text-[#3B82F6]">{passwordMessage}</p>
                   )}
                   <button
                     type="submit"
                     disabled={passwordSaving}
-                    className="w-full rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                    className="w-full rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
                   >
                     {passwordSaving ? "جاري الحفظ..." : "حفظ كلمة المرور"}
                   </button>
@@ -2642,7 +2642,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                   setTotpMessage("");
                   setTotpError("");
                 }}
-                className="block w-full px-0 py-1 text-right text-sm font-bold text-[#2563EB] hover:text-[#1D4ED8]"
+                className="block w-full px-0 py-1 text-right text-sm font-bold text-[#3B82F6] hover:text-[#2563EB]"
               >
                 {show2faForm ? "إخفاء المصادقة الثنائية" : "المصادقة الثنائية (2FA)"}
               </button>
@@ -2653,7 +2653,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                     <button
                       type="button"
                       onClick={handle2faSetup}
-                      className="w-full rounded-xl border border-[#2563EB] px-4 py-2 text-sm font-bold text-[#2563EB]"
+                      className="w-full rounded-xl border border-[#3B82F6] px-4 py-2 text-sm font-bold text-[#3B82F6]"
                     >
                       بدء الإعداد
                     </button>
@@ -2662,7 +2662,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                       <p className="text-xs text-[#707A84]">امسح الرابط في Google Authenticator:</p>
                       <a
                         href={totpSetup.otpauthUrl}
-                        className="block break-all text-xs text-[#2563EB]"
+                        className="block break-all text-xs text-[#3B82F6]"
                         dir="ltr"
                       >
                         {totpSetup.otpauthUrl}
@@ -2678,7 +2678,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                         />
                         <button
                           type="submit"
-                          className="w-full rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white"
+                          className="w-full rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-bold text-white"
                         >
                           تأكيد التفعيل
                         </button>
@@ -2686,7 +2686,7 @@ function ProfileDropdown({ user }: { user: AppUser | null }) {
                     </>
                   )}
                   {totpError && <p className="text-xs font-bold text-rose-600">{totpError}</p>}
-                  {totpMessage && <p className="text-xs font-bold text-[#2563EB]">{totpMessage}</p>}
+                  {totpMessage && <p className="text-xs font-bold text-[#3B82F6]">{totpMessage}</p>}
                 </div>
               )}
             </div>
@@ -2857,7 +2857,7 @@ function UsersManagementDashboard({ currentUser }: { currentUser: AppUser | null
     );
   }
 
-  const inputClass = "h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[14px] outline-none focus:border-[#2563EB]";
+  const inputClass = "h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[14px] outline-none focus:border-[#3B82F6]";
 
   return (
     <section className="mt-8 space-y-6">
@@ -2939,7 +2939,7 @@ function UsersManagementDashboard({ currentUser }: { currentUser: AppUser | null
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <button type="submit" className="rounded-2xl bg-[#2563EB] px-8 py-3 font-bold text-white">
+            <button type="submit" className="rounded-2xl bg-[#3B82F6] px-8 py-3 font-bold text-white">
               {editingUserId ? "حفظ التعديل" : "إضافة المستخدم"}
             </button>
             {editingUserId && (
@@ -3075,7 +3075,7 @@ function ActivityLogDashboard({ currentUser }: { currentUser: AppUser | null }) 
             logs.map((log) => (
               <div key={log.id} className="grid grid-cols-1 gap-3 p-5 md:grid-cols-[180px_140px_1fr_180px]">
                 <div className="font-bold text-[#1F2937]" dir="ltr">{log.username}</div>
-                <div className="rounded-full bg-[#EFF4FF] px-3 py-1 text-center text-xs font-bold text-[#2563EB]">
+                <div className="rounded-full bg-[#EFF4FF] px-3 py-1 text-center text-xs font-bold text-[#3B82F6]">
                   {log.module}
                 </div>
                 <div>
@@ -3156,7 +3156,7 @@ function SubscriberForm({
   });
 
   const inputClass =
-    "h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[15px] text-[#1F2937] outline-none focus:border-[#2563EB]";
+    "h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-[15px] text-[#1F2937] outline-none focus:border-[#3B82F6]";
   const labelClass = "mb-2 block text-[14px] font-medium text-[#374151]";
 
   const hofaaPrice = formData.insuranceType.hofaa ? numberValue(formData.hofaaPrice) : 0;
@@ -3549,10 +3549,10 @@ function SubscriberForm({
                     e.target.value = "";
                   }
                 }}
-                className="block w-full cursor-pointer rounded-xl border border-[#E5E7EB] bg-white text-sm file:ml-4 file:border-0 file:bg-[#2563EB] file:px-4 file:py-3 file:text-white"
+                className="block w-full cursor-pointer rounded-xl border border-[#E5E7EB] bg-white text-sm file:ml-4 file:border-0 file:bg-[#3B82F6] file:px-4 file:py-3 file:text-white"
               />
               {formData.profileImage ? (
-                <a href={formData.profileImage} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] font-semibold text-[#2563EB]">
+                <a href={formData.profileImage} target="_blank" rel="noreferrer" className="mt-3 inline-block text-[13px] font-semibold text-[#3B82F6]">
                   عرض الصورة
                 </a>
               ) : null}
@@ -3588,7 +3588,7 @@ function SubscriberForm({
 
         <div>
           <label className={labelClass}>طريقة الدفع</label>
-          <div className="flex h-12 items-center rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[14px] font-bold text-[#2563EB]">
+          <div className="flex h-12 items-center rounded-2xl border border-[#E5E7EB] bg-[#FAFAFA] px-4 text-[14px] font-bold text-[#3B82F6]">
             يتم تحديدها تلقائيًا من مبالغ الكاش / الفيزا / الشيكات
           </div>
         </div>
@@ -3775,7 +3775,7 @@ function SubscriberForm({
 
             <div className="rounded-2xl bg-white p-4">
               <p className="text-sm text-[#707A84]">حالة الدفع</p>
-              <p className="mt-2 text-lg font-bold text-[#2563EB]">{paymentStatus}</p>
+              <p className="mt-2 text-lg font-bold text-[#3B82F6]">{paymentStatus}</p>
             </div>
           </div>
 
@@ -3786,7 +3786,7 @@ function SubscriberForm({
               <button
                 type="button"
                 onClick={handleAddCheck}
-                className="rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-bold text-white"
+                className="rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-bold text-white"
               >
                 إضافة شيك
               </button>
@@ -3883,11 +3883,11 @@ function SubscriberForm({
                 type="file"
                 accept="image/*,.pdf,.doc,.docx"
                 onChange={handlePolicyUpload}
-                className="block w-full cursor-pointer rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#374151] file:ml-4 file:border-0 file:bg-[#2563EB] file:px-4 file:py-3 file:text-white"
+                className="block w-full cursor-pointer rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#374151] file:ml-4 file:border-0 file:bg-[#3B82F6] file:px-4 file:py-3 file:text-white"
               />
 
               {uploadingField === "policyImage" && (
-                <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-[#2563EB]">
+                <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-[#3B82F6]">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   جاري الرفع...
                 </p>
@@ -3898,7 +3898,7 @@ function SubscriberForm({
                   href={formData.policyImage}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-block text-[13px] font-semibold text-[#2563EB]"
+                  className="mt-3 inline-block text-[13px] font-semibold text-[#3B82F6]"
                 >
                   عرض المستند
                 </a>
@@ -3927,11 +3927,11 @@ function SubscriberForm({
                   type="file"
                   accept="image/*,.pdf,.doc,.docx"
                   onChange={(e) => handleDocumentUpload(key, e)}
-                  className="block w-full cursor-pointer rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#374151] file:ml-4 file:border-0 file:bg-[#2563EB] file:px-4 file:py-3 file:text-white"
+                  className="block w-full cursor-pointer rounded-xl border border-[#E5E7EB] bg-white text-sm text-[#374151] file:ml-4 file:border-0 file:bg-[#3B82F6] file:px-4 file:py-3 file:text-white"
                 />
 
                 {uploadingField === key && (
-                  <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-[#2563EB]">
+                  <p className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-[#3B82F6]">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     جاري الرفع...
                   </p>
@@ -3942,7 +3942,7 @@ function SubscriberForm({
                     href={formData.documents[key]}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-block text-[13px] font-semibold text-[#2563EB]"
+                    className="mt-3 inline-block text-[13px] font-semibold text-[#3B82F6]"
                   >
                     عرض المستند
                   </a>
@@ -3958,7 +3958,7 @@ function SubscriberForm({
             name="history"
             value={formData.history}
             onChange={handleChange}
-            className="min-h-[110px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#2563EB]"
+            className="min-h-[110px] w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-[15px] text-[#1F2937] outline-none focus:border-[#3B82F6]"
             placeholder="مثلاً: دفع شهر 4، تم التواصل معه، ملاحظة..."
           />
         </div>
@@ -3967,7 +3967,7 @@ function SubscriberForm({
           <button
             type="submit"
             disabled={saving || uploadingField !== null}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#2563EB] px-8 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#3B82F6] px-8 py-3 font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
               <>
@@ -4951,7 +4951,7 @@ export function HomePage() {
           {canCreateAccidents && <button
             type="button"
             onClick={() => setAddAccidentOpen(true)}
-            className="flex items-center gap-2 rounded-2xl bg-[#2563EB] px-6 py-3 font-bold text-white shadow-sm transition hover:opacity-90"
+            className="flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-6 py-3 font-bold text-white shadow-sm transition hover:opacity-90"
           >
             <Plus className="h-5 w-5" />
             إضافة حالة جديدة
@@ -5064,7 +5064,7 @@ export function HomePage() {
                   onKeyDown={(e) => {
                     if (e.key === "Escape") setGlobalSearchOpen(false);
                   }}
-                  className="h-10 w-full rounded-xl border border-[#E5E7EB] pr-10 text-[#1F2937] outline-none focus:border-[#2563EB]"
+                  className="h-10 w-full rounded-xl border border-[#E5E7EB] pr-10 text-[#1F2937] outline-none focus:border-[#3B82F6]"
                   placeholder={vocabulary.searchPlaceholder}
                 />
                 <GlobalSearchPanel
@@ -5095,7 +5095,7 @@ export function HomePage() {
                   dir="ltr"
                   className="shrink-0 rounded-2xl border border-[#EAECEF] bg-white px-5 py-3 text-sm font-medium text-[#4B5563] shadow-sm"
                 >
-                  <CalendarDays className="me-2 inline h-4 w-4 text-[#2563EB]" />
+                  <CalendarDays className="me-2 inline h-4 w-4 text-[#3B82F6]" />
                   {formatHeaderDate()}
                 </div>
               </div>

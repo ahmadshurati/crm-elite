@@ -153,8 +153,8 @@ export function CrmSidebar({
           <X className="h-5 w-5" />
         </button>
         <span className="text-[22px] font-extrabold tracking-tight">
-          <span className="text-[#0B2A4A]">Gosol</span>
-          <span className="text-[#2563EB]"> CRM</span>
+          <span className="text-[#0B1E4D]">Gosol</span>
+          <span className="text-[#3B82F6]"> CRM</span>
         </span>
       </div>
 
@@ -175,13 +175,13 @@ export function CrmSidebar({
                 onClick={() => go(item.key)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-right transition ${
                   active
-                    ? "bg-white font-bold text-[#2563EB] shadow-sm ring-1 ring-[#C7DBFF]"
+                    ? "bg-white font-bold text-[#3B82F6] shadow-sm ring-1 ring-[#C7DBFF]"
                     : "text-[#475569] hover:bg-white/80"
                 }`}
               >
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                    active ? "bg-[#EFF4FF] text-[#2563EB]" : "bg-[#F1F5F9] text-[#64748B]"
+                    active ? "bg-[#EFF4FF] text-[#3B82F6]" : "bg-[#F1F5F9] text-[#64748B]"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -197,12 +197,12 @@ export function CrmSidebar({
                 type="button"
                 onClick={() => toggleSection(section.id)}
                 className={`flex w-full items-center gap-2 rounded-2xl px-2 py-2 text-right transition hover:bg-white/70 ${
-                  sectionActive ? "text-[#2563EB]" : "text-[#334155]"
+                  sectionActive ? "text-[#3B82F6]" : "text-[#334155]"
                 }`}
               >
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                    sectionActive ? "bg-[#EFF4FF] text-[#2563EB]" : "bg-[#F1F5F9] text-[#64748B]"
+                    sectionActive ? "bg-[#EFF4FF] text-[#3B82F6]" : "bg-[#F1F5F9] text-[#64748B]"
                   }`}
                 >
                   <Icon className="h-[18px] w-[18px]" />
@@ -226,7 +226,7 @@ export function CrmSidebar({
                         onClick={() => go(item.key)}
                         className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-right text-[13px] transition ${
                           active
-                            ? "bg-white font-bold text-[#2563EB] shadow-sm ring-1 ring-[#C7DBFF]"
+                            ? "bg-white font-bold text-[#3B82F6] shadow-sm ring-1 ring-[#C7DBFF]"
                             : "text-[#64748B] hover:bg-white/90 hover:text-[#334155]"
                         }`}
                       >
@@ -253,8 +253,8 @@ export function CrmSidebar({
             onClick={() => go("add-new-subscriber")}
             className={`flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold transition ${
               activeMenu === "add-new-subscriber"
-                ? "bg-[#1D4ED8] text-white shadow-md"
-                : "bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+                ? "bg-[#2563EB] text-white shadow-md"
+                : "bg-[#3B82F6] text-white hover:bg-[#2563EB]"
             }`}
           >
             <Plus className="h-4 w-4" />

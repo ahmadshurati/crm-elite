@@ -161,7 +161,7 @@ export function TasksDashboard({
           <button
             type="button"
             onClick={() => setFormOpen((value) => !value)}
-            className="flex items-center gap-2 rounded-2xl bg-[#2563EB] px-5 py-3 text-sm font-bold text-white"
+            className="flex items-center gap-2 rounded-2xl bg-[#3B82F6] px-5 py-3 text-sm font-bold text-white"
           >
             <Plus className="h-4 w-4" />
             {formOpen ? "إخفاء" : "مهمة جديدة"}
@@ -244,7 +244,7 @@ export function TasksDashboard({
             <button
               type="submit"
               disabled={saving}
-              className="rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+              className="rounded-xl bg-[#3B82F6] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
             >
               {saving ? "جاري الحفظ..." : "حفظ المهمة"}
             </button>
@@ -263,7 +263,7 @@ export function TasksDashboard({
               type="button"
               onClick={() => setStatusFilter(item.key)}
               className={`rounded-full px-4 py-1.5 text-sm font-bold ${
-                statusFilter === item.key ? "bg-[#2563EB] text-white" : "bg-[#F3F4F6] text-[#4B5563]"
+                statusFilter === item.key ? "bg-[#3B82F6] text-white" : "bg-[#F3F4F6] text-[#4B5563]"
               }`}
             >
               {item.label}

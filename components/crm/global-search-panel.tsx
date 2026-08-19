@@ -87,10 +87,10 @@ export function GlobalSearchPanel({
                 }}
                 className="flex w-full items-start gap-3 border-b border-[#F1F5F9] px-4 py-3 text-right transition last:border-none hover:bg-[#F8FAFC]"
               >
-                <Search className="mt-1 h-4 w-4 shrink-0 text-[#2563EB]" />
+                <Search className="mt-1 h-4 w-4 shrink-0 text-[#3B82F6]" />
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-[#EFF4FF] px-2 py-0.5 text-[10px] font-bold text-[#2563EB]">
+                    <span className="rounded-full bg-[#EFF4FF] px-2 py-0.5 text-[10px] font-bold text-[#3B82F6]">
                       {kindLabels[result.kind] || result.kind}
                     </span>
                     <span className="truncate text-sm font-bold text-[#1F2937]">{result.title}</span>
