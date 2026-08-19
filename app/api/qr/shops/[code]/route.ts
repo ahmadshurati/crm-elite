@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePlatformOwner, isPlatformErrorResponse } from "@/lib/platform-auth";
 import { getOwnerShopLeads, getReferralStats } from "@/lib/leads";
+import { updateShop } from "@/lib/referral-shops";
 import { loggedRoute } from "@/lib/api-observability";
 
 export const runtime = "nodejs";
@@ -27,4 +28,29 @@ async function handleGet(req: Request, context: { params: Promise<{ code: string
   }
 }
 
+async function handlePatch(req: Request, context: { params: Promise<{ code: string }> }) {
+  const auth = await requirePlatformOwner();
+  if (isPlatformErrorResponse(auth)) return auth;
+
+  const { code } = await context.params;
+  const body = await req.json().catch(() => ({}));
+  try {
+    const result = await updateShop(code, {
+      name: body.name,
+      ownerName: body.ownerName,
+      contactPhone: body.contactPhone,
+      email: body.email,
+      username: body.username,
+      password: body.password,
+      commissionAmount: body.commissionAmount,
+    });
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+    return NextResponse.json({ ok: true });
+  } catch (error: unknown) {
+    console.error("PATCH /api/qr/shops/[code] error:", error);
+    return NextResponse.json({ error: "تعذّر حفظ التعديلات" }, { status: 500 });
+  }
+}
+
 export const GET = loggedRoute("GET /api/qr/shops/[code]", handleGet);
+export const PATCH = loggedRoute("PATCH /api/qr/shops/[code]", handlePatch);

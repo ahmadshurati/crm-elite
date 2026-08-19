@@ -126,3 +126,76 @@ export async function usernameExists(username: string) {
   );
   return Boolean(row);
 }
+
+export type UpdateShopResult = { ok: true } | { ok: false; error: string; status: number };
+
+/**
+ * Update an existing shop's editable fields. The `code` (and thus the QR / referral link and all
+ * historical leads/scans keyed on it) is intentionally immutable. Password is only changed when a
+ * non-empty value is provided, and it is re-hashed with bcrypt.
+ */
+export async function updateShop(
+  code: string,
+  input: {
+    name?: string;
+    ownerName?: string | null;
+    contactPhone?: string | null;
+    email?: string | null;
+    username?: string;
+    password?: string;
+    commissionAmount?: number;
+  }
+): Promise<UpdateShopResult> {
+  const shop = await queryOne<{ id: number }>("SELECT id FROM ReferralShop WHERE code = ? LIMIT 1", [code]);
+  if (!shop) return { ok: false, error: "الزبون غير موجود", status: 404 };
+
+  const sets: string[] = [];
+  const vals: (string | number | null)[] = [];
+
+  if (input.name !== undefined) {
+    const name = String(input.name).trim();
+    if (!name) return { ok: false, error: "الاسم مطلوب", status: 400 };
+    sets.push("name = ?");
+    vals.push(name.slice(0, 190));
+  }
+  if (input.ownerName !== undefined) {
+    sets.push("ownerName = ?");
+    vals.push(input.ownerName ? String(input.ownerName).trim().slice(0, 190) : null);
+  }
+  if (input.contactPhone !== undefined) {
+    sets.push("contactPhone = ?");
+    vals.push(input.contactPhone ? String(input.contactPhone).trim().slice(0, 40) : null);
+  }
+  if (input.email !== undefined) {
+    sets.push("email = ?");
+    vals.push(input.email ? String(input.email).trim().slice(0, 190) : null);
+  }
+  if (input.commissionAmount !== undefined) {
+    sets.push("commissionAmount = ?");
+    vals.push(Number(input.commissionAmount) || 0);
+  }
+  if (input.username !== undefined) {
+    const username = String(input.username).trim().toLowerCase();
+    if (username.length < 3) return { ok: false, error: "اسم مستخدم صحيح مطلوب (3 أحرف على الأقل)", status: 400 };
+    const taken = await queryOne<{ id: number }>(
+      "SELECT id FROM ReferralShop WHERE username = ? AND code <> ? LIMIT 1",
+      [username, code]
+    );
+    if (taken) return { ok: false, error: "اسم المستخدم مستخدم مسبقاً", status: 409 };
+    sets.push("username = ?");
+    vals.push(username.slice(0, 60));
+  }
+  if (input.password !== undefined && String(input.password).trim() !== "") {
+    const password = String(input.password).trim();
+    if (password.length < 6) return { ok: false, error: "كلمة مرور 6 أحرف على الأقل مطلوبة", status: 400 };
+    sets.push("passwordHash = ?");
+    vals.push(await hashPassword(password));
+  }
+
+  if (sets.length === 0) return { ok: true };
+
+  sets.push("updatedAt = NOW()");
+  vals.push(code);
+  await execute(`UPDATE ReferralShop SET ${sets.join(", ")} WHERE code = ?`, vals);
+  return { ok: true };
+}

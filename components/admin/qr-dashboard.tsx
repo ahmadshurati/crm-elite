@@ -355,14 +355,14 @@ function DetailDrawer({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-[200px_1fr]">
                 <QrBox link={link} download={`qr-${code}.png`} />
                 <div className="space-y-1.5 text-sm">
-                  <CredLine label="الرمز" value={code} />
-                  <CredLine label="اسم المستخدم" value={detail.shop?.username || "—"} />
-                  <CredLine label="الهاتف" value={detail.shop?.contactPhone || "—"} />
-                  <CredLine label="البريد" value={detail.shop?.email || "—"} />
+                  <CredLine label="الرمز (لا يتغيّر — مرتبط بالـQR)" value={code} />
+                  <CredLine label="اسم المستخدم (للدخول)" value={detail.shop?.username || "—"} />
                   <CredLine label="رابط الفورم" value={link} />
                 </div>
               </div>
             </div>
+
+            {detail.shop && <ShopEditor code={code} shop={detail.shop} onSaved={onRefresh} />}
 
             <div className="rounded-2xl border border-[#EAECEF] bg-white p-4">
               <h4 className="mb-1 text-sm font-bold text-[#334155]">العملاء ({detail.items.length})</h4>
@@ -480,6 +480,109 @@ function CredLine({ label, value }: { label: string; value: string }) {
         {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       </button>
     </div>
+  );
+}
+
+function ShopEditor({
+  code,
+  shop,
+  onSaved,
+}: {
+  code: string;
+  shop: NonNullable<Detail["shop"]>;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: shop.name || "",
+    ownerName: shop.ownerName || "",
+    contactPhone: shop.contactPhone || "",
+    email: shop.email || "",
+    username: shop.username || "",
+    password: "",
+    commissionAmount: String(shop.commissionAmount ?? 0),
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setSaved(false);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/qr/shops/${encodeURIComponent(code)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          ownerName: form.ownerName,
+          contactPhone: form.contactPhone,
+          email: form.email,
+          username: form.username,
+          password: form.password,
+          commissionAmount: Number(form.commissionAmount) || 0,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(String(data.error || "تعذّر الحفظ"));
+        return;
+      }
+      setForm((f) => ({ ...f, password: "" }));
+      setSaved(true);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={save} className="rounded-2xl border border-[#EAECEF] bg-white p-4">
+      <h4 className="mb-1 text-sm font-bold text-[#334155]">تعديل بيانات الزبون</h4>
+      <p className="mb-3 text-[11px] text-[#94A3B8]">يمكنك تغيير الاسم، الهاتف، البريد، اسم المستخدم، وكلمة المرور. الرمز والـQR يبقيان كما هما.</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <EditField label="الاسم" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+        <EditField label="اسم صاحب المحل" value={form.ownerName} onChange={(v) => setForm({ ...form, ownerName: v })} />
+        <EditField label="الهاتف" value={form.contactPhone} onChange={(v) => setForm({ ...form, contactPhone: v })} dir="ltr" />
+        <EditField label="البريد الإلكتروني" value={form.email} onChange={(v) => setForm({ ...form, email: v })} dir="ltr" />
+        <EditField label="اسم المستخدم (للدخول)" value={form.username} onChange={(v) => setForm({ ...form, username: v })} dir="ltr" />
+        <EditField label="كلمة مرور جديدة (اتركها فارغة للإبقاء)" value={form.password} onChange={(v) => setForm({ ...form, password: v })} dir="ltr" type="password" />
+        <EditField label="العمولة لكل مشترك ₪" value={form.commissionAmount} onChange={(v) => setForm({ ...form, commissionAmount: v })} dir="ltr" />
+      </div>
+      {error && <p className="mt-2 text-xs font-bold text-rose-600">{error}</p>}
+      {saved && !error && <p className="mt-2 text-xs font-bold text-emerald-600">تم حفظ التعديلات ✓</p>}
+      <button disabled={saving} className="mt-3 rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75] disabled:opacity-60">
+        {saving ? "جارِ الحفظ…" : "حفظ التعديلات"}
+      </button>
+    </form>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+  dir,
+  type,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  dir?: "ltr" | "rtl";
+  type?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-bold text-[#94A3B8]">{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        dir={dir}
+        type={type || "text"}
+        className="h-10 w-full rounded-xl border border-[#E5E7EB] bg-white px-3 text-sm outline-none focus:border-[#0F8B94]"
+      />
+    </label>
   );
 }
 
