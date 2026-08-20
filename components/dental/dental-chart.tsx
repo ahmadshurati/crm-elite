@@ -93,6 +93,35 @@ export function DentalChart({
   }
 
   const quadrants = dentition === "permanent" ? QUADRANTS : PRIMARY_QUADRANTS;
+  const byId = (id: string) => quadrants.find((x) => x.id === id)?.teeth ?? [];
+  // Explicit FDI visual order (source of truth), independent of the page's RTL direction:
+  // each jaw row is patient-right quadrant → midline → patient-left quadrant, left-to-right.
+  const upperRight = byId("ur"); // [18..11]
+  const upperLeft = byId("ul"); //  [21..28]
+  const lowerRight = byId("lr"); // [48..41]
+  const lowerLeft = byId("ll"); //  [31..38]
+
+  // Renders one tooth tile. `n` is the real FDI tooth number used everywhere (click, DB, panel).
+  function renderTooth(n: number) {
+    const cond = condMap.get(n) || "healthy";
+    const info = CONDITION_MAP[cond] || CONDITION_MAP.healthy;
+    const active = selected === n;
+    const hasSurfaces = (surfaceCount.get(n) || 0) > 0;
+    return (
+      <button
+        key={n}
+        type="button"
+        onClick={() => setSelected(active ? null : n)}
+        className={`relative flex h-11 w-9 flex-col items-center justify-center rounded-md border text-[#1F2937] transition ${active ? "ring-2 ring-[#0F8B94]" : "hover:opacity-90"}`}
+        style={{ backgroundColor: info.color, borderColor: "rgba(0,0,0,0.1)" }}
+        title={`سن ${n} — ${info.label}`}
+      >
+        <span className="text-[10px] font-bold">{n}</span>
+        {info.code && <span className="text-[8px] font-black leading-none">{info.code}</span>}
+        {hasSurfaces && <span className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-1 ring-white" />}
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -113,35 +142,29 @@ export function DentalChart({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-[#EAECEF] bg-white p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-          {quadrants.map((q) => (
-            <div key={q.id}>
-              <p className="mb-2 text-center text-[11px] font-bold text-[#94A3B8]">{q.label}</p>
-              <div dir="ltr" className="flex flex-nowrap justify-center gap-1 overflow-x-auto">
-                {[...q.teeth].reverse().map((n) => {
-                  const cond = condMap.get(n) || "healthy";
-                  const info = CONDITION_MAP[cond] || CONDITION_MAP.healthy;
-                  const active = selected === n;
-                  const hasSurfaces = (surfaceCount.get(n) || 0) > 0;
-                  return (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setSelected(active ? null : n)}
-                      className={`relative flex h-11 w-9 flex-col items-center justify-center rounded-md border text-[#1F2937] transition ${active ? "ring-2 ring-[#0F8B94]" : "hover:opacity-90"}`}
-                      style={{ backgroundColor: info.color, borderColor: "rgba(0,0,0,0.1)" }}
-                      title={`سن ${n} — ${info.label}`}
-                    >
-                      <span className="text-[10px] font-bold">{n}</span>
-                      {info.code && <span className="text-[8px] font-black leading-none">{info.code}</span>}
-                      {hasSurfaces && <span className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-rose-500 ring-1 ring-white" />}
-                    </button>
-                  );
-                })}
+      {/* Odontogram — explicit FDI order, forced LTR so page RTL never flips it */}
+      <div dir="ltr" className="rounded-2xl border border-[#EAECEF] bg-white p-4 sm:p-5">
+        <div className="overflow-x-auto">
+          <div className="mx-auto w-max">
+            <div className="mb-2 flex items-center justify-between px-1 text-[11px] font-bold text-[#94A3B8]">
+              <span>يمين المريض · Right</span>
+              <span>يسار المريض · Left</span>
+            </div>
+            <div className="space-y-2.5">
+              {/* Upper jaw: 18…11 | 21…28 */}
+              <div className="flex items-stretch justify-center gap-1">
+                <div className="flex gap-1">{upperRight.map(renderTooth)}</div>
+                <div className="mx-1.5 w-px shrink-0 self-stretch bg-[#CBD5E1]" aria-hidden="true" />
+                <div className="flex gap-1">{upperLeft.map(renderTooth)}</div>
+              </div>
+              {/* Lower jaw: 48…41 | 31…38 */}
+              <div className="flex items-stretch justify-center gap-1">
+                <div className="flex gap-1">{lowerRight.map(renderTooth)}</div>
+                <div className="mx-1.5 w-px shrink-0 self-stretch bg-[#CBD5E1]" aria-hidden="true" />
+                <div className="flex gap-1">{lowerLeft.map(renderTooth)}</div>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
 
