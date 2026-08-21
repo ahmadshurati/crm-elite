@@ -4990,7 +4990,7 @@ export function HomePage() {
   ]);
 
   return (
-    <div dir="rtl" className={`min-h-screen bg-[#F7F8FA] text-[#1F2937]${isDemoTenant ? " demo-theme" : ""}`}>
+    <div dir="rtl" className="min-h-screen bg-[#F7F8FA] text-[#1F2937]">
       <div className="flex min-h-screen">
         <CrmSidebar
           activeMenu={activeMenu}
