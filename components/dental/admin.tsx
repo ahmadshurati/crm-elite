@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircle, Plus, ShieldCheck } from "lucide-react";
+import { Plus, ShieldCheck } from "lucide-react";
 import { fmtDateTime, StateView, useApi, useConfirm, useMutation } from "@/components/dental/ui";
 import { DENTAL_PERMISSION_LABELS, DENTAL_ROLE_LABELS, DENTAL_ROLES, permissionsForRole, type DentalPermission, type DentalRole } from "@/lib/dental/rbac";
 
@@ -117,91 +117,11 @@ type WaStatus = {
 
 function IntegrationsSettings() {
   const { data, loading, error, reload, setData } = useApi<{ status: WaStatus }>("/api/dental/whatsapp/config");
-  const { pending, run } = useMutation();
-  const [edit, setEdit] = useState(false);
-  const [form, setForm] = useState({ phoneNumberId: "", businessAccountId: "", verifyToken: "", accessToken: "", appSecret: "", defaultCountry: "972" });
   const s = data?.status;
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-
-  function startEdit() {
-    if (s) setForm({ phoneNumberId: s.phoneNumberId || "", businessAccountId: s.businessAccountId || "", verifyToken: "", accessToken: "", appSecret: "", defaultCountry: s.defaultCountry || "972" });
-    setEdit(true);
-  }
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    if (pending) return;
-    const res = await run<{ status: WaStatus }>("/api/dental/whatsapp/config", "POST", form, { success: "تم حفظ إعدادات واتساب" });
-    if (res) { setData({ status: res.status }); setEdit(false); }
-  }
-
   return (
-    <div className="space-y-4">
-      <StateView loading={loading} error={error} onRetry={reload}>
-        <div className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-[#25D366]" />
-                <h3 className="text-lg font-bold text-[#1F2937]">WhatsApp Business</h3>
-                {s && (
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${s.configured ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                    {s.configured ? "متصل" : "غير مُهيّأ"}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-[#94A3B8]">تكامل رسمي مع Meta WhatsApp Cloud API — لهذه العيادة فقط.</p>
-            </div>
-            <button onClick={startEdit} className="rounded-xl bg-[#0F8B94] px-4 py-2 text-sm font-bold text-white hover:bg-[#0B6E75]">
-              {s?.configured ? "تعديل الربط" : "ربط واتساب"}
-            </button>
-          </div>
-
-          {s && !s.configured && (
-            <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700">WhatsApp غير مُهيّأ. أدخل بيانات Meta لتفعيل الإرسال والاستقبال.</p>
-          )}
-
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-            <Field label="Phone Number ID" value={s?.phoneNumberId || "—"} mono />
-            <Field label="Business Account ID" value={s?.businessAccountId || "—"} mono />
-            <Field label="Access Token" value={s?.hasAccessToken ? "•••••••• (محفوظ)" : "غير مُعيّن"} />
-            <Field label="App Secret" value={s?.hasAppSecret ? "•••••••• (محفوظ)" : "غير مُعيّن"} />
-            <Field label="Verify Token" value={s?.hasVerifyToken ? "•••••••• (محفوظ)" : "غير مُعيّن"} />
-            <Field label="رمز الدولة الافتراضي" value={s?.defaultCountry || "972"} mono />
-          </div>
-
-          <div className="mt-4 rounded-xl border border-[#EEF1F4] bg-[#F8FAFC] p-3">
-            <p className="text-xs font-bold text-[#64748B]">Webhook URL (ضعه في إعدادات Meta)</p>
-            <p className="mt-1 break-all font-mono text-xs text-[#0F8B94]" dir="ltr">{origin}{s?.webhookPath || "/api/dental/whatsapp/webhook"}</p>
-            <p className="mt-2 text-[11px] text-[#94A3B8]">لا يُعرض Access Token أبدًا. تُحفظ الأسرار على الخادم فقط.</p>
-          </div>
-        </div>
-      </StateView>
-
-      {edit && (
-        <form onSubmit={save} className="rounded-[24px] border border-[#EAECEF] bg-white p-6 shadow-sm">
-          <h4 className="mb-3 text-base font-bold text-[#1F2937]">بيانات الربط</h4>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <input value={form.phoneNumberId} onChange={(e) => setForm({ ...form, phoneNumberId: e.target.value })} placeholder="Phone Number ID" className={INP} dir="ltr" />
-            <input value={form.businessAccountId} onChange={(e) => setForm({ ...form, businessAccountId: e.target.value })} placeholder="Business Account ID (WABA)" className={INP} dir="ltr" />
-            <input value={form.accessToken} onChange={(e) => setForm({ ...form, accessToken: e.target.value })} placeholder="Access Token (اتركه فارغًا للإبقاء على الحالي)" className={INP} dir="ltr" />
-            <input value={form.appSecret} onChange={(e) => setForm({ ...form, appSecret: e.target.value })} placeholder="App Secret (اتركه فارغًا للإبقاء على الحالي)" className={INP} dir="ltr" />
-            <input value={form.verifyToken} onChange={(e) => setForm({ ...form, verifyToken: e.target.value })} placeholder="Verify Token" className={INP} dir="ltr" />
-            <input value={form.defaultCountry} onChange={(e) => setForm({ ...form, defaultCountry: e.target.value })} placeholder="رمز الدولة الافتراضي (مثال 972)" className={INP} dir="ltr" />
-          </div>
-          <div className="mt-4 flex gap-2">
-            <button disabled={pending} className="rounded-xl bg-[#0F8B94] px-5 py-2 text-sm font-bold text-white disabled:opacity-60">{pending ? "جارِ الحفظ…" : "حفظ"}</button>
-            <button type="button" onClick={() => setEdit(false)} className="rounded-xl bg-[#F1F5F9] px-5 py-2 text-sm font-bold text-[#475569]">إلغاء</button>
-          </div>
-        </form>
-      )}
-
-      {s && <AutoReplyEditor status={s} onSaved={(st) => setData({ status: st })} />}
-
-      <div className="rounded-[24px] border border-dashed border-[#E5E7EB] bg-white p-4 text-sm text-[#94A3B8]">
-        قنوات أخرى (SMS / Instagram / البريد) — <span className="font-bold text-[#64748B]">قريبًا</span>.
-      </div>
-    </div>
+    <StateView loading={loading} error={error} onRetry={reload}>
+      {s ? <AutoReplyEditor status={s} onSaved={(st) => setData({ status: st })} /> : <div />}
+    </StateView>
   );
 }
 
@@ -272,15 +192,6 @@ function AutoReplyEditor({ status, onSaved }: { status: WaStatus; onSaved: (s: W
       <button onClick={save} disabled={pending} className="mt-4 rounded-xl bg-[#0F8B94] px-5 py-2 text-sm font-bold text-white disabled:opacity-60">
         {pending ? "جارِ الحفظ…" : "حفظ الرد التلقائي"}
       </button>
-    </div>
-  );
-}
-
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="rounded-xl border border-[#EEF1F4] bg-[#F8FAFC] px-3 py-2">
-      <p className="text-[11px] font-bold text-[#94A3B8]">{label}</p>
-      <p className={`mt-0.5 truncate text-sm text-[#334155] ${mono ? "font-mono" : ""}`} dir={mono ? "ltr" : undefined}>{value}</p>
     </div>
   );
 }

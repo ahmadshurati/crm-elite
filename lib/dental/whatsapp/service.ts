@@ -132,6 +132,42 @@ export async function markConversationRead(companyId: number, conversationId: nu
   return res.affectedRows > 0;
 }
 
+/** Delete a whole conversation (contact) and all its messages, scoped to the company. */
+export async function deleteConversation(ctx: DentalContext, conversationId: number): Promise<boolean> {
+  const conv = await queryOne<{ id: number }>(
+    "SELECT id FROM DentalWhatsAppConversation WHERE id = ? AND companyId = ? LIMIT 1",
+    [conversationId, ctx.companyId]
+  );
+  if (!conv) return false;
+  await execute("DELETE FROM DentalWhatsAppMessage WHERE conversationId = ? AND companyId = ?", [conversationId, ctx.companyId]);
+  await execute("DELETE FROM DentalWhatsAppConversation WHERE id = ? AND companyId = ?", [conversationId, ctx.companyId]);
+  try {
+    await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "delete", entityType: "whatsappConversation", entityId: conversationId });
+  } catch (e) { console.error("whatsapp deleteConversation audit failed", e); }
+  return true;
+}
+
+/** Delete a single message; refreshes the conversation's last-message preview. */
+export async function deleteMessage(ctx: DentalContext, conversationId: number, messageId: number): Promise<boolean> {
+  const res = await execute(
+    "DELETE FROM DentalWhatsAppMessage WHERE id = ? AND conversationId = ? AND companyId = ?",
+    [messageId, conversationId, ctx.companyId]
+  );
+  if (res.affectedRows === 0) return false;
+  const last = await queryOne<{ body: string | null; timestamp: Date | null }>(
+    "SELECT body, timestamp FROM DentalWhatsAppMessage WHERE conversationId = ? AND companyId = ? ORDER BY timestamp DESC, id DESC LIMIT 1",
+    [conversationId, ctx.companyId]
+  );
+  await execute(
+    "UPDATE DentalWhatsAppConversation SET lastMessageText = ?, lastMessageAt = ?, updatedAt = NOW(3) WHERE id = ? AND companyId = ?",
+    [last?.body ? last.body.slice(0, 500) : null, last?.timestamp ?? null, conversationId, ctx.companyId]
+  );
+  try {
+    await writeDentalAudit({ companyId: ctx.companyId, userId: ctx.userId, username: ctx.username, action: "delete", entityType: "whatsappMessage", entityId: messageId });
+  } catch (e) { console.error("whatsapp deleteMessage audit failed", e); }
+  return true;
+}
+
 export async function getPatientSummary(companyId: number, patientId: number) {
   const row = await queryOne<ConvRow>(
     `SELECT id, patientId, phone, waName, lastMessageText, lastMessageAt, lastInboundAt, unreadCount, status

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { enforceApiRateLimit } from "@/lib/api-rate-limit";
 import { ensure, requireDental } from "@/lib/dental/data";
-import { getMessages, sendMessage, type SendInput } from "@/lib/dental/whatsapp/service";
+import { getMessages, sendMessage, deleteMessage, type SendInput } from "@/lib/dental/whatsapp/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,4 +48,19 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: result.error, code: result.code }, { status });
   }
   return NextResponse.json({ ok: true, message: result.message });
+}
+
+export async function DELETE(req: Request, context: { params: Promise<{ id: string }> }) {
+  const ctx = await requireDental();
+  if (ctx instanceof NextResponse) return ctx;
+  const denied = ensure(ctx, "messages.send");
+  if (denied) return denied;
+  const { id } = await context.params;
+  const messageId = Number(new URL(req.url).searchParams.get("messageId"));
+  if (!Number.isFinite(messageId) || messageId <= 0) {
+    return NextResponse.json({ error: "معرّف الرسالة غير صالح" }, { status: 400 });
+  }
+  const ok = await deleteMessage(ctx, Number(id), messageId);
+  if (!ok) return NextResponse.json({ error: "الرسالة غير موجودة" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

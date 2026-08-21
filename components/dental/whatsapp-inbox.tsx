@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   Send,
+  Trash2,
   User,
 } from "lucide-react";
 import {
@@ -24,6 +25,7 @@ import {
   Spinner,
   StateView,
   useApi,
+  useConfirm,
   useMutation,
   useToast,
 } from "@/components/dental/ui";
@@ -224,6 +226,7 @@ export function ConversationView({
   compact?: boolean;
 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const { data, loading, error, reload } = useApi<{ conversation: Conversation; messages: Message[] }>(
     `/api/dental/whatsapp/conversations/${conversationId}`
   );
@@ -264,6 +267,22 @@ export function ConversationView({
       reload();
       onChanged?.();
     }
+  }
+
+  async function deleteConv() {
+    const yes = await confirm({ title: "حذف المحادثة", message: "سيتم حذف هذه المحادثة وكل رسائلها نهائيًا. لا يمكن التراجع.", confirmText: "حذف", cancelText: "إلغاء", danger: true });
+    if (!yes) return;
+    const r = await apiFetch(`/api/dental/whatsapp/conversations/${conversationId}`, { method: "DELETE" });
+    if (r.ok) { toast.success("تم حذف المحادثة"); onChanged?.(); onBack?.(); }
+    else toast.error(r.error || "تعذّر حذف المحادثة");
+  }
+
+  async function deleteMsg(id: number) {
+    const yes = await confirm({ title: "حذف الرسالة", message: "حذف هذه الرسالة نهائيًا؟", confirmText: "حذف", cancelText: "إلغاء", danger: true });
+    if (!yes) return;
+    const r = await apiFetch(`/api/dental/whatsapp/conversations/${conversationId}/messages?messageId=${id}`, { method: "DELETE" });
+    if (r.ok) { toast.success("تم حذف الرسالة"); reload(); onChanged?.(); }
+    else toast.error(r.error || "تعذّر حذف الرسالة");
   }
 
   if (!conversation) {
@@ -307,6 +326,15 @@ export function ConversationView({
           ) : (
             <LinkPatient conversationId={conversationId} onLinked={() => { reload(); onChanged?.(); }} />
           )}
+          {onBack && (
+            <button
+              onClick={deleteConv}
+              title="حذف المحادثة"
+              className="inline-flex items-center gap-1 rounded-lg bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-600 hover:bg-rose-100"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> حذف
+            </button>
+          )}
         </div>
       </div>
 
@@ -316,7 +344,7 @@ export function ConversationView({
           <p className="py-10 text-center text-sm text-[#94A3B8]">لا توجد رسائل في هذه المحادثة بعد.</p>
         )}
         {messages.map((m) => (
-          <MessageBubble key={m.id} m={m} />
+          <MessageBubble key={m.id} m={m} onDelete={deleteMsg} />
         ))}
       </div>
 
@@ -370,10 +398,11 @@ export function ConversationView({
   );
 }
 
-function MessageBubble({ m }: { m: Message }) {
+function MessageBubble({ m, onDelete }: { m: Message; onDelete?: (id: number) => void }) {
   const out = m.direction === "outbound";
   return (
-    <div className={`flex ${out ? "justify-start" : "justify-end"}`}>
+    <div className={`group flex items-center gap-1.5 ${out ? "justify-start" : "justify-end"}`}>
+      {out && onDelete && <DeleteMessageButton onClick={() => onDelete(m.id)} />}
       <div
         className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
           out
@@ -397,7 +426,20 @@ function MessageBubble({ m }: { m: Message }) {
           <p className="mt-1 text-[10px] text-rose-600">{m.errorMessage}</p>
         )}
       </div>
+      {!out && onDelete && <DeleteMessageButton onClick={() => onDelete(m.id)} />}
     </div>
+  );
+}
+
+function DeleteMessageButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      title="حذف الرسالة"
+      className="shrink-0 rounded-md p-1 text-[#B6C2CE] opacity-0 transition hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 group-hover:opacity-100"
+    >
+      <Trash2 className="h-3.5 w-3.5" />
+    </button>
   );
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensure, requireDental } from "@/lib/dental/data";
-import { getConversation, getMessages, markConversationRead, linkConversation } from "@/lib/dental/whatsapp/service";
+import { getConversation, getMessages, markConversationRead, linkConversation, deleteConversation } from "@/lib/dental/whatsapp/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,4 +51,15 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
   }
 
   return NextResponse.json({ error: "إجراء غير معروف" }, { status: 400 });
+}
+
+export async function DELETE(_req: Request, context: { params: Promise<{ id: string }> }) {
+  const ctx = await requireDental();
+  if (ctx instanceof NextResponse) return ctx;
+  const denied = ensure(ctx, "messages.send");
+  if (denied) return denied;
+  const { id } = await context.params;
+  const ok = await deleteConversation(ctx, Number(id));
+  if (!ok) return NextResponse.json({ error: "المحادثة غير موجودة" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }
