@@ -52,11 +52,9 @@ export default function LoginPage() {
         className="w-full max-w-[430px] rounded-[34px] border border-[#E8EDF3] bg-white p-8 shadow-2xl"
       >
         <div className="text-center">
-          <div className="text-2xl font-extrabold tracking-tight">
-            <span className="text-[#0B1E4D]">Gosol</span>
-            <span className="text-[#3B82F6]"> CRM</span>
-          </div>
-          <h1 className="mt-3 text-2xl font-bold text-[#0F1E33]">تسجيل الدخول</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/gosol-logo.png" alt="Gosol CRM" className="mx-auto h-16 w-auto" />
+          <h1 className="mt-4 text-2xl font-bold text-[#0F1E33]">تسجيل الدخول</h1>
           <p className="mt-1 text-sm text-[#64748B]">أدخل بياناتك للمتابعة</p>
         </div>
 
