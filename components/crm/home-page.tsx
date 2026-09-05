@@ -5229,6 +5229,7 @@ export function HomePage() {
       return (
         <ArchivedCustomersDashboard
           canEdit={canEditSubscribers}
+          canDelete={canDeleteSubscribers}
           onRestored={() => loadDatabaseData(customersPage, accidentsPage)}
         />
       );
