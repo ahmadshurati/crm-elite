@@ -63,6 +63,7 @@ type SubscriberCore = {
   carNumber: string;
   carYear: string;
   customerNumber: string;
+  dateAdded?: string;
   insuranceType: string;
   insuranceCompany: string;
   startDate: string;

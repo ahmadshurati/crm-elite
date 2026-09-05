@@ -44,6 +44,7 @@ export function mapDbCustomersToSubscribers(customers: unknown[]): Subscriber[] 
           carNumber: String(car.carNumber || ""),
           carYear: String(car.carYear || ""),
           customerNumber: String(customer.phone || ""),
+          dateAdded: formatDateForInput(customer.createdAt),
           ...profile,
           insuranceType: String(insurance.insuranceType || "غير محدد"),
           insuranceCompany: String(insurance.insuranceCompany || ""),

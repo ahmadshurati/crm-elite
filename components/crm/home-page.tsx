@@ -699,31 +699,32 @@ function SubscribersTable({
         <table className="w-full table-fixed text-right text-[9px] leading-5">
           <thead>
             <tr className="border-b border-[#EEF1F4] text-[#8B95A1]">
-              <th className="w-[13%] px-1 py-3">الاسم</th>
-              <th className="w-[9%] px-1 py-3">{labels.tableCar}</th>
-              <th className="w-[8%] px-1 py-3">{labels.tableCarNumber}</th>
+              <th className="w-[12%] px-1 py-3">الاسم</th>
+              <th className="w-[8%] px-1 py-3">{labels.tableCar}</th>
+              <th className="w-[7%] px-1 py-3">{labels.tableCarNumber}</th>
               <th className="w-[8%] px-1 py-3">الهاتف</th>
               <th className="w-[8%] px-1 py-3">{labels.tableService}</th>
-              <th className="w-[9%] px-1 py-3">{labels.tableProvider}</th>
+              <th className="w-[8%] px-1 py-3">{labels.tableProvider}</th>
               <th className="w-[7%] px-1 py-3">النهاية</th>
+              <th className="w-[8%] px-1 py-3">أُضيف</th>
               <th className="w-[6%] px-1 py-3">الحالة</th>
               <th className="w-[6%] px-1 py-3">الدفع</th>
-              <th className="w-[10%] px-1 py-3">السجل</th>
-              <th className="w-[5%] px-1 py-3">{labels.tableDocument}</th>
-              <th className="w-[11%] px-1 py-3">إجراءات</th>
+              <th className="w-[8%] px-1 py-3">السجل</th>
+              <th className="w-[4%] px-1 py-3">{labels.tableDocument}</th>
+              <th className="w-[10%] px-1 py-3">إجراءات</th>
             </tr>
           </thead>
 
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-[#707A84]">
+                <td colSpan={13} className="px-6 py-12 text-center text-[#707A84]">
                   جاري تحميل البيانات من قاعدة البيانات...
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-[#707A84]">
+                <td colSpan={13} className="px-6 py-12 text-center text-[#707A84]">
                   لا توجد بيانات
                 </td>
               </tr>
@@ -748,6 +749,7 @@ function SubscribersTable({
                     {row.insuranceCompany}
                   </td>
                   <td className="truncate px-1 py-3 text-[#4B5563]">{row.endDate}</td>
+                  <td className="truncate px-1 py-3 text-[#4B5563]" dir="ltr">{row.dateAdded || "-"}</td>
 
                   <td className="px-1 py-3">
                     <span
@@ -1833,9 +1835,8 @@ function ActiveCustomersDashboard({
           ).join(" / "),
         };
       })
-      .sort((a, b) =>
-        a.latest.subscriberName.localeCompare(b.latest.subscriberName, "ar")
-      );
+      // Newest-added clients first so the most recently added appears on top.
+      .sort((a, b) => Number(b.latest.customerId) - Number(a.latest.customerId));
   }, [subscribers]);
 
   const filteredRows = rows.filter((row) => {
@@ -1881,6 +1882,7 @@ function ActiveCustomersDashboard({
             <tr className="border-b border-[#EEF1F4] text-[#8B95A1]">
               <th className="px-5 py-4">اسم الزبون</th>
               <th className="px-5 py-4">الهاتف</th>
+              <th className="px-5 py-4">تاريخ الإضافة</th>
               <th className="px-5 py-4">السيارات الفعالة</th>
               <th className="px-5 py-4">آخر شركة</th>
               <th className="px-5 py-4">عدد التأمينات الفعالة</th>
@@ -1891,13 +1893,13 @@ function ActiveCustomersDashboard({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-[#707A84]">
+                <td colSpan={7} className="px-6 py-12 text-center text-[#707A84]">
                   جاري تحميل المشتركين الفعالين...
                 </td>
               </tr>
             ) : filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-12 text-center text-[#707A84]">
+                <td colSpan={7} className="px-6 py-12 text-center text-[#707A84]">
                   لا يوجد مشتركين فعالين
                 </td>
               </tr>
@@ -1906,6 +1908,7 @@ function ActiveCustomersDashboard({
                 <tr key={row.latest.customerId} className="border-b border-[#F1F5F9] last:border-none hover:bg-[#F8FAFC]">
                   <td className="px-5 py-4 font-bold text-[#1F2937]">{row.latest.subscriberName || "بدون اسم"}</td>
                   <td className="px-5 py-4 text-[#4B5563]" dir="ltr">{row.latest.customerNumber || "-"}</td>
+                  <td className="px-5 py-4 text-[#4B5563]" dir="ltr">{row.latest.dateAdded || "-"}</td>
                   <td className="px-5 py-4 text-[#4B5563]">{row.carsText || "-"}</td>
                   <td className="px-5 py-4 text-[#4B5563]">{row.latest.insuranceCompany || "-"}</td>
                   <td className="px-5 py-4 font-bold text-emerald-700">{row.activeInsuranceCount}</td>
