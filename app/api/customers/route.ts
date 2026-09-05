@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
 import { withTransaction } from "@/lib/db";
-import { getCustomerGraphById, getPaginatedCustomers } from "@/lib/customers-data";
+import { findDuplicateCarNumber, getCustomerGraphById, getPaginatedCustomers } from "@/lib/customers-data";
 import { assertCustomerExists, OwnershipError } from "@/lib/ownership";
 import { parsePaginationParams } from "@/lib/pagination";
 import { isErrorResponse, requireAnyPermission, requirePermission } from "@/lib/permissions";
@@ -101,6 +101,18 @@ async function handlePost(req: Request) {
   try {
     const companyId = requireCompanyId(currentUser);
     const body = await req.json();
+
+    // Block duplicate car numbers within the company (ignoring spacing/format).
+    const duplicate = await findDuplicateCarNumber(companyId, body.carNumber);
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          error: `رقم السيارة "${String(body.carNumber || "").trim()}" مسجّل مسبقًا لدى: ${duplicate.customerName}. لا يمكن تسجيل نفس رقم السيارة مرتين.`,
+          code: "DUPLICATE_CAR_NUMBER",
+        },
+        { status: 409 }
+      );
+    }
 
     const hofaaPrice = numberValue(body.hofaaPrice);
     const thirdPartyPrice = numberValue(body.thirdPartyPrice);

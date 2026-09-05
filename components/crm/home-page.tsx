@@ -6,6 +6,7 @@ import {
   Bell,
   CalendarDays,
   Car,
+  Copy,
   Eye,
   Loader2,
   Menu,
@@ -1525,6 +1526,185 @@ function DocumentsModal({
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+type DuplicateEntryUI = {
+  customerId: number;
+  customerName: string;
+  phone: string | null;
+  carNumber: string;
+  insuranceCount: number;
+  createdAt: string | null;
+};
+
+type DuplicateGroupUI = {
+  carNumber: string;
+  keepCustomerId: number;
+  entries: DuplicateEntryUI[];
+};
+
+function DuplicatesModal({ onClose, onCleaned }: { onClose: () => void; onCleaned: () => void }) {
+  useModalA11y(true, onClose);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [groups, setGroups] = useState<DuplicateGroupUI[]>([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/customers/duplicates");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setGroups(Array.isArray(data.groups) ? data.groups : []);
+    } catch {
+      setError("تعذّر تحميل قائمة المكررات");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totalExtras = groups.reduce((sum, group) => sum + (group.entries.length - 1), 0);
+
+  async function cleanup() {
+    if (busy || totalExtras === 0) return;
+    const ok = confirm(
+      `سيتم الإبقاء على مشترك واحد لكل رقم سيارة وأرشفة ${totalExtras} مشترك مكرر.\nيمكنك استعادتهم لاحقًا من "العملاء المؤرشفون". هل تريد المتابعة؟`
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/customers/duplicates", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "");
+      alert(`تم أرشفة ${data.archived || 0} مشترك مكرر.`);
+      onCleaned();
+      onClose();
+    } catch (e) {
+      alert(e instanceof Error && e.message ? e.message : "تعذّر تنظيف المكررات");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="duplicates-modal-title"
+        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-[#F7F8FA] shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-[#EAECEF] bg-white px-6 py-5">
+          <div>
+            <h3 id="duplicates-modal-title" className="text-xl font-bold text-[#1F2937]">
+              المشتركون المكرّرون (حسب رقم السيارة)
+            </h3>
+            <p className="mt-1 text-sm text-[#707A84]">
+              يُبقى على السجل الأكثر اكتمالاً لكل رقم سيارة، وتُؤرشف الباقي (يمكن استعادتها).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="إغلاق"
+            className="rounded-full bg-[#F1F5F9] p-2 text-[#475569] hover:bg-[#E2E8F0]"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-16 text-[#707A84]">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : error ? (
+            <div className="rounded-2xl bg-rose-50 p-6 text-center text-sm font-bold text-rose-600">
+              {error}
+              <button onClick={load} className="mt-3 block w-full rounded-xl bg-white py-2 text-[#1F2937]">
+                إعادة المحاولة
+              </button>
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="rounded-2xl bg-white p-10 text-center text-[#707A84]">
+              لا يوجد مشتركون مكرّرون. كل أرقام السيارات فريدة.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {groups.map((group) => (
+                <div
+                  key={`${group.carNumber}-${group.keepCustomerId}`}
+                  className="rounded-2xl border border-[#EAECEF] bg-white p-4"
+                >
+                  <div className="mb-3 flex items-center gap-2">
+                    <Car className="h-4 w-4 text-[#3B82F6]" />
+                    <span className="font-mono text-sm font-bold text-[#1F2937]" dir="ltr">
+                      {group.carNumber}
+                    </span>
+                    <span className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[11px] font-bold text-[#B45309]">
+                      {group.entries.length} سجلات
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.entries.map((entry) => {
+                      const keep = entry.customerId === group.keepCustomerId;
+                      return (
+                        <div
+                          key={entry.customerId}
+                          className={`flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm ${keep ? "bg-emerald-50" : "bg-rose-50/70"}`}
+                        >
+                          <div className="min-w-0">
+                            <p className="font-bold text-[#1F2937]">{entry.customerName || "بدون اسم"}</p>
+                            <p className="text-xs text-[#707A84]" dir="ltr">
+                              {entry.phone || "—"} · {entry.insuranceCount} تأمين · {dmyFromValue(entry.createdAt || "") || "—"}
+                            </p>
+                          </div>
+                          <span
+                            className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${keep ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"}`}
+                          >
+                            {keep ? "يبقى" : "سيُؤرشف"}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-[#EAECEF] bg-white px-6 py-4">
+          <span className="text-sm text-[#707A84]">
+            {groups.length > 0 ? `${totalExtras} سجل مكرر سيُؤرشف` : ""}
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-[#E5E7EB] bg-white px-5 py-2.5 text-sm font-bold text-[#475569] hover:bg-[#F8FAFC]"
+            >
+              إغلاق
+            </button>
+            <button
+              type="button"
+              onClick={cleanup}
+              disabled={busy || totalExtras === 0}
+              className="rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
+            >
+              {busy ? "جارِ الأرشفة…" : "أرشفة المكرر (إبقاء واحد)"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -4327,6 +4507,7 @@ export function HomePage() {
   const canCreateSubscribers = Boolean(currentUser?.createSubscribers);
   const canEditSubscribers = Boolean(currentUser?.editSubscribers);
   const canDeleteSubscribers = Boolean(currentUser?.deleteSubscribers);
+  const [dupOpen, setDupOpen] = useState(false);
   const canViewAccidents = Boolean(currentUser?.viewAccidents);
   const canCreateAccidents = Boolean(currentUser?.createAccidents);
   const canEditAccidents = Boolean(currentUser?.editAccidents);
@@ -4459,7 +4640,14 @@ export function HomePage() {
           }
         );
 
-        if (!res.ok) throw new Error("Failed to update subscriber");
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({} as { error?: string }));
+          if (res.status === 409) {
+            alert(data?.error || "رقم السيارة مسجّل مسبقًا لدى عميل آخر.");
+            return;
+          }
+          throw new Error("Failed to update subscriber");
+        }
         const graph = await res.json();
         mergeCustomerGraphIntoSubscribers(graph);
         await refreshDashboardStats();
@@ -4507,7 +4695,14 @@ export function HomePage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to create subscriber");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }));
+        if (res.status === 409) {
+          alert(data?.error || "رقم السيارة مسجّل مسبقًا لدى عميل آخر.");
+          return;
+        }
+        throw new Error("Failed to create subscriber");
+      }
       const graph = await res.json();
       mergeCustomerGraphIntoSubscribers(graph);
       setCustomersPagination((prev) =>
@@ -4790,18 +4985,31 @@ export function HomePage() {
 
     if (activeMenu === "active-subscribers") {
       return (
-        <SubscribersTable
-          data={filteredSubscribers(activeSubscribers)}
-          title={vocabulary.activePolicies}
-          labels={vocabulary}
-          loading={loading}
-          pagination={customersPagination}
-          onPageChange={(page) => loadDatabaseData(page, accidentsPage)}
-          onViewDocuments={setDocumentsPreview}
-          onOpenHistory={setHistoryPreview}
-          onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
-          onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
-        />
+        <>
+          {canDeleteSubscribers && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setDupOpen(true)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-2.5 text-[13px] font-bold text-[#B45309] shadow-sm transition hover:bg-[#FFFBEB]"
+              >
+                <Copy className="h-4 w-4" /> فحص المشتركين المكرّرين
+              </button>
+            </div>
+          )}
+          <SubscribersTable
+            data={filteredSubscribers(activeSubscribers)}
+            title={vocabulary.activePolicies}
+            labels={vocabulary}
+            loading={loading}
+            pagination={customersPagination}
+            onPageChange={(page) => loadDatabaseData(page, accidentsPage)}
+            onViewDocuments={setDocumentsPreview}
+            onOpenHistory={setHistoryPreview}
+            onEdit={canEditSubscribers ? handleEdit : () => alert("لا يوجد لديك صلاحية التعديل")}
+            onDelete={canDeleteSubscribers ? handleDelete : () => alert("لا يوجد لديك صلاحية الحذف")}
+          />
+        </>
       );
     }
 
@@ -5277,6 +5485,13 @@ export function HomePage() {
         <DocumentsModal
           subscriber={documentsPreview}
           onClose={() => setDocumentsPreview(null)}
+        />
+      )}
+
+      {dupOpen && (
+        <DuplicatesModal
+          onClose={() => setDupOpen(false)}
+          onCleaned={() => loadDatabaseData()}
         />
       )}
 

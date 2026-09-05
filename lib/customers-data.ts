@@ -1,6 +1,7 @@
-import { query, queryOne } from "@/lib/db";
+import { query, queryOne, execute } from "@/lib/db";
 import { buildPaginationMeta, type PaginationMeta } from "@/lib/pagination";
 import { customerCompanyClause } from "@/lib/tenant";
+import { normalizeCarNumber, sqlNormalizedCarNumber } from "@/lib/crm/car-number";
 
 export type CustomerStats = {
   activePolicies: number;
@@ -259,6 +260,156 @@ export async function getPaginatedCustomers(options: {
     pagination: buildPaginationMeta(options.page, options.limit, total),
     stats,
   };
+}
+
+/**
+ * Returns an existing (non-archived) car with the same normalized car number in
+ * the company, or null. Used to block duplicate registrations.
+ */
+export async function findDuplicateCarNumber(
+  companyId: number | null | undefined,
+  carNumber: string,
+  excludeCarId?: number
+): Promise<{ carId: number; customerId: number; customerName: string; carNumber: string } | null> {
+  const norm = normalizeCarNumber(carNumber);
+  if (!norm) return null;
+
+  const tenant = customerCompanyClause("c", companyId);
+  const exclude = excludeCarId ? " AND car.id <> ?" : "";
+  const params = [...tenant.params, norm, ...(excludeCarId ? [excludeCarId] : [])];
+
+  const rows = await query<{ carId: number; customerId: number; customerName: string; carNumber: string }>(
+    `SELECT car.id AS carId, c.id AS customerId, c.name AS customerName, car.carNumber AS carNumber
+     FROM Car car
+     INNER JOIN Customer c ON c.id = car.customerId
+     WHERE c.isArchived = false${tenant.clause}
+       AND ${sqlNormalizedCarNumber("car.carNumber")} = ?${exclude}
+     LIMIT 1`,
+    params
+  );
+
+  return rows[0] || null;
+}
+
+export type DuplicateEntry = {
+  customerId: number;
+  customerName: string;
+  phone: string | null;
+  carNumber: string;
+  insuranceCount: number;
+  createdAt: string | null;
+};
+
+export type DuplicateGroup = {
+  carNumber: string;
+  keepCustomerId: number;
+  entries: DuplicateEntry[];
+};
+
+/**
+ * Groups active customers whose car number collides (after normalization).
+ * Only groups with more than one distinct customer are returned. Within each
+ * group entries are ordered so the first is the one to KEEP (most insurance
+ * records, then most recently added).
+ */
+export async function getDuplicateCarGroups(
+  companyId: number | null | undefined
+): Promise<DuplicateGroup[]> {
+  const tenant = customerCompanyClause("c", companyId);
+
+  const rows = await query<{
+    normNo: string;
+    carNumber: string;
+    customerId: number;
+    customerName: string;
+    phone: string | null;
+    createdAt: unknown;
+    insuranceCount: number;
+  }>(
+    `SELECT ${sqlNormalizedCarNumber("car.carNumber")} AS normNo,
+            car.carNumber AS carNumber,
+            c.id AS customerId,
+            c.name AS customerName,
+            c.phone AS phone,
+            c.createdAt AS createdAt,
+            (SELECT COUNT(*) FROM Insurance i WHERE i.customerId = c.id) AS insuranceCount
+     FROM Car car
+     INNER JOIN Customer c ON c.id = car.customerId
+     WHERE c.isArchived = false${tenant.clause}
+       AND TRIM(car.carNumber) <> ''
+     ORDER BY normNo ASC, insuranceCount DESC, c.createdAt DESC, c.id DESC`,
+    tenant.params
+  );
+
+  const byNorm = new Map<string, typeof rows>();
+  for (const row of rows) {
+    if (!row.normNo) continue;
+    byNorm.set(row.normNo, [...(byNorm.get(row.normNo) || []), row]);
+  }
+
+  const groups: DuplicateGroup[] = [];
+  for (const list of byNorm.values()) {
+    const seen = new Set<number>();
+    const entries: DuplicateEntry[] = [];
+    for (const row of list) {
+      if (seen.has(row.customerId)) continue;
+      seen.add(row.customerId);
+      let createdAt: string | null = null;
+      if (row.createdAt) {
+        const d = new Date(row.createdAt as string | number | Date);
+        createdAt = Number.isNaN(d.getTime()) ? null : d.toISOString();
+      }
+      entries.push({
+        customerId: row.customerId,
+        customerName: row.customerName,
+        phone: row.phone,
+        carNumber: row.carNumber,
+        insuranceCount: Number(row.insuranceCount || 0),
+        createdAt,
+      });
+    }
+    if (entries.length > 1) {
+      groups.push({ carNumber: entries[0].carNumber, keepCustomerId: entries[0].customerId, entries });
+    }
+  }
+
+  return groups;
+}
+
+/**
+ * Archives (soft-deletes, reversible) every duplicate customer except the one
+ * kept per group. Scoped to the company for safety.
+ */
+export async function archiveDuplicateExtras(
+  companyId: number | null | undefined
+): Promise<{ archived: number; keptGroups: number; archivedIds: number[] }> {
+  const groups = await getDuplicateCarGroups(companyId);
+  const archivedIds: number[] = [];
+  for (const group of groups) {
+    for (const entry of group.entries) {
+      if (entry.customerId !== group.keepCustomerId) archivedIds.push(entry.customerId);
+    }
+  }
+
+  if (archivedIds.length === 0) {
+    return { archived: 0, keptGroups: 0, archivedIds: [] };
+  }
+
+  const placeholders = archivedIds.map(() => "?").join(", ");
+  const params: number[] = [...archivedIds];
+  let companyClause = "";
+  if (companyId) {
+    companyClause = " AND companyId = ?";
+    params.push(companyId);
+  }
+
+  const result = await execute(
+    `UPDATE Customer SET isArchived = true, archivedAt = NOW()
+     WHERE id IN (${placeholders}) AND isArchived = false${companyClause}`,
+    params
+  );
+
+  return { archived: Number(result.affectedRows || 0), keptGroups: groups.length, archivedIds };
 }
 
 export async function getCustomerGraphById(customerId: number, companyId?: number | null) {

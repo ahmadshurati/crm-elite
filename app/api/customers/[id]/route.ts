@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { writeActivityLog } from "@/lib/audit-log";
 import { logFieldChanges } from "@/lib/field-audit";
-import { getCustomerGraphById } from "@/lib/customers-data";
+import { findDuplicateCarNumber, getCustomerGraphById } from "@/lib/customers-data";
 import { queryOne, withTransaction, execute } from "@/lib/db";
 import {
   assertCustomerExists,
@@ -137,6 +137,18 @@ async function handlePatch(
     }
 
     await assertInsuranceCarLink(insuranceId, carId, customerId);
+
+    // Block changing the car number to one already used by another car.
+    const duplicate = await findDuplicateCarNumber(companyId, body.carNumber, carId);
+    if (duplicate) {
+      return NextResponse.json(
+        {
+          error: `رقم السيارة "${String(body.carNumber || "").trim()}" مسجّل مسبقًا لدى: ${duplicate.customerName}.`,
+          code: "DUPLICATE_CAR_NUMBER",
+        },
+        { status: 409 }
+      );
+    }
 
     const hofaaPrice = numberValue(body.hofaaPrice);
     const thirdPartyPrice = numberValue(body.thirdPartyPrice);
