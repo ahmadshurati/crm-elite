@@ -53,7 +53,21 @@ export function buildSearchClause(search: string) {
   };
 }
 
+// Dashboard/list stats run 5 COUNT queries on every load. Cache them briefly
+// per company to avoid repeating those queries (and opening connections) on
+// rapid navigations. Short TTL keeps the numbers effectively live.
+const statsCache = new Map<string, { data: CustomerStats; expires: number }>();
+const STATS_TTL_MS = 30_000;
+
+export function invalidateCustomerStats(companyId?: number | null) {
+  statsCache.delete(String(companyId ?? "all"));
+}
+
 export async function getCustomerStats(companyId?: number | null): Promise<CustomerStats> {
+  const cacheKey = String(companyId ?? "all");
+  const cached = statsCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
   const tenant = customerCompanyClause("c", companyId);
   const tenantAc = customerCompanyClause("cust", companyId);
 
@@ -103,13 +117,15 @@ export async function getCustomerStats(companyId?: number | null): Promise<Custo
       ),
     ]);
 
-  return {
+  const result: CustomerStats = {
     activePolicies: Number(activePolicies?.count || 0),
     activeCustomers: Number(activeCustomers?.count || 0),
     totalCustomers: Number(totalCustomers?.count || 0),
     openAccidents: Number(openAccidents?.count || 0),
     renewalsThisMonth: Number(renewalsThisMonth?.count || 0),
   };
+  statsCache.set(cacheKey, { data: result, expires: Date.now() + STATS_TTL_MS });
+  return result;
 }
 
 async function assembleCustomersFromInsuranceIds(insuranceIds: number[]) {

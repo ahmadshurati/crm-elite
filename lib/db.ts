@@ -14,8 +14,8 @@ function getDatabaseUrl() {
 }
 
 function getPoolLimit() {
-  const raw = Number(process.env.DATABASE_POOL_LIMIT || 5);
-  return Number.isFinite(raw) && raw > 0 ? raw : 5;
+  const raw = Number(process.env.DATABASE_POOL_LIMIT || 3);
+  return Number.isFinite(raw) && raw > 0 ? raw : 3;
 }
 
 // Errors where the connection was lost/refused — safe to retry a READ because
