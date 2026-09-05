@@ -91,33 +91,42 @@ import {
   statusColor,
   todayString,
 } from "@/lib/crm/utils";
+import dynamic from "next/dynamic";
 import { TablePagination } from "@/components/crm/layout/table-pagination";
 import { CustomerTimelinePanel } from "@/components/crm/customer-timeline-panel";
-import { TasksDashboard } from "@/components/crm/tasks-dashboard";
-import { CalendarDashboard } from "@/components/crm/calendar-dashboard";
-import { DealsPipeline } from "@/components/crm/deals-pipeline";
-import { QuotesDashboard } from "@/components/crm/quotes-dashboard";
-import { InvoicesDashboard } from "@/components/crm/invoices-dashboard";
-import { ReportsDashboard } from "@/components/crm/reports-dashboard";
 import { GlobalSearchPanel } from "@/components/crm/global-search-panel";
 import { CrmNotificationsPanel, useNotificationCount } from "@/components/crm/crm-notifications-panel";
-import { RoleTemplatesDashboard } from "@/components/crm/role-templates-dashboard";
-import { SettingsDashboard } from "@/components/crm/settings-dashboard";
-import { ImportDashboard } from "@/components/crm/import-dashboard";
-import { AutomationDashboard } from "@/components/crm/automation-dashboard";
-import { IntegrationsDashboard } from "@/components/crm/integrations-dashboard";
-import { ProductsDashboard } from "@/components/crm/products-dashboard";
-import { ContractsDashboard } from "@/components/crm/contracts-dashboard";
-import { ArchivedCustomersDashboard } from "@/components/crm/archived-customers-dashboard";
-import { FilesDashboard } from "@/components/crm/files-dashboard";
-import { FieldAuditDashboard } from "@/components/crm/field-audit-dashboard";
-import { InboxDashboard } from "@/components/crm/inbox-dashboard";
-import { ExecutiveDashboard } from "@/components/crm/executive-dashboard";
 import { CrmSidebar } from "@/components/crm/crm-sidebar";
 import { CustomerSummaryPanel } from "@/components/crm/customer-summary-panel";
 import { ROLES_API_URL } from "@/lib/crm/constants";
 import { PERMISSION_FIELDS, permissionLabels } from "@/lib/crm/user-permissions";
 import type { RoleTemplateRecord } from "@/lib/crm/role-templates-data";
+
+// Secondary sections are lazy-loaded (only fetched when the user opens them),
+// so they're not part of the initial JS bundle. Same UI, much smaller first load.
+const dashboardLoading = () => (
+  <div className="flex items-center justify-center py-24 text-[#707A84]">
+    <Loader2 className="h-6 w-6 animate-spin" />
+  </div>
+);
+const TasksDashboard = dynamic(() => import("@/components/crm/tasks-dashboard").then((m) => m.TasksDashboard), { loading: dashboardLoading });
+const CalendarDashboard = dynamic(() => import("@/components/crm/calendar-dashboard").then((m) => m.CalendarDashboard), { loading: dashboardLoading });
+const DealsPipeline = dynamic(() => import("@/components/crm/deals-pipeline").then((m) => m.DealsPipeline), { loading: dashboardLoading });
+const QuotesDashboard = dynamic(() => import("@/components/crm/quotes-dashboard").then((m) => m.QuotesDashboard), { loading: dashboardLoading });
+const InvoicesDashboard = dynamic(() => import("@/components/crm/invoices-dashboard").then((m) => m.InvoicesDashboard), { loading: dashboardLoading });
+const ReportsDashboard = dynamic(() => import("@/components/crm/reports-dashboard").then((m) => m.ReportsDashboard), { loading: dashboardLoading });
+const RoleTemplatesDashboard = dynamic(() => import("@/components/crm/role-templates-dashboard").then((m) => m.RoleTemplatesDashboard), { loading: dashboardLoading });
+const SettingsDashboard = dynamic(() => import("@/components/crm/settings-dashboard").then((m) => m.SettingsDashboard), { loading: dashboardLoading });
+const ImportDashboard = dynamic(() => import("@/components/crm/import-dashboard").then((m) => m.ImportDashboard), { loading: dashboardLoading });
+const AutomationDashboard = dynamic(() => import("@/components/crm/automation-dashboard").then((m) => m.AutomationDashboard), { loading: dashboardLoading });
+const IntegrationsDashboard = dynamic(() => import("@/components/crm/integrations-dashboard").then((m) => m.IntegrationsDashboard), { loading: dashboardLoading });
+const ProductsDashboard = dynamic(() => import("@/components/crm/products-dashboard").then((m) => m.ProductsDashboard), { loading: dashboardLoading });
+const ContractsDashboard = dynamic(() => import("@/components/crm/contracts-dashboard").then((m) => m.ContractsDashboard), { loading: dashboardLoading });
+const ArchivedCustomersDashboard = dynamic(() => import("@/components/crm/archived-customers-dashboard").then((m) => m.ArchivedCustomersDashboard), { loading: dashboardLoading });
+const FilesDashboard = dynamic(() => import("@/components/crm/files-dashboard").then((m) => m.FilesDashboard), { loading: dashboardLoading });
+const FieldAuditDashboard = dynamic(() => import("@/components/crm/field-audit-dashboard").then((m) => m.FieldAuditDashboard), { loading: dashboardLoading });
+const InboxDashboard = dynamic(() => import("@/components/crm/inbox-dashboard").then((m) => m.InboxDashboard), { loading: dashboardLoading });
+const ExecutiveDashboard = dynamic(() => import("@/components/crm/executive-dashboard").then((m) => m.ExecutiveDashboard), { loading: dashboardLoading });
 
 function StatCard({
   label,
