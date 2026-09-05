@@ -114,7 +114,12 @@ export function useNotificationCount() {
       }
     }
     load();
-    const timer = window.setInterval(load, 60000);
+    // Poll every 5 minutes, and skip while the tab is hidden, to keep the
+    // database's hourly connection usage low.
+    const timer = window.setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      load();
+    }, 300000);
     return () => {
       active = false;
       window.clearInterval(timer);

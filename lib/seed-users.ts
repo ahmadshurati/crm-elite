@@ -164,7 +164,7 @@ async function ensureCompaniesExist() {
   );
 }
 
-export async function ensureSeedUsersFromEnv() {
+async function runSeedUsersFromEnv() {
   await ensureCompaniesExist();
   const users = readSeedUsers();
 
@@ -224,4 +224,23 @@ export async function ensureSeedUsersFromEnv() {
       ]
     );
   }
+}
+
+let seedOncePromise: Promise<void> | null = null;
+
+/**
+ * Runs the idempotent seed at most ONCE per server instance.
+ *
+ * This previously ran on every POST /api/login (~9 DB writes each time, even for
+ * failed logins), which churned through the database's hourly connection budget
+ * (Hostinger caps new connections/hour). The seed only needs to run once; login
+ * must never depend on it, so failures are swallowed after logging.
+ */
+export function ensureSeedUsersFromEnv(): Promise<void> {
+  if (!seedOncePromise) {
+    seedOncePromise = runSeedUsersFromEnv().catch((error) => {
+      console.error("ensureSeedUsersFromEnv failed (login continues):", error);
+    });
+  }
+  return seedOncePromise;
 }
