@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -3097,6 +3097,117 @@ function ActivityLogDashboard({ currentUser }: { currentUser: AppUser | null }) 
   );
 }
 
+/**
+ * Locale-independent date field. Native <input type="date"> renders in the
+ * browser's locale (dd/mm/yyyy on some machines, mm/dd/yyyy on others), which
+ * we can't control. This always shows dd/mm/yyyy while emitting an ISO
+ * (yyyy-mm-dd) value, and keeps a calendar picker via a hidden native input.
+ */
+function dmyFromValue(v: string): string {
+  if (!v) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = new Date(v);
+  if (!Number.isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+  return "";
+}
+
+function isoFromDmy(text: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text.trim());
+  if (!m) return "";
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return "";
+  const d = new Date(year, month - 1, day);
+  if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return "";
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+
+function DateInputDMY({
+  value,
+  onChange,
+  className,
+  required,
+  name,
+  id,
+}: {
+  value: string;
+  onChange: (iso: string) => void;
+  className?: string;
+  required?: boolean;
+  name?: string;
+  id?: string;
+}) {
+  const [text, setText] = useState(() => dmyFromValue(value));
+  const nativeRef = useRef<HTMLInputElement>(null);
+
+  // Sync when value changes externally (edit load / reset) without clobbering typing.
+  useEffect(() => {
+    if (value !== isoFromDmy(text)) setText(dmyFromValue(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  function handleText(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 8);
+    let out = digits;
+    if (digits.length > 4) out = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    else if (digits.length > 2) out = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    setText(out);
+    onChange(isoFromDmy(out));
+  }
+
+  function openPicker() {
+    const el = nativeRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!el) return;
+    if (typeof el.showPicker === "function") {
+      try { el.showPicker(); return; } catch { /* fall back to focus/click */ }
+    }
+    el.focus();
+    el.click();
+  }
+
+  const nativeValue = /^\d{4}-\d{2}-\d{2}/.test(value) ? value.slice(0, 10) : isoFromDmy(text);
+
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        name={name}
+        type="text"
+        inputMode="numeric"
+        dir="ltr"
+        placeholder="dd/mm/yyyy"
+        value={text}
+        onChange={(e) => handleText(e.target.value)}
+        required={required}
+        className={`${className ?? ""} !pr-11 text-left`}
+      />
+      <button
+        type="button"
+        onClick={openPicker}
+        aria-label="اختيار التاريخ"
+        className="absolute inset-y-0 right-0 flex items-center px-3 text-[#6B7280] transition hover:text-[#3B82F6]"
+      >
+        <CalendarDays className="h-5 w-5" />
+      </button>
+      <input
+        ref={nativeRef}
+        type="date"
+        tabIndex={-1}
+        aria-hidden="true"
+        value={nativeValue}
+        onChange={(e) => onChange(e.target.value)}
+        className="pointer-events-none absolute bottom-0 right-3 h-0 w-0 opacity-0"
+      />
+    </div>
+  );
+}
+
 function SubscriberForm({
   initialSubscriber,
   onSave,
@@ -3494,7 +3605,7 @@ function SubscriberForm({
             </div>
             <div>
               <label className={labelClass}>تاريخ الميلاد</label>
-              <input type="date" name="birthday" value={formData.birthday} onChange={handleChange} className={inputClass} />
+              <DateInputDMY value={formData.birthday} onChange={(v) => setFormData((prev) => ({ ...prev, birthday: v }))} className={inputClass} />
             </div>
             <div>
               <label className={labelClass}>الجنس</label>
@@ -3598,22 +3709,18 @@ function SubscriberForm({
 
         <div>
           <label className={labelClass}>تاريخ البداية</label>
-          <input
-            type="date"
-            name="startDate"
+          <DateInputDMY
             value={formData.startDate}
-            onChange={handleChange}
+            onChange={(v) => setFormData((prev) => ({ ...prev, startDate: v }))}
             className={inputClass}
           />
         </div>
 
         <div>
           <label className={labelClass}>تاريخ النهاية</label>
-          <input
-            type="date"
-            name="endDate"
+          <DateInputDMY
             value={formData.endDate}
-            onChange={handleChange}
+            onChange={(v) => setFormData((prev) => ({ ...prev, endDate: v }))}
             className={inputClass}
             required
           />
@@ -3822,10 +3929,9 @@ function SubscriberForm({
 
                   <div>
                     <label className={labelClass}>تاريخ الاستحقاق</label>
-                    <input
-                      type="date"
+                    <DateInputDMY
                       value={check.dueDate}
-                      onChange={(e) => handleCheckChange(index, "dueDate", e.target.value)}
+                      onChange={(v) => handleCheckChange(index, "dueDate", v)}
                       className={inputClass}
                     />
                   </div>
