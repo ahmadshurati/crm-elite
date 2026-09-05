@@ -14,8 +14,25 @@ function getDatabaseUrl() {
 }
 
 function getPoolLimit() {
-  const raw = Number(process.env.DATABASE_POOL_LIMIT || 10);
-  return Number.isFinite(raw) && raw > 0 ? raw : 10;
+  const raw = Number(process.env.DATABASE_POOL_LIMIT || 5);
+  return Number.isFinite(raw) && raw > 0 ? raw : 5;
+}
+
+// Errors where the connection was lost/refused — safe to retry a READ because
+// the query never completed. (The hourly-connection-cap error is intentionally
+// NOT here: retrying it cannot help.)
+const TRANSIENT_DB_ERROR_CODES = new Set([
+  "PROTOCOL_CONNECTION_LOST",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "EPIPE",
+  "ECONNREFUSED",
+  "PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR",
+]);
+
+function isTransientDbError(error: unknown): boolean {
+  const code = (error as { code?: unknown })?.code;
+  return typeof code === "string" && TRANSIENT_DB_ERROR_CODES.has(code);
 }
 
 function getQueueLimit() {
@@ -43,8 +60,22 @@ export function getPool() {
 }
 
 export async function query<T = any>(sql: string, params: any[] = []) {
-  const [rows] = await getPool().execute(sql, params);
-  return rows as T[];
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const [rows] = await getPool().execute(sql, params);
+      return rows as T[];
+    } catch (error) {
+      lastError = error;
+      // Retry only read queries, and only for lost/refused connections.
+      if (attempt < 2 && isTransientDbError(error)) {
+        await new Promise((resolve) => setTimeout(resolve, 80 * (attempt + 1)));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
 }
 
 export async function queryOne<T = any>(sql: string, params: any[] = []) {

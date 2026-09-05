@@ -57,13 +57,28 @@ export async function ensureSystemSettings(companyId: number) {
   );
 }
 
+// Short-lived per-instance cache. System settings change rarely but are read on
+// every page load (branding, vocabulary, etc.), so caching them sharply reduces
+// database round-trips (and new connections). Invalidated on update.
+const settingsCache = new Map<number, { data: SystemSettings; expires: number }>();
+const SETTINGS_TTL_MS = 60_000;
+
+export function invalidateSystemSettings(companyId: number) {
+  settingsCache.delete(companyId);
+}
+
 export async function getSystemSettings(companyId: number): Promise<SystemSettings> {
+  const cached = settingsCache.get(companyId);
+  if (cached && cached.expires > Date.now()) return cached.data;
+
   await ensureSystemSettings(companyId);
   const row = await queryOne<Record<string, unknown>>(
     "SELECT * FROM SystemSetting WHERE companyId = ? LIMIT 1",
     [companyId]
   );
-  return mapRow(row || { id: 0, companyId, ...DEFAULT_SETTINGS, updatedAt: new Date() });
+  const data = mapRow(row || { id: 0, companyId, ...DEFAULT_SETTINGS, updatedAt: new Date() });
+  settingsCache.set(companyId, { data, expires: Date.now() + SETTINGS_TTL_MS });
+  return data;
 }
 
 export async function updateSystemSettings(companyId: number, input: Partial<SystemSettings>) {
@@ -114,5 +129,6 @@ export async function updateSystemSettings(companyId: number, input: Partial<Sys
   fields.push("updatedAt = NOW()");
   values.push(companyId);
   await execute(`UPDATE SystemSetting SET ${fields.join(", ")} WHERE companyId = ?`, values);
+  invalidateSystemSettings(companyId);
   return getSystemSettings(companyId);
 }
