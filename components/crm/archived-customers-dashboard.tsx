@@ -18,6 +18,7 @@ export function ArchivedCustomersDashboard({
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyAll, setBusyAll] = useState(false);
 
   const loadArchived = useCallback(async () => {
     setLoading(true);
@@ -74,15 +75,54 @@ export function ArchivedCustomersDashboard({
     }
   }
 
+  async function deleteAll() {
+    if (!canDelete || busyAll) return;
+    const uniqueCount = new Set(subscribers.map((s) => s.customerId)).size;
+    if (uniqueCount === 0) return;
+    const ok = confirm(
+      `حذف نهائي لكل العملاء المؤرشفين (${uniqueCount})؟\nسيتم حذفهم مع كل سياراتهم وتأميناتهم ومستنداتهم ومدفوعاتهم نهائيًا، ولا يمكن التراجع.`
+    );
+    if (!ok) return;
+    const confirmAgain = confirm("تأكيد أخير: هذا الإجراء نهائي ولا يمكن التراجع عنه. متابعة حذف الكل؟");
+    if (!confirmAgain) return;
+    setBusyAll(true);
+    try {
+      const res = await fetch(`${CUSTOMERS_API_URL}/purge-archived`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data?.error || "فشل حذف الكل");
+        return;
+      }
+      alert(`تم حذف ${data.deleted || 0} عميل مؤرشف نهائيًا.`);
+      await loadArchived();
+      onRestored();
+    } finally {
+      setBusyAll(false);
+    }
+  }
+
   const showActions = canEdit || canDelete;
 
   return (
     <section className="mt-8 rounded-[28px] border border-[#EAECEF] bg-white shadow-sm">
-      <div className="border-b border-[#F1F5F9] px-6 py-5">
-        <h3 className="text-[22px] font-bold text-[#1F2937]">الأرشيف</h3>
-        <p className="mt-1 text-sm text-[#707A84]">
-          عملاء مؤرشفون — يمكن استعادتهم، أو حذفهم نهائيًا بشكل لا يمكن التراجع عنه
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[#F1F5F9] px-6 py-5">
+        <div>
+          <h3 className="text-[22px] font-bold text-[#1F2937]">الأرشيف</h3>
+          <p className="mt-1 text-sm text-[#707A84]">
+            عملاء مؤرشفون — يمكن استعادتهم، أو حذفهم نهائيًا بشكل لا يمكن التراجع عنه
+          </p>
+        </div>
+        {canDelete && subscribers.length > 0 && (
+          <button
+            type="button"
+            onClick={deleteAll}
+            disabled={busyAll}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            {busyAll ? "جارِ حذف الكل…" : "حذف الكل"}
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-16 text-[#707A84]">

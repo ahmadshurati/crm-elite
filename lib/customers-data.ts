@@ -1,4 +1,4 @@
-import { query, queryOne, execute } from "@/lib/db";
+import { query, queryOne, execute, withTransaction } from "@/lib/db";
 import { buildPaginationMeta, type PaginationMeta } from "@/lib/pagination";
 import { customerCompanyClause } from "@/lib/tenant";
 import { normalizeCarNumber, sqlNormalizedCarNumber } from "@/lib/crm/car-number";
@@ -410,6 +410,77 @@ export async function archiveDuplicateExtras(
   );
 
   return { archived: Number(result.affectedRows || 0), keptGroups: groups.length, archivedIds };
+}
+
+/**
+ * Permanently deletes ALL archived customers in the company (and their related
+ * data) in a single transaction — far faster and lighter on DB connections than
+ * deleting them one by one. Children are removed in FK-safe order.
+ */
+export async function purgeArchivedCustomers(
+  companyId: number | null | undefined
+): Promise<{ deleted: number }> {
+  const idRows = companyId
+    ? await query<{ id: number }>(
+        "SELECT id FROM Customer WHERE isArchived = true AND companyId = ?",
+        [companyId]
+      )
+    : await query<{ id: number }>("SELECT id FROM Customer WHERE isArchived = true");
+
+  const ids = idRows.map((r) => Number(r.id));
+  if (ids.length === 0) return { deleted: 0 };
+
+  await withTransaction(async (tx) => {
+    const ph = ids.map(() => "?").join(", ");
+
+    const insRows = await tx.query<{ id: number }>(
+      `SELECT id FROM Insurance WHERE customerId IN (${ph})`,
+      ids
+    );
+    const insIds = insRows.map((r) => Number(r.id));
+
+    const accRows = await tx.query<{ id: number }>(
+      `SELECT id FROM AccidentCase WHERE customerId IN (${ph})`,
+      ids
+    );
+    const accIds = accRows.map((r) => Number(r.id));
+
+    if (insIds.length > 0) {
+      const iph = insIds.map(() => "?").join(", ");
+      await tx.execute(`DELETE FROM Document WHERE insuranceId IN (${iph})`, insIds);
+      await tx.execute(`DELETE FROM PaymentCheck WHERE insuranceId IN (${iph})`, insIds);
+    }
+    await tx.execute(`DELETE FROM Insurance WHERE customerId IN (${ph})`, ids);
+
+    if (accIds.length > 0) {
+      const aph = accIds.map(() => "?").join(", ");
+      await tx.execute(`DELETE FROM AccidentUpdate WHERE accidentCaseId IN (${aph})`, accIds);
+    }
+    await tx.execute(`DELETE FROM AccidentCase WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`DELETE FROM Car WHERE customerId IN (${ph})`, ids);
+
+    await tx.execute(`DELETE FROM CustomerCommunication WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`DELETE FROM Invoice WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`DELETE FROM Quote WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`DELETE FROM Contract WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`DELETE FROM Deal WHERE customerId IN (${ph})`, ids);
+
+    await tx.execute(`UPDATE CrmTask SET customerId = NULL WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`UPDATE CrmFile SET customerId = NULL WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`UPDATE OutboundMessage SET customerId = NULL WHERE customerId IN (${ph})`, ids);
+    await tx.execute(`UPDATE InboundMessage SET customerId = NULL WHERE customerId IN (${ph})`, ids);
+
+    if (companyId) {
+      await tx.execute(
+        `DELETE FROM Customer WHERE id IN (${ph}) AND companyId = ? AND isArchived = true`,
+        [...ids, companyId]
+      );
+    } else {
+      await tx.execute(`DELETE FROM Customer WHERE id IN (${ph}) AND isArchived = true`, ids);
+    }
+  });
+
+  return { deleted: ids.length };
 }
 
 export async function getCustomerGraphById(customerId: number, companyId?: number | null) {
